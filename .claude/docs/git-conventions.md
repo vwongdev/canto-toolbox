@@ -24,7 +24,7 @@ The hook accepts exactly these types:
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks, scripts, and tooling that do not affect extension behavior (e.g. adding a package.json script, updating deps)
 - `ci`: Continuous integration changes (CI/CD configuration, workflows, etc.)
-- `ai`: AI-related changes or documentation (use when modifying `CLAUDE.md`, `.claude/docs/` or `.claude/agents/`)
+- `ai`: AI-related changes or documentation (use when modifying `CLAUDE.md`, `.claude/docs/`, `.claude/agents/` or `.claude/skills/`)
 
 Merge commits and `fixup!` / `squash!` commits are passed through unchecked.
 

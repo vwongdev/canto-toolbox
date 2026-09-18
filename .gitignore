@@ -50,5 +50,6 @@ Desktop.ini
 .claude/*
 !.claude/agents/
 !.claude/docs/
+!.claude/skills/
 .workflows/
 
