@@ -1,6 +1,6 @@
 {
   "name": "canto-toolbox",
-  "version": "1.15.3",
+  "version": "1.16.0",
   "description": "Hover Chinese text for Mandarin and Cantonese definitions with audio, radical breakdown, and spaced-repetition flashcards",
   "type": "module",
   "scripts": {
