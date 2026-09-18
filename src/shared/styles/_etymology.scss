@@ -1,5 +1,6 @@
 @use 'tokens' as t;
 @use 'dark-mode' as *;
+@use 'a11y' as a;
 
 // The breakdown follows the definition rather than leading it, so it is ruled
 // off above instead of below.
@@ -147,6 +148,28 @@
 
   &--sound {
     background: t.$color-sound-tint;
+  }
+}
+
+// A component the dictionaries hold an entry for opens that entry; the rest
+// stay labels, so only this one carries a control's affordances.
+.popup-etymology-component--link {
+  @include a.focus-ring(1px);
+
+  // The chip's own tint says what the component is, so the reset leaves the
+  // background alone and strips only the browser's button chrome.
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: t.$color-primary-tint;
+  }
+
+  &:hover .popup-etymology-component-glyph {
+    color: t.$color-primary;
   }
 }
 

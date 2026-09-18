@@ -72,6 +72,49 @@
   letter-spacing: 0.02em;
 }
 
+// The way back out of a component followed from the breakdown. It flanks the
+// centred word opposite the study button, in the column the grid already has.
+.popup-back {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-1;
+  max-width: 40%;
+  padding: 2px t.$space-2;
+  border: 1px solid t.$color-border-muted;
+  border-radius: t.$radius-sm;
+  background: transparent;
+  color: t.$color-text-subtle;
+  font: inherit;
+  font-size: t.$text-xs;
+  line-height: 1.6;
+  cursor: pointer;
+
+  @include a.focus-ring;
+
+  &:hover {
+    border-color: t.$color-primary;
+    color: t.$color-primary;
+  }
+}
+
+// The chevron is drawn pointing forward, so back is the same glyph reversed.
+.popup-back-chevron {
+  display: flex;
+  align-items: center;
+  transform: rotate(180deg);
+
+  svg { display: block; }
+}
+
+.popup-back-word {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .popup-study {
   grid-column: 2;
   grid-row: 1;

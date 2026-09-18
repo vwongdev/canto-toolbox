@@ -19,6 +19,8 @@ const mockMandarin: CompactDictionary = {
     ['字', '字', 'zi4', ['letter', 'symbol', 'character']],
     ['好字', '好字', 'hao3 zi4', ['good handwriting']],
     ['廣東話', '广东话', 'Guang3dong1 hua4', ['Cantonese (dialect)', '(Cantonese) Cantonese']],
+    ['女', '女', 'nu:3', ['female', 'woman', 'daughter']],
+    ['子', '子', 'zi3', ['son', 'child', 'seed', 'egg']],
   ],
   index: {
     '好': [0, 1],
@@ -26,6 +28,8 @@ const mockMandarin: CompactDictionary = {
     '好字': 3,
     '廣東話': 4,
     '广东话': 4,
+    '女': 5,
+    '子': 6,
   },
 };
 
@@ -43,6 +47,7 @@ const mockCantonese: CompactDictionary = {
 const mockEtymology = {
   '好': { character: '好', decomposition: '⿰女子', radical: '女', etymologyType: 'ideographic', hint: 'woman with child' },
   '字': { character: '字', decomposition: '⿱宀子', radical: '宀', etymologyType: 'pictophonetic', semantic: '宀', phonetic: '子' },
+  '女': { character: '女', decomposition: '女', radical: '女', etymologyType: 'pictographic', hint: 'a woman with folded hands' },
 };
 
 // Ranks from the real SUBTLEX-CH build; 廣東話 is genuinely outside the cap.
@@ -187,6 +192,19 @@ describe('lookupEtymology', () => {
 
   it('returns empty array when no characters are found', () => {
     expect(lookupEtymology('囧')).toEqual([]);
+  });
+
+  it('marks the components the dictionaries hold an entry for', () => {
+    expect(lookupEtymology('好')[0]!.linkableComponents).toEqual(['女', '子']);
+  });
+
+  it('leaves out a component the dictionaries know nothing about', () => {
+    // 宀 is a radical the dictionaries have no entry for; 子 is a word.
+    expect(lookupEtymology('字')[0]!.linkableComponents).toEqual(['子']);
+  });
+
+  it('does not mark a character as a component of itself', () => {
+    expect(lookupEtymology('女')[0]!.linkableComponents).toBeUndefined();
   });
 });
 

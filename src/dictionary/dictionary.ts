@@ -124,6 +124,22 @@ function cacheEtymology(word: string, result: CharacterEtymology[]): void {
   }
 }
 
+/**
+ * The components of `entry` that are words in their own right. A breakdown is
+ * only worth following into where the dictionaries have something to show, and
+ * the character itself is not a part of itself. The chips a breakdown can
+ * render come from the decomposition or from the phonosemantic pair, so both
+ * are offered.
+ */
+function linkableComponents(entry: CharacterEtymology): string[] {
+  const shown = new Set(parseComponents(entry.decomposition));
+  if (entry.semantic) shown.add(entry.semantic);
+  if (entry.phonetic) shown.add(entry.phonetic);
+  shown.delete(entry.character);
+
+  return [...shown].filter(comp => hasValidDefinition(lookupEntries(comp)));
+}
+
 export function lookupEtymology(word: string): CharacterEtymology[] {
   const cached = etymologyCache.get(word);
   if (cached) return cached;
@@ -146,9 +162,17 @@ export function lookupEtymology(word: string): CharacterEtymology[] {
         if (def) componentDefinitions[comp] = def;
       }
 
-      return Object.keys(componentDefinitions).length > 0
-        ? { ...entry, componentDefinitions }
-        : entry;
+      const enriched: CharacterEtymology = { ...entry };
+      if (Object.keys(componentDefinitions).length > 0) {
+        enriched.componentDefinitions = componentDefinitions;
+      }
+
+      const linkable = linkableComponents(entry);
+      if (linkable.length > 0) {
+        enriched.linkableComponents = linkable;
+      }
+
+      return enriched;
     })
     .filter((entry): entry is CharacterEtymology => entry !== undefined);
 

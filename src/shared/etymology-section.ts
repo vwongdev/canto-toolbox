@@ -62,7 +62,8 @@ function firstGloss(definition: string, maxChars = MAX_CHIP_GLOSS_CHARS): string
 function createComponentChip(
   glyph: string,
   definition: string | undefined,
-  role: 'meaning' | 'sound' | undefined
+  role: 'meaning' | 'sound' | undefined,
+  follow: (() => void) | undefined
 ): HTMLElement {
   const children: HTMLElement[] = [
     createElement({ tag: 'span', className: 'popup-etymology-component-glyph', textContent: glyph })
@@ -83,19 +84,48 @@ function createComponentChip(
     }));
   }
   const roleClass = role ? ` popup-etymology-component--${role}` : '';
-  return createElement({ className: `popup-etymology-component${roleClass}`, children });
+  if (!follow) {
+    return createElement({ className: `popup-etymology-component${roleClass}`, children });
+  }
+
+  return createElement({
+    tag: 'button',
+    className: `popup-etymology-component${roleClass} popup-etymology-component--link`,
+    children,
+    attributes: { type: 'button', title: `Look up ${glyph}` },
+    listeners: {
+      // Surfaces wrap the breakdown in clickable rows; following a component
+      // must not also collapse the row it sits in.
+      click: (event: Event) => {
+        event.stopPropagation();
+        follow();
+      },
+    },
+  });
 }
 
-function createComponentsRow(etymology: CharacterEtymology): HTMLElement | null {
+function createComponentsRow(
+  etymology: CharacterEtymology,
+  onFollowComponent?: (character: string) => void,
+): HTMLElement | null {
   const defs = etymology.componentDefinitions ?? {};
+  const linkable = new Set(etymology.linkableComponents ?? []);
+
+  const chip = (glyph: string, role?: 'meaning' | 'sound'): HTMLElement =>
+    createComponentChip(
+      glyph,
+      defs[glyph],
+      role,
+      onFollowComponent && linkable.has(glyph) ? () => onFollowComponent(glyph) : undefined,
+    );
 
   if (etymology.etymologyType === 'pictophonetic') {
     const chips: HTMLElement[] = [];
     if (etymology.semantic) {
-      chips.push(createComponentChip(etymology.semantic, defs[etymology.semantic], 'meaning'));
+      chips.push(chip(etymology.semantic, 'meaning'));
     }
     if (etymology.phonetic) {
-      chips.push(createComponentChip(etymology.phonetic, defs[etymology.phonetic], 'sound'));
+      chips.push(chip(etymology.phonetic, 'sound'));
     }
     if (chips.length === 0) return null;
     return createElement({ className: 'popup-etymology-components', children: chips });
@@ -105,7 +135,7 @@ function createComponentsRow(etymology: CharacterEtymology): HTMLElement | null 
   if (components.length === 0) return null;
   return createElement({
     className: 'popup-etymology-components',
-    children: components.map(ch => createComponentChip(ch, defs[ch], undefined))
+    children: components.map(ch => chip(ch))
   });
 }
 
@@ -115,7 +145,10 @@ const TYPE_LABELS: Record<string, string> = {
   pictographic: 'Pictographic',
 };
 
-function createCharacterCard(etymology: CharacterEtymology): HTMLElement {
+function createCharacterCard(
+  etymology: CharacterEtymology,
+  onFollowComponent?: (character: string) => void,
+): HTMLElement {
   const detailChildren: HTMLElement[] = [];
 
   if (etymology.etymologyType) {
@@ -129,7 +162,7 @@ function createCharacterCard(etymology: CharacterEtymology): HTMLElement {
     detailChildren.push(createElement({ className: 'popup-etymology-hint', textContent: etymology.hint }));
   }
 
-  const components = createComponentsRow(etymology);
+  const components = createComponentsRow(etymology, onFollowComponent);
   if (components) {
     detailChildren.push(components);
   }
@@ -149,6 +182,12 @@ export interface EtymologySectionOptions {
    * whose question the breakdown is itself the answer to.
    */
   expanded?: boolean;
+  /**
+   * Show a component's own dictionary entry. Only the components the lookup
+   * marked linkable are offered, and only where a surface can put another word
+   * in front of the reader — elsewhere the chips stay labels.
+   */
+  onFollowComponent?: (character: string) => void;
 }
 
 /**
@@ -159,11 +198,11 @@ export interface EtymologySectionOptions {
  */
 export function createEtymologySection(
   etymologies: CharacterEtymology[],
-  { expanded = false }: EtymologySectionOptions = {},
+  { expanded = false, onFollowComponent }: EtymologySectionOptions = {},
 ): HTMLElement {
   const characters = createElement({
     className: 'popup-etymology-characters',
-    children: etymologies.map(createCharacterCard)
+    children: etymologies.map(etymology => createCharacterCard(etymology, onFollowComponent))
   });
 
   const toggle = createElement<HTMLButtonElement>({

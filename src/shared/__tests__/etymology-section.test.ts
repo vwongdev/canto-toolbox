@@ -178,6 +178,76 @@ describe('createEtymologySection', () => {
   });
 });
 
+describe('following a component', () => {
+  const chipFor = (el: HTMLElement, glyph: string) =>
+    Array.from(el.querySelectorAll('.popup-etymology-component')).find(
+      chip => chip.querySelector('.popup-etymology-component-glyph')?.textContent === glyph,
+    );
+
+  it('leaves chips as labels when the surface cannot follow them', () => {
+    const el = createEtymologySection([makeEtymology({ linkableComponents: ['女', '子'] })]);
+
+    expect(el.querySelectorAll('.popup-etymology-component--link').length).toBe(0);
+  });
+
+  it('offers only the components the lookup found an entry for', () => {
+    const el = createEtymologySection(
+      [makeEtymology({ linkableComponents: ['女'] })],
+      { onFollowComponent: vi.fn() },
+    );
+
+    expect(chipFor(el, '女')?.tagName).toBe('BUTTON');
+    expect(chipFor(el, '子')?.tagName).not.toBe('BUTTON');
+  });
+
+  it('follows the component that was clicked', () => {
+    const onFollowComponent = vi.fn();
+    const el = createEtymologySection(
+      [makeEtymology({ linkableComponents: ['女', '子'] })],
+      { onFollowComponent },
+    );
+
+    (chipFor(el, '子') as HTMLButtonElement).click();
+
+    expect(onFollowComponent).toHaveBeenCalledWith('子');
+  });
+
+  it('follows the phonosemantic pair as well as a plain decomposition', () => {
+    const onFollowComponent = vi.fn();
+    const el = createEtymologySection(
+      [makeEtymology({
+        character: '字',
+        decomposition: '⿱宀子',
+        etymologyType: 'pictophonetic',
+        semantic: '宀',
+        phonetic: '子',
+        linkableComponents: ['子'],
+      })],
+      { onFollowComponent },
+    );
+
+    (chipFor(el, '子') as HTMLButtonElement).click();
+
+    expect(onFollowComponent).toHaveBeenCalledWith('子');
+    expect(chipFor(el, '宀')?.tagName).not.toBe('BUTTON');
+  });
+
+  it('does not collapse the row the breakdown sits in', () => {
+    const onRowClick = vi.fn();
+    const row = document.createElement('div');
+    row.addEventListener('click', onRowClick);
+    row.appendChild(createEtymologySection(
+      [makeEtymology({ linkableComponents: ['女'] })],
+      { onFollowComponent: vi.fn() },
+    ));
+    document.body.appendChild(row);
+
+    (chipFor(row, '女') as HTMLButtonElement).click();
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+});
+
 describe('createEtymologySection disclosure', () => {
   const toggleOf = (el: HTMLElement) =>
     el.querySelector('.popup-etymology-toggle') as HTMLButtonElement;
