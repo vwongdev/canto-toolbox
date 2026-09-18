@@ -73,15 +73,11 @@ export class ChineseHoverPopupManager {
   private lastHoveredWord: string | null = null;
   private lastHoveredOffset = -1;
   private currentPopup: HTMLElement | null = null;
-  /** What the popup is showing, so a component followed from it can come back. */
-  private shownWord: ShownWord | null = null;
   /**
    * The words followed through to reach the one on screen, oldest first. A
    * fresh hover clears it; following a component pushes onto it.
    */
   private trail: ShownWord[] = [];
-  /** Where the popup was last placed, so following a component does not move it. */
-  private popupPosition = { x: 0, y: 0 };
   private currentSelection: DOMRect | null = null;
   private isHoveringChinese = false;
   private lastHoveredElement: Node | null = null;
@@ -267,7 +263,12 @@ export class ChineseHoverPopupManager {
     word: string,
     x: number,
     y: number,
-    { segment, context }: { segment?: HoverSegment; context?: string } = {},
+    { segment, context, from }: {
+      segment?: HoverSegment;
+      context?: string;
+      /** The word this one was reached from, when a component was followed. */
+      from?: ShownWord;
+    } = {},
   ): void {
     const generation = ++this.lookupGeneration;
     this.client.lookupWord(
@@ -287,10 +288,11 @@ export class ChineseHoverPopupManager {
           return;
         }
 
-        // A word reached by hovering starts its own trail: the components
-        // followed from whatever was on screen before lead back to a word the
-        // reader has already moved off.
-        this.trail = [];
+        // A component keeps the word it was followed from underneath it. A word
+        // reached by hovering starts its own trail instead, since the trail
+        // under it leads back to text the cursor has already left.
+        if (from) this.trail.push(from);
+        else this.trail = [];
         this.showPopup(matched, response.definition, x, y, context);
         this.scheduleTracking(matched, context);
       },
@@ -348,62 +350,33 @@ export class ChineseHoverPopupManager {
     });
   }
 
-  /**
-   * Return to the word this one was reached from. The definition is the one
-   * already shown, so stepping back costs no lookup.
-   */
-  private createBackButton(previous: ShownWord): HTMLElement {
-    const button = createElement<HTMLButtonElement>({
+  private createBackButton(previous: ShownWord, x: number, y: number): HTMLElement {
+    return createElement<HTMLButtonElement>({
       tag: 'button',
       className: 'popup-back',
       attributes: { type: 'button', title: `Back to ${previous.word}` },
+      children: [
+        createIcon(CHEVRON_SVG, { tag: 'span', className: 'popup-back-chevron' }),
+        createElement({ tag: 'span', className: 'popup-back-word', textContent: previous.word }),
+      ],
       listeners: {
         click: (event: Event) => {
           event.stopPropagation();
-          this.goBack();
+          this.goBack(x, y);
         },
       },
     });
-
-    button.appendChild(createIcon(CHEVRON_SVG, { tag: 'span', className: 'popup-back-chevron' }));
-    button.appendChild(
-      createElement({ tag: 'span', className: 'popup-back-word', textContent: previous.word }),
-    );
-    return button;
-  }
-
-  private goBack(): void {
-    const previous = this.trail.pop();
-    if (!previous) return;
-
-    const { x, y } = this.popupPosition;
-    this.showPopup(previous.word, previous.definition, x, y, previous.context);
   }
 
   /**
-   * Show a component's own entry in place of the word it was reached from,
-   * which goes on the trail for the back control. A character read this way
-   * was looked up as deliberately as one hovered, so it dwells and is tracked
-   * the same way.
+   * Return to the word the one on screen was followed from. Its definition is
+   * the one already shown, so stepping back costs no lookup.
    */
-  private followComponent(character: string): void {
-    const from = this.shownWord;
-    const generation = ++this.lookupGeneration;
+  private goBack(x: number, y: number): void {
+    const previous = this.trail.pop();
+    if (!previous) return;
 
-    this.client.lookupWord(character, (response: LookupResponse | ErrorResponse) => {
-      if (generation !== this.lookupGeneration) return;
-      if (!response.success || !('definition' in response)) {
-        console.error('[Content] Component lookup failed:', response.error);
-        return;
-      }
-
-      const matched = response.definition.word || character;
-      const { x, y } = this.popupPosition;
-
-      if (from) this.trail.push(from);
-      this.showPopup(matched, response.definition, x, y);
-      this.scheduleTracking(matched);
-    });
+    this.showPopup(previous.word, previous.definition, x, y, previous.context);
   }
 
   private showPopup(
@@ -441,7 +414,7 @@ export class ChineseHoverPopupManager {
       createElement({
         className: 'popup-header',
         children: [
-          ...(previous ? [this.createBackButton(previous)] : []),
+          ...(previous ? [this.createBackButton(previous, x, y)] : []),
           createElement({ className: 'popup-word', textContent: definition.word || word }),
           this.createStudyButton(word, context),
         ],
@@ -453,15 +426,18 @@ export class ChineseHoverPopupManager {
     popup.appendChild(createDefinitionSections(definition));
 
     if (definition.etymology?.length) {
+      // A component is looked up as deliberately as a word is hovered, so it
+      // goes through the same path — dwell, tracking and all — with the word it
+      // was reached from left underneath it.
       popup.appendChild(createEtymologySection(definition.etymology, {
-        onFollowComponent: (character) => this.followComponent(character),
+        onFollowComponent: (character) => this.lookupAndShowWord(character, x, y, {
+          from: { word, definition, ...(context && { context }) },
+        }),
       }));
     }
 
     this.document.body.appendChild(popup);
     this.currentPopup = popup;
-    this.shownWord = { word, definition, ...(context && { context }) };
-    this.popupPosition = { x, y };
     positionPopup(popup, x, y);
   }
 
@@ -474,7 +450,6 @@ export class ChineseHoverPopupManager {
     if (this.currentPopup) {
       this.currentPopup.remove();
       this.currentPopup = null;
-      this.shownWord = null;
       this.lastHoveredWord = null;
       this.lastHoveredElement = null;
       this.lastHoveredOffset = -1;

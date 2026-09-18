@@ -72,16 +72,11 @@
   letter-spacing: 0.02em;
 }
 
-// The way back out of a component followed from the breakdown. It flanks the
-// centred word opposite the study button, in the column the grid already has.
-.popup-back {
-  grid-column: 1;
+// The header's two pills — back out of a followed component, and study the
+// word — differ only in which side of the centred word they take.
+.popup-back,
+.popup-study {
   grid-row: 1;
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: t.$space-1;
-  max-width: 40%;
   padding: 2px t.$space-2;
   border: 1px solid t.$color-border-muted;
   border-radius: t.$radius-sm;
@@ -94,10 +89,19 @@
 
   @include a.focus-ring;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: t.$color-primary;
     color: t.$color-primary;
   }
+}
+
+.popup-back {
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-1;
+  max-width: 40%;
 }
 
 // The chevron is drawn pointing forward, so back is the same glyph reversed.
@@ -117,24 +121,7 @@
 
 .popup-study {
   grid-column: 2;
-  grid-row: 1;
-  padding: 2px t.$space-2;
-  border: 1px solid t.$color-border-muted;
-  border-radius: t.$radius-sm;
-  background: transparent;
-  color: t.$color-text-subtle;
-  font: inherit;
-  font-size: t.$text-xs;
-  line-height: 1.6;
-  cursor: pointer;
   white-space: nowrap;
-
-  @include a.focus-ring;
-
-  &:hover:not(:disabled) {
-    border-color: t.$color-primary;
-    color: t.$color-primary;
-  }
 
   &:disabled {
     border-color: transparent;

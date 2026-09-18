@@ -219,7 +219,7 @@ flowchart TD
   candidate — the character breakdown and the corpus rank — are added by
   `enrich` to the winner alone. `lookupEtymology` memoises into a capped cache,
   since the same characters recur as the cursor moves. The breakdown also
-  carries `linkableComponents` — the parts that are words in their own right —
+  carries `componentsWithEntries` — the parts that are words in their own right —
   because only the document holding the maps can say which components are
   worth following.
 

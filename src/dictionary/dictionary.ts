@@ -125,13 +125,12 @@ function cacheEtymology(word: string, result: CharacterEtymology[]): void {
 }
 
 /**
- * The components of `entry` that are words in their own right. A breakdown is
- * only worth following into where the dictionaries have something to show, and
- * the character itself is not a part of itself. The chips a breakdown can
- * render come from the decomposition or from the phonosemantic pair, so both
- * are offered.
+ * The components of `entry` that are words in their own right, which a surface
+ * showing the breakdown can offer to look up. The character itself is not a
+ * part of itself. The chips a breakdown can render come from the decomposition
+ * or from the phonosemantic pair, so both are covered.
  */
-function linkableComponents(entry: CharacterEtymology): string[] {
+function componentsWithEntries(entry: CharacterEtymology): string[] {
   const shown = new Set(parseComponents(entry.decomposition));
   if (entry.semantic) shown.add(entry.semantic);
   if (entry.phonetic) shown.add(entry.phonetic);
@@ -162,17 +161,13 @@ export function lookupEtymology(word: string): CharacterEtymology[] {
         if (def) componentDefinitions[comp] = def;
       }
 
-      const enriched: CharacterEtymology = { ...entry };
-      if (Object.keys(componentDefinitions).length > 0) {
-        enriched.componentDefinitions = componentDefinitions;
-      }
+      const withEntries = componentsWithEntries(entry);
 
-      const linkable = linkableComponents(entry);
-      if (linkable.length > 0) {
-        enriched.linkableComponents = linkable;
-      }
-
-      return enriched;
+      return {
+        ...entry,
+        ...(Object.keys(componentDefinitions).length > 0 && { componentDefinitions }),
+        ...(withEntries.length > 0 && { componentsWithEntries: withEntries }),
+      };
     })
     .filter((entry): entry is CharacterEtymology => entry !== undefined);
 

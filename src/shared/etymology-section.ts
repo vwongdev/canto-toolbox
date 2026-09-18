@@ -109,14 +109,14 @@ function createComponentsRow(
   onFollowComponent?: (character: string) => void,
 ): HTMLElement | null {
   const defs = etymology.componentDefinitions ?? {};
-  const linkable = new Set(etymology.linkableComponents ?? []);
+  const followable = new Set(etymology.componentsWithEntries ?? []);
 
   const chip = (glyph: string, role?: 'meaning' | 'sound'): HTMLElement =>
     createComponentChip(
       glyph,
       defs[glyph],
       role,
-      onFollowComponent && linkable.has(glyph) ? () => onFollowComponent(glyph) : undefined,
+      onFollowComponent && followable.has(glyph) ? () => onFollowComponent(glyph) : undefined,
     );
 
   if (etymology.etymologyType === 'pictophonetic') {
@@ -184,8 +184,8 @@ export interface EtymologySectionOptions {
   expanded?: boolean;
   /**
    * Show a component's own dictionary entry. Only the components the lookup
-   * marked linkable are offered, and only where a surface can put another word
-   * in front of the reader — elsewhere the chips stay labels.
+   * marked as having an entry are offered, and only where a surface can put
+   * another word in front of the reader — elsewhere the chips stay labels.
    */
   onFollowComponent?: (character: string) => void;
 }

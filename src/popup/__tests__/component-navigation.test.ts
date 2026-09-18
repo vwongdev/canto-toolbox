@@ -18,7 +18,7 @@ const WORD: DefinitionResult = {
       decomposition: '⿰女子',
       radical: '女',
       etymologyType: 'ideographic',
-      linkableComponents: ['女'],
+      componentsWithEntries: ['女'],
     },
   ],
 };
@@ -82,7 +82,7 @@ describe('following a component from the popup', () => {
   it('shows the component in place of the word it was reached from', () => {
     componentChip()!.click();
 
-    expect(client.lookupWord).toHaveBeenLastCalledWith('女', expect.any(Function));
+    expect(vi.mocked(client.lookupWord).mock.calls.at(-1)![0]).toBe('女');
     expect(popupWord()).toBe('女');
   });
 

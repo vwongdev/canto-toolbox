@@ -16,7 +16,7 @@ export interface CharacterEtymology {
    * Components the dictionaries hold an entry for, added at lookup time. These
    * are the parts a breakdown can be followed into; the rest are labels.
    */
-  linkableComponents?: string[];
+  componentsWithEntries?: string[];
 }
 
 export type EtymologyDictionary = Record<string, CharacterEtymology>;

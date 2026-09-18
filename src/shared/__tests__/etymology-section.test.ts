@@ -185,14 +185,14 @@ describe('following a component', () => {
     );
 
   it('leaves chips as labels when the surface cannot follow them', () => {
-    const el = createEtymologySection([makeEtymology({ linkableComponents: ['女', '子'] })]);
+    const el = createEtymologySection([makeEtymology({ componentsWithEntries: ['女', '子'] })]);
 
     expect(el.querySelectorAll('.popup-etymology-component--link').length).toBe(0);
   });
 
   it('offers only the components the lookup found an entry for', () => {
     const el = createEtymologySection(
-      [makeEtymology({ linkableComponents: ['女'] })],
+      [makeEtymology({ componentsWithEntries: ['女'] })],
       { onFollowComponent: vi.fn() },
     );
 
@@ -203,7 +203,7 @@ describe('following a component', () => {
   it('follows the component that was clicked', () => {
     const onFollowComponent = vi.fn();
     const el = createEtymologySection(
-      [makeEtymology({ linkableComponents: ['女', '子'] })],
+      [makeEtymology({ componentsWithEntries: ['女', '子'] })],
       { onFollowComponent },
     );
 
@@ -221,7 +221,7 @@ describe('following a component', () => {
         etymologyType: 'pictophonetic',
         semantic: '宀',
         phonetic: '子',
-        linkableComponents: ['子'],
+        componentsWithEntries: ['子'],
       })],
       { onFollowComponent },
     );
@@ -237,7 +237,7 @@ describe('following a component', () => {
     const row = document.createElement('div');
     row.addEventListener('click', onRowClick);
     row.appendChild(createEtymologySection(
-      [makeEtymology({ linkableComponents: ['女'] })],
+      [makeEtymology({ componentsWithEntries: ['女'] })],
       { onFollowComponent: vi.fn() },
     ));
     document.body.appendChild(row);

@@ -195,16 +195,16 @@ describe('lookupEtymology', () => {
   });
 
   it('marks the components the dictionaries hold an entry for', () => {
-    expect(lookupEtymology('好')[0]!.linkableComponents).toEqual(['女', '子']);
+    expect(lookupEtymology('好')[0]!.componentsWithEntries).toEqual(['女', '子']);
   });
 
   it('leaves out a component the dictionaries know nothing about', () => {
     // 宀 is a radical the dictionaries have no entry for; 子 is a word.
-    expect(lookupEtymology('字')[0]!.linkableComponents).toEqual(['子']);
+    expect(lookupEtymology('字')[0]!.componentsWithEntries).toEqual(['子']);
   });
 
   it('does not mark a character as a component of itself', () => {
-    expect(lookupEtymology('女')[0]!.linkableComponents).toBeUndefined();
+    expect(lookupEtymology('女')[0]!.componentsWithEntries).toBeUndefined();
   });
 });
 
