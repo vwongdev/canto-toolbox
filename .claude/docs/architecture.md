@@ -158,6 +158,13 @@ flowchart TD
   popup still on the same word, the script sends `track_word` — once per word,
   along with `extractContext`'s snippet of the sentence it was met in. The
   popup's **+ Study** button sends the same message at once, with `pin` set.
+- **Following a component**: a chip in the character breakdown whose glyph the
+  dictionaries hold an entry for is a button, and pressing it puts that entry
+  in the popup with a back control to the word it came from. The trail is the
+  popup's alone — a fresh hover starts a new one — and the definitions on it
+  are the ones already fetched, so stepping back costs no lookup. Only the
+  popup passes `onFollowComponent`; the stats and flashcard surfaces render the
+  same breakdown with its chips as labels.
 
 ### Service Worker (`src/service-worker.ts`)
 
@@ -211,7 +218,10 @@ flowchart TD
   offset and throws away all but one, so the parts not needed to judge a
   candidate — the character breakdown and the corpus rank — are added by
   `enrich` to the winner alone. `lookupEtymology` memoises into a capped cache,
-  since the same characters recur as the cursor moves.
+  since the same characters recur as the cursor moves. The breakdown also
+  carries `linkableComponents` — the parts that are words in their own right —
+  because only the document holding the maps can say which components are
+  worth following.
 
 ### Media OCR (`src/ocr/`)
 
