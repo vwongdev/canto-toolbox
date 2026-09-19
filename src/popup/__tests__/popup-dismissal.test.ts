@@ -80,6 +80,7 @@ describe('popup dismissal', () => {
 
   afterEach(() => {
     manager.destroy();
+    window.scrollY = 0;
   });
 
   it('opens no popup for a word the cursor passes over', async () => {
@@ -130,6 +131,20 @@ describe('popup dismissal', () => {
 
     expect(popup()).not.toBeNull();
     expect(vi.mocked(client.lookupWord).mock.calls.length).toBe(lookups);
+  });
+
+  /**
+   * The popup is positioned against the viewport, so scrolling has to move it
+   * by hand or it hangs over whatever scrolled into the word's place.
+   */
+  it('travels with the page when it scrolls', async () => {
+    await openPopup();
+    const before = popup()!.style.top;
+
+    window.scrollY = 120;
+    document.dispatchEvent(new Event('scroll'));
+
+    expect(parseFloat(popup()!.style.top)).toBe(parseFloat(before) - 120);
   });
 
   it('hides the popup when the cursor stays away', async () => {

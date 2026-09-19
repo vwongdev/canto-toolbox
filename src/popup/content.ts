@@ -87,6 +87,12 @@ export class ChineseHoverPopupManager {
    */
   private trail: ShownWord[] = [];
   private currentSelection: DOMRect | null = null;
+  /**
+   * Where the popup sits in page coordinates. It is positioned against the
+   * viewport, so without this a scroll would leave it behind while the word it
+   * describes moves off under it.
+   */
+  private popupAnchor: { left: number; top: number } | null = null;
   private isHoveringChinese = false;
   private lastHoveredElement: Node | null = null;
   private mousemoveThrottle: number | null = null;
@@ -100,6 +106,7 @@ export class ChineseHoverPopupManager {
   private readonly boundMouseMove: (e: MouseEvent) => void;
   private readonly boundMouseOut: (e: MouseEvent) => void;
   private readonly boundMouseUp: (e: MouseEvent) => void;
+  private readonly boundScroll: () => void;
 
   constructor(document: Document, client: PopupClient) {
     this.document = document;
@@ -107,6 +114,7 @@ export class ChineseHoverPopupManager {
     this.boundMouseMove = (e) => this.handleMouseMove(e);
     this.boundMouseOut = (e) => this.handleMouseOut(e);
     this.boundMouseUp = (e) => this.handleSelection(e);
+    this.boundScroll = () => this.followScroll();
   }
 
   init(): void {
@@ -114,12 +122,14 @@ export class ChineseHoverPopupManager {
     this.document.addEventListener('mousemove', this.boundMouseMove, true);
     this.document.addEventListener('mouseout', this.boundMouseOut, true);
     this.document.addEventListener('mouseup', this.boundMouseUp, true);
+    this.document.addEventListener('scroll', this.boundScroll, { passive: true });
   }
 
   destroy(): void {
     this.document.removeEventListener('mousemove', this.boundMouseMove, true);
     this.document.removeEventListener('mouseout', this.boundMouseOut, true);
     this.document.removeEventListener('mouseup', this.boundMouseUp, true);
+    this.document.removeEventListener('scroll', this.boundScroll);
     if (this.mousemoveThrottle !== null) {
       cancelAnimationFrame(this.mousemoveThrottle);
       this.mousemoveThrottle = null;
@@ -306,7 +316,7 @@ export class ChineseHoverPopupManager {
         if (this.currentPopup?.dataset.word === matched) {
           // Same word, new cursor position: reposition without restarting the
           // dwell, so moving across one word still counts as a single study.
-          positionPopup(this.currentPopup, x, y);
+          this.placePopup(this.currentPopup, x, y);
           return;
         }
 
@@ -461,7 +471,25 @@ export class ChineseHoverPopupManager {
 
     this.document.body.appendChild(popup);
     this.currentPopup = popup;
-    positionPopup(popup, x, y);
+    this.placePopup(popup, x, y);
+  }
+
+  /** Place the popup and remember where that is on the page, not the screen. */
+  private placePopup(popup: HTMLElement, x: number, y: number): void {
+    const { left, top } = positionPopup(popup, x, y);
+    this.popupAnchor = { left: left + window.scrollX, top: top + window.scrollY };
+  }
+
+  /**
+   * Carry the popup along with the text. It is placed where the word is, so
+   * scrolling the word away has to take the popup with it — the alternative is
+   * a definition hanging over whatever scrolled into its place.
+   */
+  private followScroll(): void {
+    if (!this.currentPopup || !this.popupAnchor) return;
+
+    this.currentPopup.style.left = `${this.popupAnchor.left - window.scrollX}px`;
+    this.currentPopup.style.top = `${this.popupAnchor.top - window.scrollY}px`;
   }
 
   private hidePopup(): void {
@@ -474,6 +502,7 @@ export class ChineseHoverPopupManager {
     if (this.currentPopup) {
       this.currentPopup.remove();
       this.currentPopup = null;
+      this.popupAnchor = null;
       this.lastHoveredWord = null;
       this.lastHoveredElement = null;
       this.lastHoveredOffset = -1;
@@ -684,8 +713,9 @@ function calculatePopupPosition(x: number, y: number, popupRect: DOMRect): { lef
   return { left, top };
 }
 
-function positionPopup(popup: HTMLElement, x: number, y: number): void {
-  const { left, top } = calculatePopupPosition(x, y, popup.getBoundingClientRect());
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+function positionPopup(popup: HTMLElement, x: number, y: number): { left: number; top: number } {
+  const position = calculatePopupPosition(x, y, popup.getBoundingClientRect());
+  popup.style.left = `${position.left}px`;
+  popup.style.top = `${position.top}px`;
+  return position;
 }
