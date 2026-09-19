@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Canto Toolbox",
-  "version": "1.16.1",
+  "version": "1.16.2",
   "description": "Hover Chinese text for Mandarin and Cantonese definitions with audio, radical breakdown, and spaced-repetition flashcards.",
   "permissions": [
     "storage",
