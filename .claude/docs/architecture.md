@@ -159,6 +159,9 @@ flowchart TD
   **+ Study** button means crossing text that is not the word. Hovering the
   popup cancels both the pending hide *and* any pending lookup, so words crossed
   on the way to it neither dismiss the popup nor replace the word it shows.
+  The popup is positioned against the viewport, so its place on the *page* is
+  kept and a document scroll moves it by hand — otherwise it would hang over
+  whatever scrolled into the word's place.
 - **Study signal**: showing a popup is not studying. After `DWELL_MS` with the
   popup still on the same word, the script sends `track_word` — once per word,
   along with `extractContext`'s snippet of the sentence it was met in. The
