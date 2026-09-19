@@ -52,6 +52,9 @@ describe('popup dismissal', () => {
    * once the frame the first scheduled has passed. Real timers throughout: the
    * grace period is measured against the same clock the frame runs on.
    */
+  /** Comfortably past `HOVER_INTENT_MS` in the content script. */
+  const REST_MS = 300;
+
   function nextFrame(): Promise<void> {
     return new Promise(resolve => {
       requestAnimationFrame(() => resolve());
@@ -62,28 +65,48 @@ describe('popup dismissal', () => {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  beforeEach(async () => {
-    document.body.replaceChildren(document.createTextNode('好字 abc'));
+  /** Rest on the first word until it earns a popup. */
+  async function openPopup(): Promise<void> {
+    hoverAt(0);
+    await wait(REST_MS);
+  }
+
+  beforeEach(() => {
+    document.body.replaceChildren(document.createTextNode('好字上山 abc'));
     client = createClient();
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
-    hoverAt(0);
-    await nextFrame();
   });
 
   afterEach(() => {
     manager.destroy();
   });
 
+  it('opens no popup for a word the cursor passes over', async () => {
+    hoverAt(0);
+    await wait(120);
+
+    expect(popup()).toBeNull();
+    expect(client.lookupWord).not.toHaveBeenCalled();
+  });
+
+  it('opens the popup once the cursor rests on the word', async () => {
+    await openPopup();
+
+    expect(popup()).not.toBeNull();
+  });
+
   it('holds the popup while the cursor crosses the gap to it', async () => {
-    hoverAt(4);
+    await openPopup();
+    hoverAt(6);
     await wait(100);
 
     expect(popup()).not.toBeNull();
   });
 
   it('keeps the popup once the cursor reaches it', async () => {
-    hoverAt(4);
+    await openPopup();
+    hoverAt(6);
     await nextFrame();
     hoverPopup();
     await wait(500);
@@ -91,8 +114,27 @@ describe('popup dismissal', () => {
     expect(popup()).not.toBeNull();
   });
 
+  /**
+   * The popup is offset from the cursor, so reaching it crosses whatever the
+   * page has between - often more Chinese. None of it is what the reader
+   * asked about.
+   */
+  it('keeps its word while the cursor crosses other words to reach it', async () => {
+    await openPopup();
+    const lookups = vi.mocked(client.lookupWord).mock.calls.length;
+
+    hoverAt(2);
+    await nextFrame();
+    hoverPopup();
+    await wait(400);
+
+    expect(popup()).not.toBeNull();
+    expect(vi.mocked(client.lookupWord).mock.calls.length).toBe(lookups);
+  });
+
   it('hides the popup when the cursor stays away', async () => {
-    hoverAt(4);
+    await openPopup();
+    hoverAt(6);
     await wait(500);
 
     expect(popup()).toBeNull();

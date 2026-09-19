@@ -72,6 +72,8 @@ describe('following a component from the popup', () => {
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
     hoverAt(2);
+    // The lookup waits for the cursor to rest on the word.
+    vi.advanceTimersByTime(250);
   });
 
   afterEach(() => {
@@ -123,6 +125,7 @@ describe('following a component from the popup', () => {
       requestAnimationFrame(() => resolve());
     });
     hoverAt(0);
+    await new Promise<void>(resolve => setTimeout(resolve, 300));
 
     expect(popupWord()).toBe('好字');
     expect(backButton()).toBeNull();

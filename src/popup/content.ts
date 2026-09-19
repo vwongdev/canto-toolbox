@@ -33,13 +33,20 @@ const SELECTION_HIDE_DELAY_MS = 200;
  * hiding on the first such move would put it out of reach.
  */
 const POPUP_HIDE_DELAY_MS = 300;
+/**
+ * How long the cursor must rest on a word before it is looked up. Hovering is
+ * how a reader crosses a page, not only how they ask about a word, so without
+ * this every word passed over on the way somewhere else opened a popup —
+ * including the words between the cursor and the popup it was reaching for.
+ */
+const HOVER_INTENT_MS = 250;
 const SELECTION_TRACKING_DELAY_MS = 300;
 const POPUP_OFFSET_PX = 15;
 const SELECTION_PADDING_PX = 10;
 const VIEWPORT_MARGIN_PX = 10;
 
 /** What each pending timer is waiting to do. */
-type TimerName = 'selection' | 'track' | 'hide';
+type TimerName = 'selection' | 'track' | 'hide' | 'show';
 
 /** A word the popup has shown, kept so the back control can restore it. */
 interface ShownWord {
@@ -69,6 +76,7 @@ export class ChineseHoverPopupManager {
     selection: null,
     track: null,
     hide: null,
+    show: null,
   };
   private lastHoveredWord: string | null = null;
   private lastHoveredOffset = -1;
@@ -153,6 +161,10 @@ export class ChineseHoverPopupManager {
       return;
     }
 
+    // A selection is deliberate, so it is shown at once and outranks a word the
+    // cursor is resting on.
+    this.clearTimer('show');
+
     const chineseWords = extractChineseWordsFromText(selection.toString().trim());
     if (chineseWords.length === 0 || selection.rangeCount === 0) {
       return;
@@ -196,6 +208,9 @@ export class ChineseHoverPopupManager {
     const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
     if (element?.closest('#chinese-hover-popup')) {
       this.clearTimer('hide');
+      // The reader is in the popup; a word crossed on the way there must not
+      // replace it a moment later.
+      this.clearTimer('show');
       this.isHoveringChinese = true;
       return;
     }
@@ -232,10 +247,17 @@ export class ChineseHoverPopupManager {
     if (key !== this.lastHoveredWord || characterChanged) {
       this.lastHoveredWord = key;
 
-      this.lookupAndShowWord(run, event.clientX, event.clientY, {
-        segment: { run, offset: runOffset },
-        context: extractContext(textNode.textContent ?? '', offset),
-      });
+      const { clientX, clientY } = event;
+      const context = extractContext(textNode.textContent ?? '', offset);
+      // Whatever is already on screen stays put until the new word resolves, so
+      // crossing text on the way to the popup neither dismisses it nor replaces
+      // the word it is showing.
+      this.setTimer('show', () => {
+        this.lookupAndShowWord(run, clientX, clientY, {
+          segment: { run, offset: runOffset },
+          context,
+        });
+      }, HOVER_INTENT_MS);
     }
   }
 
@@ -397,6 +419,7 @@ export class ChineseHoverPopupManager {
       listeners: {
         mouseenter: () => {
           this.clearTimer('hide');
+          this.clearTimer('show');
           this.isHoveringChinese = true;
         },
         // Only a move onto something that is not the word dismisses the popup,
@@ -445,6 +468,7 @@ export class ChineseHoverPopupManager {
     // A word the reader moved off before the dwell elapsed was never studied.
     this.clearTimer('track');
     this.clearTimer('hide');
+    this.clearTimer('show');
     this.lookupGeneration++;
 
     if (this.currentPopup) {
@@ -483,6 +507,8 @@ export class ChineseHoverPopupManager {
    */
   private scheduleHide(): void {
     this.resetHoverState();
+    // The cursor left before the word earned a popup, so it never gets one.
+    this.clearTimer('show');
     this.setTimer('hide', () => this.hidePopup(), POPUP_HIDE_DELAY_MS);
   }
 
