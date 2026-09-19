@@ -154,6 +154,12 @@ export interface DefinitionResult {
   etymology?: CharacterEtymology[];
   /** Absent when the word is rarer than the corpus cap. */
   frequency?: WordFrequency;
+  /**
+   * Characters of a compound the dictionaries hold an entry for, added at
+   * lookup time. These are the parts of the headword a reader can follow into;
+   * a single-character word has none.
+   */
+  charactersWithEntries?: string[];
 }
 
 /**

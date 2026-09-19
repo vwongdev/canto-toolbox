@@ -401,6 +401,46 @@ export class ChineseHoverPopupManager {
   }
 
   /**
+   * The headword, with each character the dictionaries hold an entry for made
+   * a control of its own. A compound is read through its parts as much as a
+   * character is read through its components, and the part is right there at
+   * the top of the popup — so it is followed the same way, and a word of one
+   * character stays a label because it leads nowhere.
+   */
+  private createHeadword(
+    displayWord: string,
+    follow: (character: string) => void,
+    charactersWithEntries: string[] | undefined,
+  ): HTMLElement {
+    const followable = new Set(charactersWithEntries ?? []);
+    if (followable.size === 0) {
+      return createElement({ className: 'popup-word', textContent: displayWord });
+    }
+
+    return createElement({
+      className: 'popup-word',
+      children: [...displayWord].map(character => {
+        if (!followable.has(character)) {
+          return createElement({ tag: 'span', className: 'popup-word-char', textContent: character });
+        }
+
+        return createElement<HTMLButtonElement>({
+          tag: 'button',
+          className: 'popup-word-char popup-word-char--link',
+          textContent: character,
+          attributes: { type: 'button', title: `Look up ${character}` },
+          listeners: {
+            click: (event: Event) => {
+              event.stopPropagation();
+              follow(character);
+            },
+          },
+        });
+      }),
+    });
+  }
+
+  /**
    * Return to the word the one on screen was followed from. Its definition is
    * the one already shown, so stepping back costs no lookup.
    */
@@ -443,12 +483,19 @@ export class ChineseHoverPopupManager {
       }
     });
 
+    // A character or component is looked up as deliberately as a word is
+    // hovered, so it goes through the same path — dwell, tracking and all —
+    // with the word it was reached from left underneath it.
+    const follow = (character: string): void => this.lookupAndShowWord(character, x, y, {
+      from: { word, definition, ...(context && { context }) },
+    });
+
     popup.appendChild(
       createElement({
         className: 'popup-header',
         children: [
           ...(previous ? [this.createBackButton(previous, x, y)] : []),
-          createElement({ className: 'popup-word', textContent: definition.word || word }),
+          this.createHeadword(definition.word || word, follow, definition.charactersWithEntries),
           this.createStudyButton(word, context),
         ],
       }),
@@ -459,13 +506,8 @@ export class ChineseHoverPopupManager {
     popup.appendChild(createDefinitionSections(definition));
 
     if (definition.etymology?.length) {
-      // A component is looked up as deliberately as a word is hovered, so it
-      // goes through the same path — dwell, tracking and all — with the word it
-      // was reached from left underneath it.
       popup.appendChild(createEtymologySection(definition.etymology, {
-        onFollowComponent: (character) => this.lookupAndShowWord(character, x, y, {
-          from: { word, definition, ...(context && { context }) },
-        }),
+        onFollowComponent: follow,
       }));
     }
 

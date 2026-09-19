@@ -173,6 +173,12 @@ flowchart TD
   are the ones already fetched, so stepping back costs no lookup. Only the
   popup passes `onFollowComponent`; the stats and flashcard surfaces render the
   same breakdown with its chips as labels.
+- **Following a character**: the headword itself splits the same way. Each
+  character of a compound the dictionaries hold an entry for
+  (`charactersWithEntries`, added by the lookup) is a button in the popup's
+  heading and joins the same trail — a compound is read through its parts as
+  much as a character is read through its components. A single-character word
+  stays a plain heading, since it leads nowhere.
 
 ### Service Worker (`src/service-worker.ts`)
 
@@ -229,7 +235,8 @@ flowchart TD
   since the same characters recur as the cursor moves. The breakdown also
   carries `componentsWithEntries` — the parts that are words in their own right —
   because only the document holding the maps can say which components are
-  worth following.
+  worth following. `charactersWithEntries` says the same of a compound's own
+  characters, for the same reason.
 
 ### Media OCR (`src/ocr/`)
 

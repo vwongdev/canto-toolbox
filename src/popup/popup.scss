@@ -72,6 +72,31 @@
   letter-spacing: 0.02em;
 }
 
+// A compound's characters are split so the ones with an entry of their own can
+// be followed. They have to read as one word first and as controls second, so
+// the button keeps the heading's type exactly and marks itself with an
+// underline the way a link does.
+.popup-word-char {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.popup-word-char--link {
+  cursor: pointer;
+  border-bottom: 1px dashed t.$color-border-bold;
+
+  @include a.focus-ring;
+
+  &:hover {
+    color: t.$color-primary;
+    border-bottom-color: t.$color-primary;
+  }
+}
+
 // The header's two pills — back out of a followed component, and study the
 // word — differ only in which side of the centred word they take.
 .popup-back,

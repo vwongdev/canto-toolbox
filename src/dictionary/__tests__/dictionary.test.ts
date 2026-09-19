@@ -21,6 +21,7 @@ const mockMandarin: CompactDictionary = {
     ['廣東話', '广东话', 'Guang3dong1 hua4', ['Cantonese (dialect)', '(Cantonese) Cantonese']],
     ['女', '女', 'nu:3', ['female', 'woman', 'daughter']],
     ['子', '子', 'zi3', ['son', 'child', 'seed', 'egg']],
+    ['東', '东', 'dong1', ['east', 'host']],
   ],
   index: {
     '好': [0, 1],
@@ -30,6 +31,8 @@ const mockMandarin: CompactDictionary = {
     '广东话': 4,
     '女': 5,
     '子': 6,
+    '東': 7,
+    '东': 7,
   },
 };
 
@@ -164,6 +167,21 @@ describe('lookupWordInDictionaries', () => {
   it('omits etymology when no characters are found', () => {
     const result = lookupWordInDictionaries('囧');
     expect(result.etymology).toBeUndefined();
+  });
+
+  it('marks the characters of a compound that have an entry of their own', () => {
+    const result = lookupWordInDictionaries('好字');
+    expect(result.charactersWithEntries).toEqual(['好', '字']);
+  });
+
+  it('leaves out characters the dictionaries have no entry for', () => {
+    const result = lookupWordInDictionaries('廣東話');
+    expect(result.charactersWithEntries).toEqual(['東']);
+  });
+
+  it('marks no characters on a single-character word', () => {
+    const result = lookupWordInDictionaries('好');
+    expect(result.charactersWithEntries).toBeUndefined();
   });
 });
 

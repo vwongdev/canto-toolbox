@@ -107,7 +107,8 @@ romanisation, definitions or ranks.
   `definition-section.ts`, `context-sentence.ts`
 - tone colouring across the shared sections
 - `src/popup/content.ts` — hover detection, the dwell study signal, and
-  following a breakdown component to its own entry and back
+  following a breakdown component — or a character of the headword — to its
+  own entry and back
 - `src/ocr/media-controller.ts` — when the badge is offered, and how an overlay
   follows playback: cleared on `play`, re-read on `seeked`, and the same frame
   never read twice. `capture.js` is mocked, so these are about the lifecycle

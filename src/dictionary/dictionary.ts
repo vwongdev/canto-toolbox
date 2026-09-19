@@ -189,6 +189,18 @@ function lookupEntries(word: string): DefinitionResult {
   };
 }
 
+/**
+ * The characters of a compound that are words in their own right, which a
+ * surface showing the headword can offer to look up. A character is not a part
+ * of itself, so a single-character word yields none.
+ */
+function charactersWithEntries(word: string): string[] {
+  const characters = [...word];
+  if (characters.length < 2) return [];
+
+  return [...new Set(characters)].filter(char => hasValidDefinition(lookupEntries(char)));
+}
+
 /** Add the character breakdown and corpus rank to a definition that was chosen. */
 function enrich(result: DefinitionResult): DefinitionResult {
   const etymology = lookupEtymology(result.word);
@@ -202,6 +214,11 @@ function enrich(result: DefinitionResult): DefinitionResult {
   ]);
   if (frequency) {
     result.frequency = frequency;
+  }
+
+  const characters = charactersWithEntries(result.word);
+  if (characters.length > 0) {
+    result.charactersWithEntries = characters;
   }
 
   return result;
