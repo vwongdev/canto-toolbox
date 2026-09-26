@@ -117,9 +117,13 @@ romanisation, definitions or ranks.
 - `src/shared/pronunciation-section.ts`, `etymology-section.ts`,
   `definition-section.ts`, `context-sentence.ts`
 - tone colouring across the shared sections
-- `src/popup/content.ts` — hover detection, the dwell study signal, and
+- `src/popup/content.ts` — hover detection, the dwell study signal,
   following a breakdown component — or a character of the headword — to its
-  own entry and back
+  own entry and back, the Shift shortcut past the hover pause (and the
+  editable-field and drag cases it leaves alone), and the Known button's
+  pressed state and how it and Study redraw each other
+- `src/shared/availability-badge.ts` — which dictionary alone holds a word,
+  including the bare Cantonese reading that does not count
 - `src/ocr/media-controller.ts` — when the badge is offered, and how an overlay
   follows playback: cleared on `play`, re-read on `seeked`, and the same frame
   never read twice. `capture.js` is mocked, so these are about the lifecycle
@@ -138,7 +142,10 @@ romanisation, definitions or ranks.
 **Message handlers** — `src/popup/background-handler.ts` is tested by stubbing
 `chrome.offscreen` / `getContexts`, the `dict_lookup` hop through
 `sendMessage`, and the stroke index `fetch` behind the writing-card gate (the
-index is memoised for the life of the module, so one stub serves the file); `src/dictionary/offscreen-handler.ts` is tested with the
+index is memoised for the life of the module, so one stub serves the file),
+with `popup-storage.js` mocked so `mark_known` and the `withStatus` read are
+asserted as calls; the batch itself — decisions against sightings, latest
+decision wins — is tested on `PopupStorageClient` directly; `src/dictionary/offscreen-handler.ts` is tested with the
 dictionary module mocked via `vi.mock('../dictionary.js', …)`;
 `src/flashcards/background-handler.ts` is tested against the statistics store.
 `src/ocr/background-handler.ts` stubs `chrome.offscreen` and

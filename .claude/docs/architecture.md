@@ -19,7 +19,7 @@ canto-toolbox/
 │   ├── service-worker.ts      # MV3 service-worker entry; registers handlers
 │   ├── popup/                 # Hover-popup feature (content script)
 │   │   ├── content.ts         # Injected content script; hover/selection detection
-│   │   ├── background-handler.ts # lookup_word / track_word message handler
+│   │   ├── background-handler.ts # lookup_word / track_word / mark_known
 │   │   ├── popup-client.ts    # Typed client wrapper over sendMessage
 │   │   ├── popup-storage.ts   # Statistics write path (debounced, bounded)
 │   │   └── popup.scss
@@ -74,6 +74,7 @@ canto-toolbox/
 │   │   ├── strokes.ts         # Packaged stroke graphics, one file per character
 │   │   ├── frequency.ts       # Corpus rank → learner-facing band
 │   │   ├── frequency-badge.ts # The band/rank chip on a definition
+│   │   ├── availability-badge.ts # "Mandarin only" / "Cantonese only" chip
 │   │   ├── decomposition.ts   # Component glyphs of an IDS decomposition
 │   │   ├── definition-list.ts # Collapsing sense list
 │   │   ├── pronunciation-section.ts # Pronunciation section component
@@ -168,10 +169,26 @@ flowchart TD
   The popup is positioned against the viewport, so its place on the *page* is
   kept and a document scroll moves it by hand — otherwise it would hang over
   whatever scrolled into the word's place.
+- **Shift skips the pause**: a move made with Shift held, or Shift pressed
+  while a lookup is pending, runs it at once. Shift is a deliberate ask, so the
+  pause has nothing left to decide. It is ignored while a mouse button is down
+  (Shift-click and Shift-drag extend a selection) and while a text field or
+  `contenteditable` has focus, where Shift is typing.
 - **Study signal**: showing a popup is not studying. After `DWELL_MS` with the
   popup still on the same word, the script sends `track_word` — once per word,
   along with `extractContext`'s snippet of the sentence it was met in. The
   popup's **+ Study** button sends the same message at once, with `pin` set.
+- **Known**: beside **+ Study**, a toggle that sends `mark_known` — the same
+  retirement `set_word_status` makes (`suppressed`, progress kept, the pin
+  cleared), but it records a word not yet tracked so the retirement has an
+  entry to stick to, and it is not a sighting: the count is untouched and the
+  pending dwell is cancelled. The lookup is sent with `withStatus`, so the reply
+  carries the word's `status` and the button shows as pressed on a word
+  already retired; pressing it again puts the word back. The two buttons
+  redraw each other, since each decision clears the other.
+- **What un-retires a word**: only a decision — Known pressed again, **+
+  Study**, or the stats and flashcard pages' own controls. A dwell is a
+  sighting, so it never undoes a Known pressed a moment earlier.
 - **Following a component**: a chip in the character breakdown whose glyph the
   dictionaries hold an entry for is a button, and pressing it puts that entry
   in the popup with a back control to the word it came from. The trail is the
@@ -199,9 +216,13 @@ flowchart TD
   otherwise repeat: the async response channel (`return true`), passing an
   unrecognised message through (`return false`) so another feature's listener
   can answer it, and turning a thrown error into an `ErrorResponse`.
-- **popup**: handles `lookup_word` and `track_word` (the only path that writes
-  new statistics). Lookups are forwarded as `dict_lookup` to the offscreen
-  document that holds the parsed maps. A tracked word also records what the
+- **popup**: handles `lookup_word`, `track_word` and `mark_known` (the paths
+  that write new statistics). Lookups are forwarded as `dict_lookup` to the
+  offscreen document that holds the parsed maps. A lookup sent `withStatus` —
+  only the popup's — also reads the record, in parallel with the dictionary
+  hop, and replies with the matched word's `status`; the stats and flashcard
+  pages already hold the record, so theirs skip the read. A failed read costs
+  the reply its status, not its definition. A tracked word also records what the
   dictionary knows about it — its corpus rank, whether it is a single character
   with named parts, and whether the stroke data covers it — since the pages
   that build sessions cannot look any of them up. Stroke coverage and
@@ -424,13 +445,16 @@ flowchart TD
 2. **Lookup** — popup `background-handler` forwards `dict_lookup` to the
    offscreen document, which awaits `initDictionaries()`, calls `lookupWord`
    (or `lookupWordAt` when a hovered segment is supplied), and replies with a
-   `DefinitionResult`. The worker maps that back onto `lookup_word`.
+   `DefinitionResult`. The worker maps that back onto `lookup_word`, adding the
+   word's retired/chosen `status` when the popup asked `withStatus`.
 3. **Display** — content script renders the popup near the cursor.
 4. **Statistics** — a `track_word` (sent after the reader dwells on a word, or
    at once when they press Study in the popup) increments its count through
    `RedundantStore` (transform the reconciled record, write both areas) and
    records the sentence it was first met in, its corpus rank, and whether it can
-   carry a components or a writing card. The stats/flashcards pages read both
+   carry a components or a writing card. A `mark_known` (the popup's Known)
+   retires the word through the same batch without counting it. The
+   stats/flashcards pages read both
    areas and reconcile with `mergeStatistics`, which preserves every field a
    word carries rather than the handful the merge names.
 
@@ -450,7 +474,11 @@ flowchart TD
   no longer held.
 - **Write batching**: `popup-storage.ts` accumulates counts with
   `createBatchedDebounce` and writes them through a `BoundedMap` capped at
-  `MAX_TRACKED_WORDS`. Eviction is tiered rather than by study count alone —
+  `MAX_TRACKED_WORDS`. Study and Known decisions ride the same batch, so they
+  cannot race the sightings written beside them; the latest decision per word
+  wins, and a Known is taken back out of the count. `statusOf` overlays a
+  decision still waiting for its batch, so re-hovering a word just marked
+  Known shows it pressed. Eviction is tiered rather than by study count alone —
   reviewed words (tie-broken by last review) outrank pinned, which outrank
   retired, which outrank the merely-seen — so pruning cannot throw away FSRS
   history.
@@ -606,14 +634,24 @@ is written in.
 - **`bandForRank` / `BAND_LABELS`** (`src/shared/frequency.ts`) — a corpus rank
   banded into something a learner can act on (Core 1000 → Rare);
   `frequency-badge.ts` draws it on the definition.
+- **`languageAvailability` / `createAvailabilityBadge`**
+  (`src/shared/availability-badge.ts`) — "Mandarin only" when only CC-CEDICT
+  has the word, "Cantonese only" when only CC-Canto has it with at least one
+  sense (a bare reading says how characters are said, not that the word is
+  Cantonese). It sits beside the frequency chip in the shared
+  `definition-section` rather than in the popup alone: which language a word
+  belongs to is a property of the word, and it matters most on the flashcard
+  and stats surfaces, where a learner decides what to drill. Its tooltip is
+  hedged because CC-CEDICT also omits compounds that mean no more than their
+  characters — 很多 and 還要 read as "Cantonese only" for that reason.
 - **`parseComponents`** (`src/shared/decomposition.ts`) — the component glyphs
   of a makemeahanzi decomposition, Ideographic Description Characters dropped.
 - **`pronunciation-section.ts` / `etymology-section.ts` /
   `definition-section.ts` / `definition-list.ts`** — shared UI components;
   `definition-section` composes the others and is reused by popup, stats and
   flashcards. Because they are shared, the audio button, tone colours, script
-  variant and the collapsing sense list appear on all three surfaces from one
-  implementation.
+  variant, availability chip and the collapsing sense list appear on all three
+  surfaces from one implementation.
 - **`toSyllables`** (`src/shared/pinyin.ts`) — splits a romanisation into
   tone-tagged syllables so each can be coloured; Pinyin gets tone marks,
   Jyutping keeps its digits.
