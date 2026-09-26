@@ -43,6 +43,9 @@ canto-toolbox/
 │   │   ├── listening.ts       # Which reading the listening card plays in
 │   │   ├── background-handler.ts # update_flashcard / set_word_status
 │   │   └── flashcard-client.ts
+│   ├── settings/              # Options page (manifest `options_ui`)
+│   │   ├── settings.ts / settings.html / settings.scss
+│   │   └── settings-view.ts   # Form built from the setting specs; its copy
 │   ├── ocr/                   # Reading Chinese out of images and video frames
 │   │   ├── media-controller.ts # Media hover, the badge, overlay lifecycle
 │   │   ├── capture.ts         # Video frame → pixels, canvas or tab screenshot
@@ -65,6 +68,7 @@ canto-toolbox/
 │   │   ├── statistics-store.ts# Per-word layout, cap, sync share, migration
 │   │   ├── review-log.ts      # Cards answered per local day (local only)
 │   │   ├── statistics-utils.ts# mergeStatistics(), getFlashcardStage()
+│   │   ├── settings.ts        # Reader preferences: specs, defaults, watchSettings()
 │   │   ├── scheduler.ts       # FSRS review scheduling
 │   │   ├── bounded-map.ts     # Top-N-by-sort-key map
 │   │   ├── debounce.ts        # createBatchedDebounce()
@@ -407,11 +411,13 @@ flowchart TD
 - `selectSession` (`session.ts`) takes the cards the scheduler says are due,
   most overdue first, then tops the session up with cards not yet introduced —
   ordered by corpus rank, so the commonest word met is taught first — capped at
-  `MAX_NEW_CARDS` within `MAX_CARDS`. A word offers **at most one card per
+  the reader's new-card limit within their session size (`SessionLimits`,
+  from settings). A word offers **at most one card per
   session**, and retired words are skipped. With nothing due, the empty screen
   reports when the next review lands.
 - A word joins the deck only once `isEnrolled` says so — pressed **+ Study**, or
-  met `MIN_COUNT` times. Hovering still records every word; what it no longer
+  met as many times as the reader's threshold (`MIN_COUNT` by default).
+  Hovering still records every word; what it no longer
   does is spend a session slot on one. The threshold gates the *first* card a
   word is offered, so raising it never evicts a word already being reviewed.
 - The **writing card grades itself** (`writing.ts`): hanzi-writer draws the
@@ -431,6 +437,42 @@ flowchart TD
 - Definitions render via the shared `definition-section`; only the production
   front needs a lookup before the question can be posed. The production and
   listening answers lead with the word, since their fronts withheld it.
+- The page reads the settings before it builds a session, since they size it.
+  A change made mid-session reaches the next card drawn but never resizes the
+  session already chosen. `TESTS_READING` (`flashcards-view.ts`) names the
+  directions whose answer *is* the reading; those backs ignore "hide
+  romanisation", and a new direction has to say which it is.
+
+### Settings (`src/settings/`, `src/shared/settings.ts`)
+
+- **What they are**: the reader's preferences — session size, new cards per
+  session, the enrolment threshold, which reading leads, which script the
+  headword is drawn in, and whether romanisation waits for a press. Every
+  default reproduces what the extension did before it had settings.
+- **One declaration each**: `SETTING_SPECS` states a setting's kind (integer,
+  choice, boolean), default and range; the `Settings` type, `DEFAULT_SETTINGS`
+  and `normaliseSettings` all follow from it. Sync storage is written by every
+  machine the reader uses, so a stored value is clamped or replaced by its
+  default rather than trusted. The options page builds its controls from the
+  same specs and takes only its labels from `SECTIONS` in `settings-view.ts` —
+  a new boolean is one spec line and one label entry.
+- **Reaching consumers**: pure code never reads storage. The content script,
+  stats page and flashcards page each call `watchSettings()` at start-up, which
+  delivers the stored value and then every change (`chrome.storage.onChanged`),
+  and hand the values on: `selectSession` takes `SessionLimits`,
+  `isEnrolled` / `getFlashcardStage` take the threshold (the stats page carries
+  it on its `ListView`, and hands it to the deck export), and the shared definition components take
+  `DisplaySettings`. A change applies from the next popup, card or opened row;
+  the stats list redraws at once, since the threshold moves words in and out of
+  Candidates.
+- **Display**: `primaryLanguage` orders the two columns; `script` picks the
+  headword form through `headwordFor`, with `findScriptVariant` then naming the
+  page's own form beside it (the stats row and flashcard fronts still show the
+  word as it was tracked); `hideRomanisation` puts each reading behind a
+  "Show Pinyin" / "Show Jyutping" button in the shared pronunciation section.
+- **Entry point**: the gear in the stats page's header calls
+  `chrome.runtime.openOptionsPage()`; the manifest registers the page as
+  `options_ui` with `open_in_tab`.
 
 ## Data Flow
 
@@ -498,6 +540,11 @@ flowchart TD
   anything done since; the legacy item is removed only once local holds every
   word. A device still on an older version that writes the legacy item to sync
   again has it folded in at the next service-worker start.
+- **Settings**: one `chrome.storage.sync` item, `SETTINGS_KEY` (`settings`),
+  written whole by `saveSettings`. It is a few dozen bytes, well inside sync's
+  quotas in the headroom the statistics share's budget leaves, and preferences
+  are what a reader expects to follow them between machines. The statistics
+  store only touches `word:` keys, so clearing statistics keeps the settings.
 - **Write batching**: `popup-storage.ts` accumulates counts with
   `createBatchedDebounce` and writes them through a `BoundedMap` capped at
   `MAX_TRACKED_WORDS` (20,000 — not a storage limit, but a bound on what every
@@ -549,7 +596,8 @@ flowchart TD
   from emitting the 14 MB and 28 MB binaries alongside the copy already
   vendored, and collapses the library and `engine.ts` onto one ORT instance so
   `ort.env` settings apply to the instance that reads them.
-- **Chrome Extension APIs** — `chrome.storage.sync|local` (statistics),
+- **Chrome Extension APIs** — `chrome.storage.sync|local` (statistics, and
+  sync alone for settings),
   `chrome.runtime` (message passing, `getURL`, `getContexts`),
   `chrome.offscreen` (the offscreen document that holds dictionaries and OCR).
 - **Dictionary submodules** — `dictionaries/mandarin` (CC-CEDICT),
@@ -563,7 +611,7 @@ flowchart TD
 
 ## Extension Permissions
 
-- `storage` — statistics tracking.
+- `storage` — statistics tracking and settings.
 - `unlimitedStorage` — lifts local's 10 MB quota, so the statistics record is
   bounded by `MAX_TRACKED_WORDS` alone. It carries no install warning.
 - `offscreen` — the document that holds the parsed dictionaries and the OCR engine.
@@ -631,7 +679,13 @@ is written in.
   chosen flags; reads and writes reconcile through the same function.
 - **`MIN_COUNT` / `isEnrolled`** (`src/shared/statistics-utils.ts`) — whether a
   word is in the deck at all. Tracking a word and drilling it are separate:
-  hovering records everything, enrolment needs Study or `MIN_COUNT` sightings.
+  hovering records everything, enrolment needs Study or the reader's threshold
+  of sightings, of which `MIN_COUNT` is the default.
+- **`SETTING_SPECS` / `normaliseSettings` / `watchSettings`**
+  (`src/shared/settings.ts`) — the reader's preferences, how a stored record is
+  made safe, and the load-then-subscribe every surface starts with.
+- **`headwordFor`** (`src/shared/definition-section.ts`) — a looked-up word in
+  the script the reader leads with.
 - **`getFlashcardStage`** (`src/shared/statistics-utils.ts`) — candidate / new /
   learning / familiar / mastered, derived from the scheduler so `mastered`
   decays. `candidate` is seen-but-not-enrolled, which the stats page filters to.

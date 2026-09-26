@@ -86,6 +86,9 @@ romanisation, definitions or ranks.
   in-memory storage area that round-trips values through JSON and can enforce
   sync's quotas; `asItems` turns a record into the `word:<word>` items it is
   stored as, which is how tests seed storage
+- `src/shared/settings.ts` — defaults, clamping and fallback of stored values,
+  and `watchSettings` delivering the stored value then each change, driven
+  through the `chrome.storage.onChanged` mock in `setup.ts`
 - `src/stats/ordering.ts` / `overview.ts` — sorting, band filtering, the summary
 - `src/stats/backup.ts` — the backup round trip, which files are refused and
   why, and the restore merge (nothing already recorded is lost)
@@ -133,6 +136,12 @@ romanisation, definitions or ranks.
   follows playback: cleared on `play`, re-read on `seeked`, and the same frame
   never read twice. `capture.js` is mocked, so these are about the lifecycle
   rather than pixels
+- the popup, stats and flashcard surfaces drawn with non-default settings:
+  column order, headword script, hidden romanisation, session limits and the
+  enrolment threshold. Each controller takes settings through `applySettings`,
+  so tests set them directly rather than through storage
+- `src/settings/settings.ts` — the options page offers a control for every
+  setting, saves typed values, and draws back what the store clamped
 - `src/stats/stats-view.ts` and `src/flashcards/flashcards-view.ts`, driven
   through their page controllers. The writing card's lifecycle is covered there
   with `hanzi-writer` mocked — happy-dom neither renders SVG nor grades pointer
