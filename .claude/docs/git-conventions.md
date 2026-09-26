@@ -40,6 +40,8 @@ The domain specifies the area of the codebase affected:
 - `flashcard`: Flashcard review page
 - `popup`: Popup UI components
 - `stats`: Statistics page
+- `settings`: Options page and the reader's preferences (`src/settings/`,
+  `src/shared/settings.ts`)
 - `dict`: Dictionary-related functionality
 - `ocr`: Reading Chinese out of images (`src/ocr/`, its engine, overlay, and the
   offscreen cache/queue)
