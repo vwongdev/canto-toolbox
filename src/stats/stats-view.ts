@@ -37,6 +37,7 @@ export const ELEMENT_IDS = {
   wordCount: 'word-count',
   clearBtn: 'clear-btn',
   flashcardBtn: 'flashcard-btn',
+  settingsBtn: 'settings-btn',
   filterTabs: 'filter-tabs',
   bandTabs: 'band-tabs',
   statusTabs: 'status-tabs',

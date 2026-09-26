@@ -1,0 +1,154 @@
+@use '../shared/styles/tokens' as t;
+@use '../shared/styles/theme' as theme;
+@use '../shared/styles/a11y' as a;
+
+@include theme.theme;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: t.$font-system;
+  background: t.$color-bg;
+  color: t.$color-text;
+  line-height: 1.6;
+}
+
+// A column of labelled controls reads best narrow; the stats page's width
+// would leave each label a long way from the control it names.
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: t.$space-5 t.$space-4;
+}
+
+header {
+  margin-bottom: t.$space-5;
+  text-align: center;
+}
+
+.header-icon {
+  font-size: t.$glyph-md;
+  line-height: 1;
+  margin-bottom: t.$space-3;
+  opacity: 0.85;
+}
+
+h1 {
+  font-size: t.$text-2xl;
+  font-weight: 700;
+  color: t.$color-text-strong;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  color: t.$color-text-subtle;
+  font-size: t.$text-base;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+}
+
+.settings-section {
+  background: t.$color-surface;
+  border: 1px solid t.$color-border;
+  border-radius: t.$radius-lg;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+
+  h2 {
+    padding: t.$space-3 t.$space-4;
+    border-bottom: 1px solid t.$color-border-muted;
+    background: t.$color-surface-alt;
+    color: t.$color-text-subtle;
+    font-size: t.$text-xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: t.$space-4;
+  padding: t.$space-3 t.$space-4;
+
+  & + & {
+    border-top: 1px solid t.$color-border-muted;
+  }
+}
+
+.setting-text {
+  min-width: 0;
+}
+
+.setting-label {
+  display: block;
+  color: t.$color-text-strong;
+  font-size: t.$text-md;
+  font-weight: 500;
+}
+
+.setting-hint {
+  color: t.$color-text-subtle;
+  font-size: t.$text-sm;
+}
+
+.setting-number,
+.setting-select {
+  flex-shrink: 0;
+  padding: t.$space-1 t.$space-2;
+  border: 1px solid t.$color-control-border;
+  border-radius: t.$radius-md;
+  background: t.$color-control;
+  color: t.$color-control-text;
+  font: inherit;
+  font-size: t.$text-base;
+
+  @include a.focus-ring;
+}
+
+.setting-number {
+  width: 5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-toggle {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: t.$color-primary-fill;
+  cursor: pointer;
+
+  @include a.focus-ring;
+}
+
+// Narrow windows put the control under its label rather than squeezing both.
+@media (max-width: 420px) {
+  .setting:not(.setting--toggle) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.settings-status {
+  min-height: 1.6em;
+  margin-top: t.$space-3;
+  text-align: center;
+  color: t.$color-text-subtle;
+  font-size: t.$text-sm;
+
+  &.is-error {
+    color: t.$color-danger;
+  }
+}

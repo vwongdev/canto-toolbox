@@ -32,8 +32,32 @@ body {
 }
 
 header {
+  position: relative;
   margin-bottom: t.$space-5;
   text-align: center;
+}
+
+// Out of the way in the corner: the page is opened to study, and settings are
+// visited once and then left alone.
+.settings-link {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  padding: 6px;
+  border: none;
+  border-radius: t.$radius-md;
+  background: none;
+  color: t.$color-text-subtle;
+  line-height: 0;
+  cursor: pointer;
+
+  @include a.focus-ring;
+
+  &:hover {
+    color: t.$color-primary;
+    background: t.$color-surface-alt;
+  }
 }
 
 .header-icon {

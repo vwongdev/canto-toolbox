@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canto Toolbox Settings</title>
+  <link rel="stylesheet" href="./settings.scss">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-icon">漢</div>
+      <h1>Settings</h1>
+      <p class="subtitle">Changes are saved as you make them and follow you to other devices</p>
+    </header>
+
+    <!-- Filled from the settings specs, so a control can never name a setting
+         the extension does not store. -->
+    <div id="settings-form" class="settings-form"></div>
+    <p id="settings-status" class="settings-status" role="status" aria-live="polite"></p>
+  </div>
+
+  <script type="module" src="./settings.ts"></script>
+</body>
+</html>

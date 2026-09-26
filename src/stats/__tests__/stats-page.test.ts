@@ -322,6 +322,15 @@ describe('StatsManager empty list', () => {
     ).toBe('Candidate');
   });
 
+  it('opens the options page from the gear', () => {
+    const openOptionsPage = vi.fn().mockResolvedValue(undefined);
+    Object.assign(chrome.runtime, { openOptionsPage });
+
+    document.getElementById('settings-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+
+    expect(openOptionsPage).toHaveBeenCalledOnce();
+  });
+
   it('offers Study this on a candidate row', () => {
     clickTab('[data-stage="candidate"]');
 

@@ -76,6 +76,7 @@ export class StatsManager {
     this.loadReviewLog();
     this.setupClearButton();
     this.setupFlashcardButton();
+    this.setupSettingsButton();
     new TransferControls(
       this.document,
       this.client,
@@ -265,6 +266,15 @@ export class StatsManager {
 
     flashcardBtn.addEventListener('click', () => {
       void chrome.tabs.create({ url: chrome.runtime.getURL('src/flashcards/flashcards.html') });
+    });
+  }
+
+  private setupSettingsButton(): void {
+    const settingsBtn = this.document.getElementById(ELEMENT_IDS.settingsBtn);
+    if (!settingsBtn) return;
+
+    settingsBtn.addEventListener('click', () => {
+      void chrome.runtime.openOptionsPage();
     });
   }
 
