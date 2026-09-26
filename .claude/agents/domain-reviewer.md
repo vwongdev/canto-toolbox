@@ -38,8 +38,8 @@ type):
 - `src/shared/` — utilities used by more than one domain: types, dom-element,
   the `*-section` components and `definition-list`, `frequency` /
   `frequency-badge`, `decomposition`, `context-sentence`, `gloss`, `pinyin`,
-  `speech`, `strokes`, message-manager, message-router, offscreen-document, storage-manager,
-  redundant-store, statistics-store, statistics-utils, scheduler, bounded-map,
+  `speech`, `strokes`, message-manager, message-router, offscreen-document,
+  statistics-store, statistics-utils, scheduler, bounded-map,
   debounce. No imports from any feature domain.
 - `src/service-worker.ts` — the MV3 composition root. It imports each feature's
   `background-handler.ts` and calls `register()`. This is one of two places
@@ -70,8 +70,8 @@ type):
 
 ## Shared state that is deliberately shared
 
-`src/shared/statistics-store.ts` holds the single statistics key, the
-`MAX_TRACKED_WORDS` cap and the `RedundantStore` instance. Popup (write), stats
+`src/shared/statistics-store.ts` holds the statistics storage layout, the
+`MAX_TRACKED_WORDS` cap and the `StatisticsStore` instance. Popup (write), stats
 (read/clear) and flashcards (review progress) all address that one record, so
 importing it from three feature domains is correct, not a violation — each
 feature still owns its own access policy on top.

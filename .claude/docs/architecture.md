@@ -62,9 +62,7 @@ canto-toolbox/
 │   │   ├── message-manager.ts # sendMessage() typed message helper
 │   │   ├── message-router.ts  # registerHandlers() onMessage routing
 │   │   ├── offscreen-document.ts # ensureOffscreenDocument(); one host
-│   │   ├── storage-manager.ts # Thin chrome.storage wrapper
-│   │   ├── redundant-store.ts # sync/local reconciliation policy
-│   │   ├── statistics-store.ts# The shared statistics key, cap and store
+│   │   ├── statistics-store.ts# Per-word layout, cap, sync share, migration
 │   │   ├── review-log.ts      # Cards answered per local day (local only)
 │   │   ├── statistics-utils.ts# mergeStatistics(), getFlashcardStage()
 │   │   ├── scheduler.ts       # FSRS review scheduling
@@ -132,7 +130,7 @@ flowchart TD
     D -->|fetch chrome.runtime.getURL data/*.json| E[Packaged JSON]
     O -->|DefinitionResult| H1
     H1 -->|response| B
-    H1 -->|updateStatistics| F[RedundantStore: local + sync]
+    H1 -->|updateStatistics| F[StatisticsStore: local per word + sync share]
     G[Stats / Flashcards Page] -->|get_statistics| C
     G -->|flashcards only: fetch strokes/<char>.json| S[Packaged stroke graphics]
     H1 -->|hasStrokes: strokes/index.json| S
@@ -450,7 +448,8 @@ flowchart TD
 3. **Display** — content script renders the popup near the cursor.
 4. **Statistics** — a `track_word` (sent after the reader dwells on a word, or
    at once when they press Study in the popup) increments its count through
-   `RedundantStore` (transform the reconciled record, write both areas) and
+   `StatisticsStore` (transform the reconciled record, write the words that
+   changed) and
    records the sentence it was first met in, its corpus rank, and whether it can
    carry a components or a writing card. A `mark_known` (the popup's Known)
    retires the word through the same batch without counting it. The
@@ -460,25 +459,54 @@ flowchart TD
 
 ## Storage
 
-- **Statistics**: one storage item, `STATISTICS_KEY`, held in a `RedundantStore`
-  over `StorageManager(chrome.storage.sync, chrome.storage.local)`. The key, the
-  store and the `MAX_TRACKED_WORDS` cap live in `src/shared/statistics-store.ts`
-  so the write path, the stats page's warning and the flashcard handler all
-  address the same record. Reads reconcile both areas via `mergeStatistics`,
-  and so do writes: a `mutate` transforms what a read would have seen and writes
-  the result to both. **`chrome.storage.sync` rejects any item over 8 KB**,
-  which this record passes at a few dozen studied words, so past that point sync
-  keeps a fossil and local holds the truth — which is why local is written first
-  and why a merge lets it decide a word's retired and chosen flags. Transforming
-  sync alone silently dropped every retirement and every rating for a word sync
-  no longer held.
+- **Statistics**: one item per word, `word:<word>`, in `chrome.storage.local`,
+  held by a `StatisticsStore` in `src/shared/statistics-store.ts`. The layout,
+  the store and the `MAX_TRACKED_WORDS` cap live there so the write path, the
+  stats page's warning and the flashcard handler all address the same record.
+  Every writer goes through `mutateStatistics`, which transforms the whole
+  reconciled record but writes back only the words whose serialised form
+  changed and removes the ones the transform dropped — so a hover costs one
+  item, not the record. The record used to be a single item that every write
+  rewrote whole; one item per word was chosen over shards because a shard would
+  still be rewritten for one word, and `chrome.storage` charges nothing per item
+  that shards would save. Mutations in one context run one at a time, since each
+  reads what the last wrote.
+- **Local is the authority.** `unlimitedStorage` lifts its quota, so it is the
+  area every write reaches — which is why a merge lets it decide a word's
+  retired and chosen flags.
+- **Sync carries a share, deliberately.** Its quotas (8 KB an item, 100 KB and
+  512 items in all, and a write rate) cannot hold a reader's record: the old
+  single item passed 8 KB at a few dozen studied words, after which sync kept a
+  fossil and silently dropped every retirement and rating made since. Now
+  `syncSelection` picks the words another device could not rebuild by reading —
+  those with review progress, pinned or retired — ranked by the same order
+  eviction uses (most recent review first) and cut off at
+  `SYNC_BUDGET_BYTES` / `SYNC_BUDGET_ITEMS`, with the met-in sentence left
+  behind. Every write brings sync to exactly that share, one item per word,
+  removing what fell out of it. Past the budget a device receives the most
+  recent reviews, never a months-old snapshot. Reads reconcile both areas with
+  `reconcileStatistics`, unchanged: counts take the higher, the later review
+  wins, local decides the flags; a word another device synced is written into
+  local by the next write. A sync write refused by the rate limit is logged and
+  dropped — the next write carries the change. Clearing statistics does not
+  propagate: another device still holding the words carries them back.
+- **Migration**: the first read or write in each context folds the legacy
+  `wordStatistics` item — local's and sync's, reconciled as before — into the
+  per-word layout, then removes it. Concurrent first calls share that one
+  migration. The legacy record is merged in as the *sync* side, so a run
+  interrupted after moving some words simply runs again without undoing
+  anything done since; the legacy item is removed only once local holds every
+  word. A device still on an older version that writes the legacy item to sync
+  again has it folded in at the next service-worker start.
 - **Write batching**: `popup-storage.ts` accumulates counts with
   `createBatchedDebounce` and writes them through a `BoundedMap` capped at
-  `MAX_TRACKED_WORDS`. Study and Known decisions ride the same batch, so they
+  `MAX_TRACKED_WORDS` (20,000 — not a storage limit, but a bound on what every
+  write reads back). Study and Known decisions ride the same batch, so they
   cannot race the sightings written beside them; the latest decision per word
   wins, and a Known is taken back out of the count. `statusOf` overlays a
   decision still waiting for its batch, so re-hovering a word just marked
-  Known shows it pressed. Eviction is tiered rather than by study count alone —
+  Known shows it pressed. Eviction (`evictionRank`) is tiered rather than by
+  study count alone —
   reviewed words (tie-broken by last review) outrank pinned, which outrank
   retired, which outrank the merely-seen — so pruning cannot throw away FSRS
   history.
@@ -536,6 +564,8 @@ flowchart TD
 ## Extension Permissions
 
 - `storage` — statistics tracking.
+- `unlimitedStorage` — lifts local's 10 MB quota, so the statistics record is
+  bounded by `MAX_TRACKED_WORDS` alone. It carries no install warning.
 - `offscreen` — the document that holds the parsed dictionaries and the OCR engine.
 - `host_permissions: ["<all_urls>"]` — lets the offscreen document fetch an
   image's bytes, and lets the worker screenshot the visible tab for a video
@@ -587,15 +617,17 @@ is written in.
   feature does not handle, and error→`ErrorResponse` conversion.
 - **`ensureOffscreenDocument`** (`src/shared/offscreen-document.ts`) — the one
   offscreen host; popup and OCR both start it and forward.
-- **`RedundantStore`** (`src/shared/redundant-store.ts`) — sync/local
-  reconciliation policy over `StorageManager`. Reads and writes both go through
-  the caller's reconcile; `mutate` writes local first, then sync best-effort.
-- **`statisticsStore` / `STATISTICS_KEY` / `MAX_TRACKED_WORDS`**
-  (`src/shared/statistics-store.ts`) — the single record every feature addresses.
+- **`StatisticsStore` / `statisticsStore` / `mutateStatistics` /
+  `MAX_TRACKED_WORDS`** (`src/shared/statistics-store.ts`) — the single record
+  every feature addresses, one local item per word. `read` reconciles both
+  areas, `mutate` writes local's changed words and then sync's share
+  best-effort, `clear` empties both; the first call migrates the legacy item.
+- **`syncSelection` / `evictionRank`** (`src/shared/statistics-store.ts`) — which
+  words sync carries, and the order both it and eviction rank words in.
 - **`mergeStatistics` / `reconcileStatistics`**
   (`src/shared/statistics-utils.ts`) — the record as both storage areas hold it.
-  Each area is a snapshot of the whole record rather than a share of it, so
-  counts take the higher of the two and local decides a word's retired and
+  Each area's copy of a word is a snapshot of it rather than a share of its
+  count, so counts take the higher of the two and local decides a word's retired and
   chosen flags; reads and writes reconcile through the same function.
 - **`MIN_COUNT` / `isEnrolled`** (`src/shared/statistics-utils.ts`) — whether a
   word is in the deck at all. Tracking a word and drilling it are separate:

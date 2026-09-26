@@ -79,8 +79,13 @@ romanisation, definitions or ranks.
   schedule walk
 - `src/shared/frequency.ts` — rank → band boundaries
 - `src/shared/pinyin.ts` — syllable splitting and tone tagging
-- `src/shared/gloss.ts`, `redundant-store.ts`, `storage-manager.ts`,
-  `message-manager.ts`, `speech.ts`
+- `src/shared/gloss.ts`, `message-manager.ts`, `speech.ts`
+- `src/shared/statistics-store.ts` — per-word writes, the sync share and its
+  quotas, and migrating the legacy item (including an interrupted migration
+  and concurrent first calls). Driven over `src/__tests__/fake-storage.ts`, an
+  in-memory storage area that round-trips values through JSON and can enforce
+  sync's quotas; `asItems` turns a record into the `word:<word>` items it is
+  stored as, which is how tests seed storage
 - `src/stats/ordering.ts` / `overview.ts` — sorting, band filtering, the summary
 - `src/stats/backup.ts` — the backup round trip, which files are refused and
   why, and the restore merge (nothing already recorded is lost)
