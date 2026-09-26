@@ -274,6 +274,10 @@ export interface GetStatisticsMessage {
   type: 'get_statistics';
 }
 
+export interface GetReviewLogMessage {
+  type: 'get_review_log';
+}
+
 export interface UpdateFlashcardMessage {
   type: 'update_flashcard';
   word: string;
@@ -286,6 +290,7 @@ export type BackgroundMessage =
   | LookupMessage
   | TrackWordMessage
   | GetStatisticsMessage
+  | GetReviewLogMessage
   | UpdateFlashcardMessage
   | SetWordStatusMessage
   | OcrImageMessage
@@ -309,6 +314,12 @@ export interface StatisticsResponse {
   success: true;
   type: 'get_statistics';
   statistics: Statistics;
+}
+
+export interface ReviewLogResponse {
+  success: true;
+  type: 'get_review_log';
+  log: ReviewLog;
 }
 
 export interface TrackWordResponse {
@@ -355,6 +366,7 @@ export type BackgroundResponse =
   | LookupResponse
   | ErrorResponse
   | StatisticsResponse
+  | ReviewLogResponse
   | TrackWordResponse
   | UpdateFlashcardResponse
   | SetWordStatusResponse

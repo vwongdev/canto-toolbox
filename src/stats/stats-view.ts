@@ -1,6 +1,7 @@
 import type {
   FlashcardStage,
   FrequencyBand,
+  ReviewLog,
   WordStatistics,
   LookupResponse,
   ErrorResponse,
@@ -16,6 +17,17 @@ import { BAND_LABELS } from '../shared/frequency.js';
 import { MAX_TRACKED_WORDS } from '../shared/statistics-store.js';
 import { bandOf, sortWords, SORT_LABELS, type SortKey } from './ordering.js';
 import type { StudyOverview } from './overview.js';
+import {
+  activityDays,
+  activityLevel,
+  currentStreak,
+  ACTIVITY_LEVELS,
+  ACTIVITY_WEEKS,
+  FORECAST_DAYS,
+  type BandCoverage,
+  type DirectionRetention,
+  type ForecastDay,
+} from './insights.js';
 
 export const ELEMENT_IDS = {
   loading: 'loading',
@@ -604,5 +616,270 @@ function toggleExpansion(
   }
 
   header.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+}
+
+export const INSIGHT_IDS = {
+  forecastHeadline: 'forecast-headline',
+  forecastBody: 'forecast-body',
+  activityHeadline: 'activity-headline',
+  activityBody: 'activity-body',
+  retentionHeadline: 'retention-headline',
+  retentionBody: 'retention-body',
+  coverageHeadline: 'coverage-headline',
+  coverageBody: 'coverage-body',
+} as const;
+
+/**
+ * Fills one collapsible section. The headline sits in the summary, so a
+ * section still says its one thing while closed — which is how the popup
+ * shows it.
+ */
+function fillInsight(
+  document: Document,
+  headlineId: string,
+  bodyId: string,
+  headline: string,
+  body: HTMLElement[],
+): void {
+  const headlineEl = document.getElementById(headlineId);
+  const bodyEl = document.getElementById(bodyId);
+  if (headlineEl) headlineEl.textContent = headline;
+  bodyEl?.replaceChildren(...body);
+}
+
+function insightNote(text: string, className = 'insight-note'): HTMLElement {
+  return createElement({ tag: 'p', className, textContent: text });
+}
+
+function plural(count: number, one: string, many = `${one}s`): string {
+  return `${count.toLocaleString()} ${count === 1 ? one : many}`;
+}
+
+function describeDay(start: number): string {
+  return new Date(start).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+/**
+ * Bars rather than a list of dates: the question is the shape — a quiet week
+ * or a pile-up on Thursday — and a column per day answers it at a glance. Only
+ * the peak is labelled; every bar names its day and count on hover.
+ */
+export function renderForecast(document: Document, days: ForecastDay[]): void {
+  const total = days.reduce((sum, day) => sum + day.count, 0);
+
+  if (total === 0) {
+    fillInsight(document, INSIGHT_IDS.forecastHeadline, INSIGHT_IDS.forecastBody, 'Nothing scheduled', [
+      insightNote('No card has a review date yet. Rate a flashcard and its next one lands here.', 'insight-empty'),
+    ]);
+    return;
+  }
+
+  const max = Math.max(...days.map(day => day.count));
+  const peak = days.findIndex(day => day.count === max);
+
+  const bars = days.map((day, i) => {
+    const label = `${i === 0 ? 'Today' : describeDay(day.start)}: ${plural(day.count, 'card')}`;
+
+    return createElement({
+      tag: 'li',
+      className: 'forecast-day',
+      attributes: { title: label, 'aria-label': label },
+      children: [
+        createElement({
+          className: 'forecast-value',
+          textContent: i === peak ? String(day.count) : '',
+        }),
+        createElement({
+          className: 'forecast-track',
+          children: [
+            createElement({
+              className: day.count > 0 ? 'forecast-bar' : 'forecast-bar is-zero',
+              style: { height: `${(day.count / max) * 100}%` },
+            }),
+          ],
+        }),
+        createElement({
+          className: 'forecast-label',
+          textContent: i === 0 ? 'Today' : String(new Date(day.start).getDate()),
+          attributes: { 'aria-hidden': 'true' },
+        }),
+      ],
+    });
+  });
+
+  fillInsight(
+    document,
+    INSIGHT_IDS.forecastHeadline,
+    INSIGHT_IDS.forecastBody,
+    `${plural(total, 'card')} in ${FORECAST_DAYS} days`,
+    [
+      createElement({
+        tag: 'ol',
+        className: 'forecast',
+        attributes: { 'aria-label': `Cards due on each of the next ${FORECAST_DAYS} days` },
+        children: bars,
+      }),
+      insightNote('Today includes every card already overdue.'),
+    ],
+  );
+}
+
+/**
+ * The streak and a calendar of past study. Nothing was logged by day before
+ * the log existed, so an empty log is said to be empty rather than drawn as
+ * months of rest days the reader may well have spent studying.
+ */
+export function renderActivity(
+  document: Document,
+  log: ReviewLog | undefined,
+  now: number = Date.now(),
+): void {
+  const { activityHeadline, activityBody } = INSIGHT_IDS;
+
+  if (!log) {
+    fillInsight(document, activityHeadline, activityBody, '', [
+      insightNote('Review history could not be loaded.', 'insight-empty'),
+    ]);
+    return;
+  }
+
+  const logged = Object.values(log).some(count => count > 0);
+  if (!logged) {
+    fillInsight(document, activityHeadline, activityBody, 'No reviews logged yet', [
+      insightNote(
+        'Reviews are counted by day from now on. Earlier study was not recorded by day, so the calendar starts empty.',
+        'insight-empty',
+      ),
+    ]);
+    return;
+  }
+
+  const streak = currentStreak(log, now);
+  const days = activityDays(log, now);
+  const max = Math.max(...days.map(day => day.count));
+  const shown = days.reduce((sum, day) => sum + day.count, 0);
+
+  const cells = days.map(day => {
+    const label = `${day.key}: ${plural(day.count, 'review')}`;
+    return createElement({
+      className: `activity-cell activity-cell--${activityLevel(day.count, max)}`,
+      attributes: { title: label },
+    });
+  });
+
+  const legend = createElement({
+    className: 'activity-legend',
+    attributes: { 'aria-hidden': 'true' },
+    children: [
+      'Less',
+      ...Array.from({ length: ACTIVITY_LEVELS + 1 }, (_, level) =>
+        createElement({ className: `activity-cell activity-cell--${level}` }),
+      ),
+      'More',
+    ],
+  });
+
+  fillInsight(
+    document,
+    activityHeadline,
+    activityBody,
+    streak > 0 ? `${streak}-day streak` : 'No current streak',
+    [
+      createElement({
+        className: 'activity-grid',
+        attributes: {
+          role: 'img',
+          'aria-label': `${plural(shown, 'review')} over the last ${ACTIVITY_WEEKS} weeks`,
+        },
+        children: cells,
+      }),
+      legend,
+      insightNote(`${plural(shown, 'review')} in the last ${ACTIVITY_WEEKS} weeks`),
+    ],
+  );
+}
+
+/** Each direction's own name, so a card added later is labelled without an edit here. */
+function directionLabel(direction: string): string {
+  return direction.charAt(0).toUpperCase() + direction.slice(1);
+}
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function meterRow(label: string, fraction: number | undefined, value: string): HTMLElement {
+  return createElement({
+    className: 'meter-row',
+    children: [
+      createElement({ className: 'meter-label', textContent: label }),
+      createElement({
+        className: 'meter-track',
+        children: fraction === undefined || fraction <= 0 ? [] : [
+          createElement({
+            className: 'meter-fill',
+            style: { width: `${Math.min(fraction, 1) * 100}%` },
+          }),
+        ],
+      }),
+      createElement({ className: 'meter-value', textContent: value }),
+    ],
+  });
+}
+
+export function renderRetention(document: Document, retention: DirectionRetention[]): void {
+  const reviewed = retention.filter(entry => entry.accuracy !== undefined);
+
+  // The weakest direction is the one worth naming, but only once there is
+  // another to compare it with.
+  const weakest = reviewed.length > 1
+    ? reviewed.reduce((low, entry) => (entry.accuracy! < low.accuracy! ? entry : low))
+    : undefined;
+
+  const rows = retention.map(entry => meterRow(
+    directionLabel(entry.direction),
+    entry.accuracy,
+    entry.accuracy === undefined
+      ? 'No reviews yet'
+      : `${percent(entry.accuracy)} of ${entry.reviews.toLocaleString()}`,
+  ));
+
+  fillInsight(
+    document,
+    INSIGHT_IDS.retentionHeadline,
+    INSIGHT_IDS.retentionBody,
+    weakest ? `Weakest: ${directionLabel(weakest.direction)} ${percent(weakest.accuracy!)}` : '',
+    [...rows, insightNote('Share of answers rated Good or Easy, retired words aside.')],
+  );
+}
+
+export function renderCoverage(document: Document, coverage: BandCoverage[]): void {
+  const known = coverage.reduce((sum, entry) => sum + entry.known, 0);
+
+  const rows = coverage.map(entry => meterRow(
+    BAND_LABELS[entry.band],
+    entry.size === undefined ? undefined : entry.known / entry.size,
+    entry.size === undefined
+      ? `${entry.known.toLocaleString()} known`
+      : `${entry.known.toLocaleString()} / ${entry.size.toLocaleString()}`,
+  ));
+
+  fillInsight(
+    document,
+    INSIGHT_IDS.coverageHeadline,
+    INSIGHT_IDS.coverageBody,
+    `${plural(known, 'word')} known`,
+    [
+      ...rows,
+      insightNote(
+        'Known means its recognition card is Familiar or Mastered, or you retired it. ' +
+        'A word buried for being forgotten does not count.',
+      ),
+    ],
+  );
 }
 

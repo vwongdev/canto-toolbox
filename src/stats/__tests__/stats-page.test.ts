@@ -46,6 +46,7 @@ function createClient(): StatsClient {
     getStatistics: vi.fn(cb =>
       cb({ success: true, type: 'get_statistics', statistics: STATISTICS })
     ),
+    getReviewLog: vi.fn(cb => cb({ success: true, type: 'get_review_log', log: {} })),
     lookupWord: vi.fn(),
     setWordStatus: vi.fn((_word, _status, cb) => cb({ success: true, type: 'set_word_status' })),
   };
@@ -470,5 +471,89 @@ describe('StatsManager row status', () => {
     press(openRow('常見'), 'retire');
 
     expect(row('常見')).toBeNull();
+  });
+});
+
+describe('StatsManager insights', () => {
+  function load(client: StatsClient = createClient()): Document {
+    const page = new DOMParser().parseFromString(HTML, 'text/html');
+    new StatsManager(page, client, storage).init();
+    return page;
+  }
+
+  function withLog(response: Parameters<Parameters<StatsClient['getReviewLog']>[0]>[0]): StatsClient {
+    return { ...createClient(), getReviewLog: vi.fn(cb => cb(response)) };
+  }
+
+  it('counts an overdue card in the forecast', () => {
+    const page = load();
+
+    expect(page.getElementById('forecast-headline')!.textContent).toBe('1 card in 14 days');
+    expect(page.querySelectorAll('.forecast-day')).toHaveLength(14);
+  });
+
+  // Nobody's log goes back before this feature; months of blank squares would
+  // claim they did not study.
+  it('says the log is empty rather than drawing an empty calendar', () => {
+    const page = load();
+
+    expect(page.getElementById('activity-headline')!.textContent).toBe('No reviews logged yet');
+    expect(page.querySelector('.activity-grid')).toBeNull();
+  });
+
+  it('shows the streak and a calendar once reviews are logged', () => {
+    const today = new Date();
+    const key = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+    const page = load(withLog({ success: true, type: 'get_review_log', log: { [key]: 3 } }));
+
+    expect(page.getElementById('activity-headline')!.textContent).toBe('1-day streak');
+    expect(page.querySelectorAll('.activity-grid .activity-cell--4')).toHaveLength(1);
+  });
+
+  it('keeps the rest of the page when the log fails to load', () => {
+    const page = load(withLog({ success: false, error: 'boom' }));
+
+    expect(page.getElementById('activity-body')!.textContent).toContain('could not be loaded');
+    expect(page.getElementById('forecast-headline')!.textContent).toBe('1 card in 14 days');
+  });
+
+  it('lists every review direction with its accuracy', () => {
+    const page = load();
+    const rows = Array.from(
+      page.querySelectorAll('#retention-body .meter-row'),
+      el => [el.querySelector('.meter-label')!.textContent, el.querySelector('.meter-value')!.textContent],
+    );
+
+    expect(rows).toEqual([
+      ['Recognition', '50% of 2'],
+      ['Production', 'No reviews yet'],
+      ['Components', 'No reviews yet'],
+      ['Writing', 'No reviews yet'],
+    ]);
+  });
+
+  // 退休 is retired and 到期 has a graduated recognition card.
+  it('counts a retired word as known in its band', () => {
+    const page = load();
+    const core = page.querySelector('#coverage-body .meter-row')!;
+
+    expect(core.querySelector('.meter-label')!.textContent).toBe('Core 1000');
+    expect(core.querySelector('.meter-value')!.textContent).toBe('1 / 1,000');
+    expect(page.getElementById('coverage-headline')!.textContent).toBe('2 words known');
+  });
+
+  it('updates coverage when a word is retired from the list', () => {
+    const page = load();
+    const item = page.querySelector('.stat-item[data-word="常見"]')!;
+    (item.querySelector('.stat-header') as HTMLButtonElement)
+      .dispatchEvent(new Event('click', { bubbles: true }));
+    (item.querySelector('[data-action="retire"]') as HTMLButtonElement)
+      .dispatchEvent(new Event('click', { bubbles: true }));
+
+    expect(page.getElementById('coverage-headline')!.textContent).toBe('3 words known');
   });
 });

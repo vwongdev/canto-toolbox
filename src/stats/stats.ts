@@ -2,6 +2,7 @@ import type {
   StatisticsResponse,
   LookupResponse,
   ErrorResponse,
+  ReviewLogResponse,
   Statistics,
   WordStatus,
 } from '../shared/types.js';
@@ -15,6 +16,10 @@ import {
   renderDefinitionLoading,
   renderDefinition,
   renderOverview,
+  renderActivity,
+  renderCoverage,
+  renderForecast,
+  renderRetention,
   renderSortOptions,
   refreshStatRow,
   updateFilterCounts,
@@ -23,6 +28,7 @@ import {
   type StatsElements
 } from './stats-view.js';
 import { summarise } from './overview.js';
+import { bandCoverage, forecast, retentionByDirection } from './insights.js';
 import { DEFAULT_SORT, isSortKey } from './ordering.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
 import { TransferControls } from './transfer-controls.js';
@@ -51,6 +57,7 @@ export class StatsManager {
 
   init(): void {
     this.loadStatistics();
+    this.loadReviewLog();
     this.setupClearButton();
     this.setupFlashcardButton();
     new TransferControls(this.document, this.client, this.storage, () => this.loadStatistics()).init();
@@ -93,6 +100,7 @@ export class StatsManager {
     // The overview reads the whole record on purpose: what is owed does not
     // change because the list below is filtered to one stage.
     renderOverview(this.document, summarise(statistics));
+    this.renderInsights(statistics);
     updateFilterCounts(elements, statistics, this.view);
     updateFilterTabStates(elements, this.view);
     renderStatistics(
@@ -103,6 +111,23 @@ export class StatsManager {
       (word, status) => this.setWordStatus(elements, word, status),
       () => this.clearFilters(elements),
     );
+  }
+
+  /** Like the overview, the insights read the whole record and ignore the list's filters. */
+  private renderInsights(statistics: Statistics): void {
+    renderForecast(this.document, forecast(statistics));
+    renderRetention(this.document, retentionByDirection(statistics));
+    renderCoverage(this.document, bandCoverage(statistics));
+  }
+
+  /**
+   * The review log is a record of its own, so it is fetched on its own: a page
+   * whose log fails to load still shows everything the statistics can say.
+   */
+  private loadReviewLog(): void {
+    this.client.getReviewLog((response: ReviewLogResponse | ErrorResponse | undefined) => {
+      renderActivity(this.document, response?.success ? response.log : undefined);
+    });
   }
 
   /** The way out is offered as "Show all words", so it has to mean all of them. */
@@ -130,6 +155,7 @@ export class StatsManager {
     this.client.setWordStatus(word, status, () => {});
 
     renderOverview(this.document, summarise(this.cachedStatistics));
+    this.renderInsights(this.cachedStatistics);
     updateFilterCounts(elements, this.cachedStatistics, this.view);
 
     if (!refreshStatRow(elements, word, updated, this.view)) {
