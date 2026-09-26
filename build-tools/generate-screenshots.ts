@@ -108,9 +108,11 @@ async function injectSampleStatistics(page: Page, extensionId: string, stats: St
   const statsUrl = `chrome-extension://${extensionId}/src/stats/stats.html`;
   await page.goto(statsUrl);
 
-  // Inject sample statistics into chrome.storage.sync (key: wordStatistics)
+  // Inject sample statistics into chrome.storage.local, one `word:<word>` item each
   await page.evaluate(async (stats) => {
-    await chrome.storage.sync.set({ wordStatistics: stats });
+    await chrome.storage.local.set(
+      Object.fromEntries(Object.entries(stats).map(([word, stat]) => [`word:${word}`, stat])),
+    );
   }, stats);
 
   // Reload the page to show the injected stats
