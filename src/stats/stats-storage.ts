@@ -1,6 +1,4 @@
-import { RedundantStore } from '../shared/redundant-store.js';
-import { STATISTICS_KEY, mutateStatistics, statisticsStore } from '../shared/statistics-store.js';
-import { reconcileStatistics } from '../shared/statistics-utils.js';
+import { StatisticsStore, statisticsStore } from '../shared/statistics-store.js';
 import type { Statistics } from '../shared/types';
 import { restoreBackup, type RestoreOutcome } from './backup.js';
 
@@ -11,21 +9,21 @@ export interface StatsStorage {
 }
 
 export class StatsStorageClient implements StatsStorage {
-  constructor(private readonly store: RedundantStore) {}
+  constructor(private readonly store: StatisticsStore) {}
 
   async getStatistics(): Promise<Statistics> {
-    return this.store.read<Statistics>(STATISTICS_KEY, reconcileStatistics);
+    return this.store.read();
   }
 
   /** Both areas are emptied — a read reconciles them, so clearing one is not enough. */
   async clearStatistics(): Promise<void> {
-    await this.store.writeBoth<Statistics>(STATISTICS_KEY, {});
+    await this.store.clear();
   }
 
   /** Merged into the record through the one write path every feature shares. */
   async restoreStatistics(backup: Statistics): Promise<RestoreOutcome> {
     let outcome: RestoreOutcome | undefined;
-    await mutateStatistics((existing) => {
+    await this.store.mutate((existing) => {
       outcome = restoreBackup(existing, backup);
       return outcome.statistics;
     });

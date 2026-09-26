@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../shared/statistics-store.js', () => ({
-  STATISTICS_KEY: 'wordStatistics',
   mutateStatistics: vi.fn(),
 }));
 

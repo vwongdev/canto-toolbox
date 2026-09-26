@@ -274,8 +274,10 @@ function matchesView(stat: WordStatistics, view: ListView): boolean {
  * once the record is full, so the number is worth showing before it bites.
  */
 function describeTotal(total: number): string {
-  const words = `${total} ${total === 1 ? 'word' : 'words'} tracked`;
-  return total >= MAX_TRACKED_WORDS * 0.8 ? `${words} of ${MAX_TRACKED_WORDS}` : words;
+  const words = `${total.toLocaleString()} ${total === 1 ? 'word' : 'words'} tracked`;
+  return total >= MAX_TRACKED_WORDS * 0.8
+    ? `${words} of ${MAX_TRACKED_WORDS.toLocaleString()}`
+    : words;
 }
 
 /**

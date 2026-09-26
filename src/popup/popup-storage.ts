@@ -1,40 +1,11 @@
-import { RedundantStore } from '../shared/redundant-store.js';
-import { MAX_TRACKED_WORDS, STATISTICS_KEY, statisticsStore } from '../shared/statistics-store.js';
+import { MAX_TRACKED_WORDS, StatisticsStore, evictionRank, statisticsStore } from '../shared/statistics-store.js';
 import { createBatchedDebounce } from '../shared/debounce.js';
 import { BoundedMap } from '../shared/bounded-map.js';
-import { applyWordStatus, lastReviewedAt, reconcileStatistics } from '../shared/statistics-utils.js';
+import { applyWordStatus } from '../shared/statistics-utils.js';
 import { MAX_CONTEXT_CHARS } from '../shared/context-sentence.js';
 import type { Statistics, WordStatus } from '../shared/types';
 
 const DEBOUNCE_DELAY = 500;
-
-/**
- * Eviction tiers, ordered by what is lost when the entry goes. Each tier is
- * far enough above the last that the value ranking within it — a timestamp, a
- * hover count — can never carry an entry into the tier above.
- */
-const REVIEWED_TIER = 4e15;
-const PINNED_TIER = 2e15;
-const SUPPRESSED_TIER = 1e15;
-
-/**
- * Study count decides which words get evicted when the cap is hit, but a word
- * that has been reviewed carries progress that cannot be recovered by reading
- * it again — so anything in the flashcard deck outranks every unreviewed word
- * regardless of how rarely it is studied.
- *
- * Within the deck the tie-break is the last review: ranking every reviewed
- * word identically left the order among them to chance, which threw away real
- * FSRS history once the deck alone filled the cap. A word the reader retired
- * or asked for is a decision rather than progress, so it sits between the two.
- */
-function evictionRank(entry: Statistics[string]): number {
-  const reviewed = lastReviewedAt(entry);
-  if (reviewed !== undefined) return REVIEWED_TIER + reviewed;
-  if (entry.pinned) return PINNED_TIER + entry.count;
-  if (entry.suppressed) return SUPPRESSED_TIER + entry.count;
-  return entry.count;
-}
 
 /** What a sighting knows about the word beyond the fact that it happened. */
 export interface WordDetails {
@@ -76,7 +47,7 @@ export class PopupStorageClient implements PopupStorage {
    */
   private readonly pendingDecisions = new Map<string, number>();
 
-  constructor(private readonly store: RedundantStore) {
+  constructor(private readonly store: StatisticsStore) {
     this.queueUpdate = createBatchedDebounce(
       (updates) => this.flushUpdates(updates),
       DEBOUNCE_DELAY
@@ -151,7 +122,7 @@ export class PopupStorageClient implements PopupStorage {
     this.pendingStatuses.clear();
     this.pendingDecisions.clear();
 
-    await this.store.mutate<Statistics>(STATISTICS_KEY, reconcileStatistics, (existing) => {
+    await this.store.mutate((existing) => {
       const now = Date.now();
       const stats = new BoundedMap<string, Statistics[string]>(
         MAX_TRACKED_WORDS,
