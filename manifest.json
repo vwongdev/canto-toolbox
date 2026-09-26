@@ -5,6 +5,7 @@
   "description": "Hover Chinese text for Mandarin and Cantonese definitions with audio, radical breakdown, and spaced-repetition flashcards.",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "offscreen"
   ],
   "host_permissions": [
