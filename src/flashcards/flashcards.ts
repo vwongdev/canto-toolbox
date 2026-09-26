@@ -7,7 +7,13 @@ import type {
   Statistics,
 } from '../shared/types.js';
 import { flashcardClient, type FlashcardClient } from './flashcard-client.js';
-import { cardKey, nextReviewAt, selectSession, type ReviewCard } from './session.js';
+import {
+  cardKey,
+  nextReviewAt,
+  selectSession,
+  type DeckCapabilities,
+  type ReviewCard,
+} from './session.js';
 import {
   ELEMENT_IDS,
   SCREEN_IDS,
@@ -20,6 +26,7 @@ import {
   renderFront,
   renderFrontLoading,
   renderWritingFront,
+  renderListeningFront,
   renderWritingBack,
   renderBack,
   renderBackLoading,
@@ -36,6 +43,8 @@ import {
 import { previewSchedule } from '../shared/scheduler.js';
 import { progressFor } from '../shared/statistics-utils.js';
 import { ratingForMistakes, startQuiz, type WritingQuiz } from './writing.js';
+import { listeningReading } from './listening.js';
+import { speak, whenVoicesReady, type Reading } from '../shared/speech.js';
 
 const NOTHING_TRACKED =
   'No words to review yet.\nPress + Study in the popup to add a word, ' +
@@ -84,8 +93,12 @@ function formatRelative(deltaMs: number): string {
   return format.format(Math.round(hours / 24), 'day');
 }
 
-function emptyStateMessage(statistics: Statistics, now: number): string {
-  const next = nextReviewAt(statistics);
+function emptyStateMessage(
+  statistics: Statistics,
+  now: number,
+  capabilities: DeckCapabilities,
+): string {
+  const next = nextReviewAt(statistics, capabilities);
   if (next === undefined) return NOTHING_TRACKED;
 
   return `All caught up.\nYour next review is due ${formatRelative(next - now)}.`;
@@ -115,6 +128,8 @@ export class FlashcardManager {
   private pendingRating: FlashcardRating | undefined;
   /** What the last retirement took out of the session, in case it was a slip. */
   private retired: RetiredWord | undefined;
+  /** The reading listening cards play in, or null when no voice can say one. */
+  private listening: Reading | null = null;
 
   constructor(document: Document, client: FlashcardClient) {
     this.document = document;
@@ -137,22 +152,32 @@ export class FlashcardManager {
         return;
       }
 
-      const now = Date.now();
-      const session = selectSession(response.statistics, now);
-
-      if (session.length === 0) {
-        renderEmptyState(this.document, emptyStateMessage(response.statistics, now));
-        return;
-      }
-
-      this.statistics = response.statistics;
-      this.sessionCards = session;
-      this.reviewQueue = [...session];
-      this.correctCount = 0;
-      this.totalCount = session.length;
-      setScreen(this.document, SCREEN_IDS.review);
-      this.showNextCard();
+      // Whether listening cards can be offered is only known once the voices
+      // have loaded, and the session is built around the answer.
+      whenVoicesReady(voices => {
+        this.listening = listeningReading(voices);
+        this.startSession(response.statistics);
+      });
     });
+  }
+
+  private startSession(statistics: Statistics): void {
+    const now = Date.now();
+    const capabilities: DeckCapabilities = { listening: this.listening !== null };
+    const session = selectSession(statistics, now, capabilities);
+
+    if (session.length === 0) {
+      renderEmptyState(this.document, emptyStateMessage(statistics, now, capabilities));
+      return;
+    }
+
+    this.statistics = statistics;
+    this.sessionCards = session;
+    this.reviewQueue = [...session];
+    this.correctCount = 0;
+    this.totalCount = session.length;
+    setScreen(this.document, SCREEN_IDS.review);
+    this.showNextCard();
   }
 
   showNextCard(): void {
@@ -181,7 +206,25 @@ export class FlashcardManager {
       return;
     }
 
+    if (card.direction === 'listening') {
+      renderListeningFront(this.document, card, () => this.replay());
+      this.replay();
+      return;
+    }
+
     renderFront(this.document, card);
+  }
+
+  /**
+   * Say the listening card's word. Chrome refuses speech before the page has
+   * seen a click or a key, so the first card of a freshly opened tab may play
+   * nothing on its own — which is what the replay button and `R` are for.
+   */
+  private replay(): void {
+    const card = this.currentCard();
+    if (card?.direction !== 'listening' || !this.listening) return;
+
+    speak(card.word, this.listening);
   }
 
   /**
@@ -262,9 +305,12 @@ export class FlashcardManager {
 
     renderBackLoading(this.document);
 
+    const listening = card.direction === 'listening';
+    const heard = listening && this.listening ? { heard: this.listening } : {};
+
     this.withDefinition(card, definition => {
-      if (definition) renderBack(this.document, card, definition);
-      else renderBackError(this.document);
+      if (definition) renderBack(this.document, card, definition, heard);
+      else renderBackError(this.document, listening ? card.word : undefined);
       this.priceRatings(card);
     });
   }
@@ -335,6 +381,13 @@ export class FlashcardManager {
 
     if (key === 'k' || key === 'K') {
       this.retireCurrentWord();
+      return true;
+    }
+
+    // Replaying is offered on both faces: the answer is easier to learn from
+    // with the sound heard against the word it turned out to be.
+    if ((key === 'r' || key === 'R') && getCurrentDirection(this.document) === 'listening') {
+      this.replay();
       return true;
     }
 

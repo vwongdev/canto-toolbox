@@ -125,6 +125,18 @@ describe('mergeStatistics', () => {
     expect(result['好']!.flashcard).toEqual(late);
     expect(result['好']!.production).toEqual(late);
   });
+
+  it('keeps the most recent listening progress', () => {
+    const early = { reviews: 1, consecutiveCorrect: 1, lastReviewed: 100 };
+    const late = { reviews: 4, consecutiveCorrect: 4, lastReviewed: 900 };
+
+    const result = mergeStatistics(
+      { 好: { count: 1, firstSeen: 1, lastSeen: 2, listening: late } },
+      { 好: { count: 1, firstSeen: 1, lastSeen: 2, listening: early } }
+    );
+
+    expect(result['好']!.listening).toEqual(late);
+  });
 });
 
 describe('lastReviewedAt and nextDueAt', () => {
@@ -166,6 +178,13 @@ describe('lastReviewedAt and nextDueAt', () => {
     // DIRECTION_KEYS is a hand-written list, so a direction missing from it
     // would be silently skipped by every aggregate rather than fail to build.
     const stat = { ...base, flashcard: withSrs(900, 100), writing: withSrs(50, 700) };
+
+    expect(nextDueAt(stat)).toBe(50);
+    expect(lastReviewedAt(stat)).toBe(700);
+  });
+
+  it('walks the listening schedule alongside the others', () => {
+    const stat = { ...base, flashcard: withSrs(900, 100), listening: withSrs(50, 700) };
 
     expect(nextDueAt(stat)).toBe(50);
     expect(lastReviewedAt(stat)).toBe(700);

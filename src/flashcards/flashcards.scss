@@ -224,6 +224,27 @@ body {
   color: t.$color-rating-good;
 }
 
+.card-kind--listening {
+  background: t.$color-sound-tint;
+  color: t.$color-sound;
+}
+
+// The whole question on a listening card, so it is sized to be one rather
+// than to sit beside a word the card does not show.
+.card-listen svg {
+  width: 32px;
+  height: 32px;
+}
+
+// Which reading the listening card spoke, above the definition that lists both.
+.card-heard {
+  margin-bottom: t.$space-4;
+  color: t.$color-sound;
+  font-size: t.$text-sm;
+  font-weight: 600;
+  text-align: center;
+}
+
 // The grid the stroke quiz draws into. hanzi-writer sizes the SVG itself, so
 // this only has to centre it and rule off the writing area.
 .card-writing {

@@ -3,6 +3,8 @@ import { createElement, setMultilineText } from '../shared/dom-element.js';
 import { createDefinitionElement } from '../shared/definition-section.js';
 import { createContextSentence } from '../shared/context-sentence.js';
 import { primaryGloss } from '../shared/gloss.js';
+import { SPEAKER_SVG, createIcon } from '../shared/icons.js';
+import type { Reading } from '../shared/speech.js';
 import type { ReviewCard } from './session.js';
 
 export const ELEMENT_IDS = {
@@ -132,6 +134,7 @@ export function isAnswerRevealable(document: Document): boolean {
 const PROMPTS: Readonly<Record<ReviewDirection, string>> = {
   recognition: 'What does it mean?',
   production: 'Which word is it?',
+  listening: 'What did you hear?',
   components: 'What is it made of?',
   writing: 'In what stroke order?',
 };
@@ -139,6 +142,7 @@ const PROMPTS: Readonly<Record<ReviewDirection, string>> = {
 const DIRECTION_LABELS: Readonly<Record<ReviewDirection, string>> = {
   recognition: 'Recognise',
   production: 'Produce',
+  listening: 'Listen',
   components: 'Parts',
   writing: 'Write',
 };
@@ -241,6 +245,27 @@ export function renderWritingFront(document: Document, card: ReviewCard): HTMLEl
   return pane;
 }
 
+/**
+ * The listening front: nothing to read, only a way to hear the word again.
+ * The word stays off the card until the answer, since seeing it would turn the
+ * card back into recognition.
+ */
+export function renderListeningFront(
+  document: Document,
+  card: ReviewCard,
+  onReplay: () => void,
+): void {
+  const replay = createIcon(SPEAKER_SVG, {
+    tag: 'button',
+    className: 'btn btn-secondary card-listen',
+    attributes: { type: 'button', 'aria-label': 'Play the word again', title: 'Play again' },
+    listeners: { click: onReplay },
+  });
+  replay.appendChild(createElement({ tag: 'kbd', className: 'key-hint', textContent: 'R' }));
+
+  showFront(document, card, [createPrompt(card.direction), replay], { revealable: true });
+}
+
 /** Placeholder for the one front that cannot be drawn until a lookup returns. */
 export function renderFrontLoading(document: Document, card: ReviewCard): void {
   // Nothing has been asked yet, so there is nothing to reveal.
@@ -263,10 +288,12 @@ export function renderBackLoading(document: Document): void {
   if (showAnswerContainer) showAnswerContainer.style.display = 'none';
 }
 
-export function renderBackError(document: Document): void {
+/** `word` names the answer for a card whose front never showed it. */
+export function renderBackError(document: Document, word?: string): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   if (cardBack) {
     cardBack.replaceChildren();
+    if (word) cardBack.appendChild(createElement({ className: 'card-characters', textContent: word }));
     cardBack.appendChild(
       createElement({ className: 'flashcard-error', textContent: 'Definition not found' })
     );
@@ -367,10 +394,16 @@ export function renderWritingBack(
   if (writingNext) writingNext.style.display = '';
 }
 
+const READING_NAMES: Readonly<Record<Reading, string>> = {
+  jyutping: 'Cantonese',
+  pinyin: 'Mandarin',
+};
+
 export function renderBack(
   document: Document,
   card: ReviewCard,
   definition: DefinitionResult,
+  { heard }: { heard?: Reading } = {},
 ): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   const showAnswerContainer = document.getElementById(ELEMENT_IDS.showAnswerContainer);
@@ -378,13 +411,24 @@ export function renderBack(
 
   if (cardBack) {
     cardBack.replaceChildren();
-    // Only the production card withheld the word, so only its answer leads
-    // with it; the others already have it on the front. The components card is
-    // the one whose answer *is* the breakdown, so its disclosure starts open.
-    // Context is handed to the definition so it lands under the senses and
-    // above the breakdown, rather than after a disclosure that hid it.
+
+    // The definition shows both readings, and the reader only heard one of
+    // them; without this a Mandarin fallback would pass for Cantonese.
+    if (heard) {
+      cardBack.appendChild(
+        createElement({ className: 'card-heard', textContent: `Heard in ${READING_NAMES[heard]}` }),
+      );
+    }
+
+    // Only the production and listening cards withheld the word, so only
+    // their answers lead with it; the others already have it on the front. The
+    // components card is the one whose answer *is* the breakdown, so its
+    // disclosure starts open. Context is handed to the definition so it lands
+    // under the senses and above the breakdown, rather than after a disclosure
+    // that hid it.
+    const withheld = card.direction === 'production' || card.direction === 'listening';
     cardBack.appendChild(
-      createDefinitionElement(card.word, definition, card.direction === 'production', {
+      createDefinitionElement(card.word, definition, withheld, {
         expandEtymology: card.direction === 'components',
         ...(card.context !== undefined && { context: card.context }),
       })

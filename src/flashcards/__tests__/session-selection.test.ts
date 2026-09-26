@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectSession } from '../session.js';
+import { nextReviewAt, selectSession } from '../session.js';
 import { MIN_COUNT } from '../../shared/statistics-utils.js';
 import type { Statistics, WordStatistics } from '../../shared/types.js';
 
@@ -235,5 +235,78 @@ describe('selectSession card directions', () => {
     expect(selectSession(stats, NOW)).toEqual([
       { word: '你好', direction: 'recognition' },
     ]);
+  });
+});
+
+describe('selectSession listening cards', () => {
+  const LISTENING = { listening: true };
+
+  it('introduces listening after production when a voice can play it', () => {
+    const stats: Statistics = {
+      你好: { ...tracked(5), flashcard: srs(HOUR_MS), production: srs(HOUR_MS) },
+    };
+
+    expect(selectSession(stats, NOW, LISTENING)).toEqual([
+      { word: '你好', direction: 'listening' },
+    ]);
+  });
+
+  it('introduces listening before components', () => {
+    const stats: Statistics = {
+      好: { ...tracked(5), decomposable: true, flashcard: srs(HOUR_MS), production: srs(HOUR_MS) },
+    };
+
+    expect(selectSession(stats, NOW, LISTENING)).toEqual([{ word: '好', direction: 'listening' }]);
+  });
+
+  it('withholds listening while recognition is still being learned', () => {
+    const stats: Statistics = { 你好: { ...tracked(5), flashcard: srs(HOUR_MS, 1) } };
+    expect(selectSession(stats, NOW, LISTENING)).toEqual([]);
+  });
+
+  it('never introduces listening without a voice', () => {
+    const stats: Statistics = {
+      你好: { ...tracked(5), flashcard: srs(HOUR_MS), production: srs(HOUR_MS) },
+    };
+
+    expect(selectSession(stats, NOW)).toEqual([]);
+  });
+
+  it('answers a due listening card', () => {
+    const stats: Statistics = {
+      你好: { ...tracked(5), flashcard: srs(HOUR_MS), production: srs(HOUR_MS), listening: srs(-HOUR_MS) },
+    };
+
+    expect(selectSession(stats, NOW, LISTENING)).toEqual([
+      { word: '你好', direction: 'listening' },
+    ]);
+  });
+
+  it('passes over a due listening card it cannot play for the word’s other cards', () => {
+    // The overdue listening card would otherwise win the word's one slot and
+    // then have nothing to play it with.
+    const stats: Statistics = {
+      你好: {
+        ...tracked(5),
+        flashcard: srs(-HOUR_MS),
+        production: srs(HOUR_MS),
+        listening: srs(-100 * HOUR_MS),
+      },
+    };
+
+    expect(selectSession(stats, NOW)).toEqual([{ word: '你好', direction: 'recognition' }]);
+  });
+});
+
+describe('nextReviewAt', () => {
+  it('leaves out a listening card this page cannot play', () => {
+    // Otherwise the empty screen would promise a review that is already
+    // overdue and will never be shown.
+    const stats: Statistics = {
+      你好: { ...tracked(5), flashcard: srs(HOUR_MS), listening: srs(-HOUR_MS) },
+    };
+
+    expect(nextReviewAt(stats)).toBe(NOW + HOUR_MS);
+    expect(nextReviewAt(stats, { listening: true })).toBe(NOW - HOUR_MS);
   });
 });

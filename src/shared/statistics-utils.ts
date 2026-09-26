@@ -83,12 +83,13 @@ export function getFlashcardStage(stat: WordStatistics, now: Date = new Date()):
 export const DIRECTION_FIELD: Readonly<Record<ReviewDirection, keyof WordStatistics>> = {
   recognition: 'flashcard',
   production: 'production',
+  listening: 'listening',
   components: 'components',
   writing: 'writing',
 };
 
 /** Every schedule a word carries, in the order cards are introduced. */
-export const DIRECTION_KEYS = ['flashcard', 'production', 'components', 'writing'] as const;
+export const DIRECTION_KEYS = ['flashcard', 'production', 'listening', 'components', 'writing'] as const;
 
 export function progressFor(
   stat: WordStatistics,

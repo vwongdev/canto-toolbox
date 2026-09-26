@@ -70,10 +70,10 @@ export type FlashcardStage = 'candidate' | 'new' | 'learning' | 'familiar' | 'ma
 
 /**
  * What a card asks for. Recognition (word → meaning) is what reading trains on
- * its own; the other three are what reading never tests, so each carries its
- * own schedule rather than riding on the recognition card.
+ * its own; the others are what reading never tests, so each carries its own
+ * schedule rather than riding on the recognition card.
  */
-export type ReviewDirection = 'recognition' | 'production' | 'components' | 'writing';
+export type ReviewDirection = 'recognition' | 'production' | 'listening' | 'components' | 'writing';
 
 /**
  * Compact projection of an FSRS card. Dates are epoch milliseconds and reals
@@ -111,6 +111,8 @@ export interface WordStatistics {
   flashcard?: FlashcardProgress;
   /** Meaning → word. Unlocked once recognition leaves its learning steps. */
   production?: FlashcardProgress;
+  /** Heard → meaning. Unlocked like production, and only where a voice can say it. */
+  listening?: FlashcardProgress;
   /** Character → its parts. Only for single characters the etymology covers. */
   components?: FlashcardProgress;
   /** Stroke order. Only for single characters the stroke data covers. */

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { findVoice } from '../speech.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { findVoice, whenVoicesReady } from '../speech.js';
 
 function voice(lang: string, name = lang): SpeechSynthesisVoice {
   return { lang, name, default: false, localService: true, voiceURI: name } as SpeechSynthesisVoice;
@@ -40,5 +40,82 @@ describe('findVoice', () => {
 
   it('returns null for an empty voice list', () => {
     expect(findVoice([], 'pinyin')).toBeNull();
+  });
+});
+
+describe('whenVoicesReady', () => {
+  /** A synthesis whose voice list starts as given and fires `voiceschanged` on demand. */
+  function stubSynthesis(initial: SpeechSynthesisVoice[]) {
+    let voices = initial;
+    const target = new EventTarget();
+    vi.stubGlobal('SpeechSynthesisUtterance', class {});
+    vi.stubGlobal('speechSynthesis', {
+      getVoices: () => voices,
+      addEventListener: target.addEventListener.bind(target),
+      removeEventListener: target.removeEventListener.bind(target),
+    });
+
+    return {
+      load(loaded: SpeechSynthesisVoice[]) {
+        voices = loaded;
+        target.dispatchEvent(new Event('voiceschanged'));
+      },
+    };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('hands over a filled list at once', () => {
+    stubSynthesis([voice('zh-HK')]);
+    const callback = vi.fn();
+
+    whenVoicesReady(callback);
+
+    expect(callback).toHaveBeenCalledWith([voice('zh-HK')]);
+  });
+
+  it('waits for an empty list to load', () => {
+    const synthesis = stubSynthesis([]);
+    const callback = vi.fn();
+
+    whenVoicesReady(callback);
+    expect(callback).not.toHaveBeenCalled();
+
+    synthesis.load([voice('zh-CN')]);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith([voice('zh-CN')]);
+  });
+
+  it('gives up on a list that never loads', () => {
+    vi.useFakeTimers();
+    stubSynthesis([]);
+    const callback = vi.fn();
+
+    whenVoicesReady(callback, 1000);
+    vi.advanceTimersByTime(1000);
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith([]);
+  });
+
+  it('answers once even if the voices load after the wait ran out', () => {
+    vi.useFakeTimers();
+    const synthesis = stubSynthesis([]);
+    const callback = vi.fn();
+
+    whenVoicesReady(callback, 1000);
+    vi.advanceTimersByTime(1000);
+    synthesis.load([voice('zh-CN')]);
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands over nothing where the browser has no speech synthesis', () => {
+    const callback = vi.fn();
+    whenVoicesReady(callback);
+    expect(callback).toHaveBeenCalledWith([]);
   });
 });

@@ -73,3 +73,42 @@ export function speak(text: string, reading: Reading): void {
 
   speech.speak(utterance);
 }
+
+/** How long an empty voice list is waited on before it is taken at its word. */
+const VOICES_TIMEOUT_MS = 1500;
+
+/**
+ * Hand over the voice list once it can be trusted. Chrome fills it in after
+ * the page loads and announces that with `voiceschanged`, so an empty list at
+ * startup says nothing yet — but a browser with no voices at all never fires
+ * the event, so the wait is bounded. A list already filled is handed over
+ * synchronously.
+ */
+export function whenVoicesReady(
+  callback: (voices: SpeechSynthesisVoice[]) => void,
+  timeoutMs: number = VOICES_TIMEOUT_MS,
+): void {
+  const speech = synthesis();
+  if (!speech) {
+    callback([]);
+    return;
+  }
+
+  const voices = speech.getVoices();
+  if (voices.length > 0) {
+    callback(voices);
+    return;
+  }
+
+  let settled = false;
+  const settle = (): void => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    speech.removeEventListener('voiceschanged', settle);
+    callback(speech.getVoices());
+  };
+
+  const timer = setTimeout(settle, timeoutMs);
+  speech.addEventListener('voiceschanged', settle);
+}

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 
 /**
@@ -741,5 +741,147 @@ describe('FlashcardManager components cards', () => {
     const section = document.getElementById('card-back')!.querySelector('.popup-etymology-section');
     expect(section?.classList.contains('is-collapsed')).toBe(false);
     expect(section?.querySelectorAll('.popup-etymology-component-glyph')).toHaveLength(2);
+  });
+});
+
+describe('FlashcardManager listening cards', () => {
+  let document: Document;
+  let client: FlashcardClient;
+  let speak: ReturnType<typeof vi.fn>;
+
+  function graduated() {
+    return {
+      reviews: 3,
+      consecutiveCorrect: 3,
+      lastReviewed: 1,
+      srs: {
+        due: Date.now() + 86_400_000,
+        stability: 10,
+        difficulty: 5,
+        scheduledDays: 10,
+        learningSteps: 0,
+        lapses: 0,
+        state: 2,
+      },
+    };
+  }
+
+  /** Recognition and production both scheduled ahead, so listening is next. */
+  const READY: Statistics = {
+    你好: { count: 5, firstSeen: 1, lastSeen: 2, flashcard: graduated(), production: graduated() },
+  };
+
+  /** Voices as the browser reports them; with `loadLater`, empty until `load`. */
+  function stubVoices(langs: string[], { loadLater = false } = {}) {
+    const target = new EventTarget();
+    const all = langs.map(lang => ({ lang, name: lang }) as SpeechSynthesisVoice);
+    let voices = loadLater ? [] : all;
+    speak = vi.fn();
+
+    vi.stubGlobal('speechSynthesis', {
+      getVoices: () => voices,
+      speak,
+      cancel: vi.fn(),
+      addEventListener: target.addEventListener.bind(target),
+      removeEventListener: target.removeEventListener.bind(target),
+    });
+    vi.stubGlobal('SpeechSynthesisUtterance', class {
+      lang = '';
+      voice: SpeechSynthesisVoice | null = null;
+      constructor(public text: string) {}
+    });
+
+    return {
+      load() {
+        voices = all;
+        target.dispatchEvent(new Event('voiceschanged'));
+      },
+    };
+  }
+
+  function start(): void {
+    client = createClient({
+      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics: READY })),
+    });
+    new FlashcardManager(document, client).init();
+  }
+
+  function spoken(): Array<{ text: string; lang: string }> {
+    return speak.mock.calls.map(([utterance]) => utterance as { text: string; lang: string });
+  }
+
+  function direction(): string | undefined {
+    return document.getElementById('card')!.dataset.currentDirection;
+  }
+
+  beforeEach(() => {
+    document = new DOMParser().parseFromString(HTML, 'text/html');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('plays the word in Cantonese as the card appears', () => {
+    stubVoices(['zh-CN', 'zh-HK']);
+    start();
+
+    expect(direction()).toBe('listening');
+    expect(spoken()).toEqual([expect.objectContaining({ text: '你好', lang: 'zh-HK' })]);
+  });
+
+  it('keeps the word itself off the listening front', () => {
+    stubVoices(['zh-HK']);
+    start();
+
+    expect(document.getElementById('card-front')!.textContent).not.toContain('你好');
+  });
+
+  it('plays it again on R', () => {
+    stubVoices(['zh-HK']);
+    start();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true }));
+
+    expect(spoken()).toHaveLength(2);
+  });
+
+  it('reveals the word and says which reading was played', () => {
+    stubVoices(['zh-CN']);
+    start();
+
+    document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+
+    const back = document.getElementById('card-back')!;
+    expect(back.querySelector('.definition-word')?.textContent).toBe('你好');
+    expect(back.querySelector('.card-heard')?.textContent).toBe('Heard in Mandarin');
+  });
+
+  it('rates the listening card rather than the recognition one', () => {
+    stubVoices(['zh-HK']);
+    start();
+
+    document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+
+    expect(client.updateFlashcard).toHaveBeenCalledWith('你好', 'good', 'listening', expect.any(Function));
+  });
+
+  it('offers no listening card without a Chinese voice', () => {
+    stubVoices(['en-US']);
+    start();
+
+    expect(direction()).toBeUndefined();
+    expect(document.getElementById('empty-state')!.style.display).not.toBe('none');
+  });
+
+  it('builds the session once voices that were still loading arrive', () => {
+    const voices = stubVoices(['zh-HK'], { loadLater: true });
+    start();
+    expect(direction()).toBeUndefined();
+
+    voices.load();
+
+    expect(direction()).toBe('listening');
   });
 });
