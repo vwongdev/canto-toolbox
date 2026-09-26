@@ -80,6 +80,8 @@ romanisation, definitions or ranks.
 - `src/shared/frequency.ts` — rank → band boundaries
 - `src/shared/pinyin.ts` — syllable splitting and tone tagging
 - `src/shared/gloss.ts`, `message-manager.ts`, `speech.ts`
+- `src/shared/word-contexts.ts` — near-duplicate sentences, the full-list
+  eviction, merging in met order, and which page addresses are kept or dropped
 - `src/shared/statistics-store.ts` — per-word writes, the sync share and its
   quotas, and migrating the legacy item (including an interrupted migration
   and concurrent first calls). Driven over `src/__tests__/fake-storage.ts`, an

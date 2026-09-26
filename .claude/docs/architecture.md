@@ -83,7 +83,8 @@ canto-toolbox/
 │   │   ├── speech.ts          # Browser TTS, per-reading voice matching
 │   │   ├── etymology-section.ts     # Etymology section component
 │   │   ├── definition-section.ts    # Shared definition-container component
-│   │   ├── context-sentence.ts      # Met-in sentence, plain or cloze-blanked
+│   │   ├── context-sentence.ts      # Met-in sentences, plain or cloze-blanked
+│   │   ├── word-contexts.ts   # Which sentences a word keeps, and what of their page
 │   │   ├── gloss.ts           # Short English gloss for a production prompt
 │   │   ├── pinyin.ts          # toSyllables() tone-tagged syllable split
 │   │   ├── styles/            # Shared SCSS partials (tokens, dark mode, …)
@@ -178,8 +179,10 @@ flowchart TD
   `contenteditable` has focus, where Shift is typing.
 - **Study signal**: showing a popup is not studying. After `DWELL_MS` with the
   popup still on the same word, the script sends `track_word` — once per word,
-  along with `extractContext`'s snippet of the sentence it was met in. The
-  popup's **+ Study** button sends the same message at once, with `pin` set.
+  along with `extractContext`'s snippet of the sentence it was met in and the
+  page's `location.href` and `document.title` (added by `popup-client.ts`, and
+  sent whole — the write path decides what of them is kept). The popup's
+  **+ Study** button sends the same message at once, with `pin` set.
 - **Known**: beside **+ Study**, a toggle that sends `mark_known` — the same
   retirement `set_word_status` makes (`suppressed`, progress kept, the pin
   cleared), but it records a word not yet tracked so the retirement has an
@@ -339,8 +342,9 @@ flowchart TD
   All DOM construction lives in `stats-view.ts`, which also owns the element
   ids the page's HTML and its tests share.
 - Renders the frequency list with lazily-expanded definitions (rendered by the
-  shared `definition-section`), the sentence each word was met in, study
-  counts, and a clear action.
+  shared `definition-section`), every sentence each word was met in — each
+  linking to its page in a new tab (`rel="noopener"`) where one was kept —
+  study counts, and a clear action.
 - Above the list, `overview.ts` summarises the whole record — cards due now,
   due today, review accuracy and retired count — deliberately unaffected by the
   list's own filters. `ordering.ts` supplies the frequency-band filter and the
@@ -384,7 +388,12 @@ flowchart TD
   **Anki** and **Pleco** export the deck (enrolled or scheduled, not retired)
   or every tracked word as text (`card-export.ts`). Readings and definitions
   are not in the record, so each word is looked up through `lookup_word`, a
-  few at a time, with progress shown.
+  few at a time, with progress shown. A card has one sentence field, which
+  takes the first sentence the word was met in.
+- Backups validate `contexts` and still accept the single `context` string of
+  older ones; a source that is not an http(s) address is refused, since the
+  page renders it as a link. The format version is unchanged: an older restore
+  carries fields it does not know, so it can still read a newer file.
 
 ### Flashcards Page (`src/flashcards/`)
 
@@ -442,6 +451,11 @@ flowchart TD
   session already chosen. `TESTS_READING` (`flashcards-view.ts`) names the
   directions whose answer *is* the reading; those backs ignore "hide
   romanisation", and a new direction has to say which it is.
+- **Which sentence a card shows** (`contextForReview`): the word's sentences
+  taken in turn by that card's review count, so the production cloze is cut
+  from a different sentence each session rather than cueing the same one
+  every time. Answers show the same sentence with a link to its page; the
+  production front shows none, since a page title can name the word asked for.
 
 ### Settings (`src/settings/`, `src/shared/settings.ts`)
 
@@ -492,7 +506,8 @@ flowchart TD
    at once when they press Study in the popup) increments its count through
    `StatisticsStore` (transform the reconciled record, write the words that
    changed) and
-   records the sentence it was first met in, its corpus rank, and whether it can
+   adds the sentence it was met in (if the word holds none like it) with its
+   page, its corpus rank, and whether it can
    carry a components or a writing card. A `mark_known` (the popup's Known)
    retires the word through the same batch without counting it. The
    stats/flashcards pages read both
@@ -523,7 +538,7 @@ flowchart TD
   `syncSelection` picks the words another device could not rebuild by reading —
   those with review progress, pinned or retired — ranked by the same order
   eviction uses (most recent review first) and cut off at
-  `SYNC_BUDGET_BYTES` / `SYNC_BUDGET_ITEMS`, with the met-in sentence left
+  `SYNC_BUDGET_BYTES` / `SYNC_BUDGET_ITEMS`, with the met-in sentences left
   behind. Every write brings sync to exactly that share, one item per word,
   removing what fell out of it. Past the budget a device receives the most
   recent reviews, never a months-old snapshot. Reads reconcile both areas with
@@ -557,6 +572,20 @@ flowchart TD
   reviewed words (tie-broken by last review) outrank pinned, which outrank
   retired, which outrank the merely-seen — so pruning cannot throw away FSRS
   history.
+- **Met-in sentences** (`word-contexts.ts`): each word keeps up to
+  `MAX_CONTEXTS` (5) in `contexts`, oldest first, each `{ text, source?, seen }`.
+  A sighting adds one only if the word holds no near-identical sentence —
+  same letters once punctuation and spacing are dropped, one inside the other,
+  or ≥ 0.8 Dice similarity over character pairs, which catches a long sentence
+  windowed a few characters apart. A full list keeps its first sentence (the
+  hook the word was learned on, and the one export uses) and drops the oldest
+  of the rest. `sourceFrom` keeps only http(s) pages, as origin + path — query,
+  fragment and credentials dropped — and keeps no page at all for a local or
+  private-network host or a path segment that looks like a token. Words
+  recorded before this hold one `context` string: `contextsOf` reads it as the
+  first sentence, and it is folded into `contexts` when the word next gains a
+  sentence or is merged. `mergeStatistics` pools both sides' sentences in the
+  order they were met, so areas and backups never lose one to the other.
 - **Review log**: `REVIEW_LOG_KEY` in `chrome.storage.local` only
   (`src/shared/review-log.ts`) — local calendar day → cards answered, pruned
   to `REVIEW_LOG_DAYS`. Kept apart from the statistics record because the
@@ -696,6 +725,10 @@ is written in.
   lives on a word, and the shared walk over all of them.
 - **`selectSession`** (`src/flashcards/session.ts`) — which card each word
   offers a session, and in what order.
+- **`contextsOf` / `addContext` / `mergeContexts` / `sourceFrom` /
+  `contextForReview`** (`src/shared/word-contexts.ts`) — a word's sentences in
+  either stored shape, adding and pooling them, what of a page is kept, and
+  which sentence a card shows.
 - **`ratingForMistakes` / `startQuiz`** (`src/flashcards/writing.ts`) — the
   stroke-order quiz, and the grade its mistake count measures.
 - **`hasStrokes` / `loadStrokes`** (`src/shared/strokes.ts`) — whether a
