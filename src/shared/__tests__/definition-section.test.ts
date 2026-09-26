@@ -5,7 +5,10 @@ import {
   createMandarinSection,
   createCantoneseSection,
   findScriptVariant,
+  createDefinitionSections,
+  headwordFor,
 } from '../definition-section.js';
+import { DEFAULT_SETTINGS } from '../settings.js';
 import { createDefinitionTextElement, MAX_VISIBLE_DEFINITIONS } from '../definition-list.js';
 import type { DefinitionResult } from '../types.js';
 
@@ -191,5 +194,71 @@ describe('findScriptVariant', () => {
   it('renders no variant row when the scripts agree', () => {
     const el = createDefinitionElement('你好', makeDefinition());
     expect(el.querySelector('.definition-variant')).toBeNull();
+  });
+});
+
+describe('definitions drawn with the reader\'s settings', () => {
+  const simplified = (): DefinitionResult => makeDefinition({
+    word: '学习',
+    mandarin: {
+      entries: [{ traditional: '學習', simplified: '学习', romanisation: 'xue2 xi2', definitions: ['to learn'] }],
+    },
+    cantonese: {
+      entries: [{ traditional: '學習', simplified: '学习', romanisation: 'hok6 zaap6', definitions: ['to learn'] }],
+    },
+  });
+
+  const labels = (el: HTMLElement) =>
+    Array.from(el.querySelectorAll('.definition-label'), node => node.textContent);
+
+  it('puts the reader\'s primary language in the first column', () => {
+    const el = createDefinitionSections(makeDefinition(), { ...DEFAULT_SETTINGS, primaryLanguage: 'cantonese' });
+    expect(labels(el)).toEqual(['Cantonese', 'Mandarin']);
+  });
+
+  it('heads the definition in the reader\'s script and names the page\'s form as the variant', () => {
+    const el = createDefinitionElement('学习', simplified(), true, {
+      display: { ...DEFAULT_SETTINGS, script: 'traditional' },
+    });
+
+    expect(el.querySelector('.definition-word')!.textContent).toBe('學習');
+    expect(el.querySelector('.definition-variant-form')!.textContent).toBe('学习');
+  });
+
+  it('measures the variant against the word the surface shows when it has no heading', () => {
+    const el = createDefinitionElement('学习', simplified(), false, {
+      display: { ...DEFAULT_SETTINGS, script: 'traditional' },
+    });
+
+    expect(el.querySelector('.definition-variant-form')!.textContent).toBe('學習');
+  });
+
+  it('hides the readings in both columns', () => {
+    const el = createDefinitionSections(makeDefinition(), { ...DEFAULT_SETTINGS, hideRomanisation: true });
+    expect(el.querySelectorAll('.romanisation-reveal')).toHaveLength(2);
+  });
+});
+
+describe('headwordFor', () => {
+  const definition = makeDefinition({
+    word: '发',
+    mandarin: {
+      entries: [
+        { traditional: '發', simplified: '发', romanisation: 'fa1', definitions: ['to send out'] },
+        { traditional: '髮', simplified: '发', romanisation: 'fa4', definitions: ['hair'] },
+      ],
+    },
+  });
+
+  it('keeps the page\'s own form by default', () => {
+    expect(headwordFor(definition, 'as-written')).toBe('发');
+  });
+
+  it('takes the first entry\'s form when the entries disagree', () => {
+    expect(headwordFor(definition, 'traditional')).toBe('發');
+  });
+
+  it('keeps the form found when no entry holds it', () => {
+    expect(headwordFor(makeDefinition({ word: '你們' }), 'simplified')).toBe('你們');
   });
 });

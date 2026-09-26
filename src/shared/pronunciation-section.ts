@@ -15,6 +15,39 @@ export interface PronunciationSectionOptions {
   showPlaceholderWhenEmpty?: boolean;
   /** The word to pronounce. Without it the section renders no audio button. */
   word?: string;
+  /**
+   * Put each reading behind a press, so a reader practising the sound can try
+   * it before being told.
+   */
+  hideRomanisation?: boolean;
+}
+
+const READING_NAMES: Readonly<Record<Reading, string>> = {
+  pinyin: 'Pinyin',
+  jyutping: 'Jyutping',
+};
+
+/**
+ * The reading withheld until asked for. A button in its place rather than a
+ * blur over it: blurred Jyutping still gives away its length and tone digits.
+ */
+function concealRomanisation(romanisation: HTMLElement, reading: Reading): HTMLElement {
+  const name = READING_NAMES[reading];
+
+  return createElement<HTMLButtonElement>({
+    tag: 'button',
+    className: 'romanisation-reveal',
+    textContent: `Show ${name}`,
+    attributes: { type: 'button', title: `Show the ${name} reading` },
+    listeners: {
+      click: (event: Event) => {
+        // The stats row this sits in toggles on a click of its own.
+        event.stopPropagation();
+        event.preventDefault();
+        (event.currentTarget as HTMLElement).replaceWith(romanisation);
+      },
+    },
+  });
 }
 
 function createSpeakButton(word: string, reading: Reading, label: string): HTMLElement {
@@ -63,13 +96,17 @@ export function createPronunciationSection(
   data: DefinitionResult['mandarin'] | DefinitionResult['cantonese'],
   label: string,
   pronunciationKey: Reading,
-  { showPlaceholderWhenEmpty = false, word }: PronunciationSectionOptions = {}
+  { showPlaceholderWhenEmpty = false, word, hideRomanisation = false }: PronunciationSectionOptions = {}
 ): HTMLElement {
   const grouped = groupEntriesByRomanisation(data?.entries || []);
 
   const pronunciationGroups = Object.entries(grouped).map(([pronunciation, defs]) => {
+    const romanisation = createRomanisationElement(pronunciation, pronunciationKey);
+    // An entry with no reading has nothing to withhold.
     const groupChildren: HTMLElement[] = [
-      createRomanisationElement(pronunciation, pronunciationKey),
+      hideRomanisation && pronunciation
+        ? concealRomanisation(romanisation, pronunciationKey)
+        : romanisation,
     ];
 
     if (defs.length > 0 || showPlaceholderWhenEmpty) {

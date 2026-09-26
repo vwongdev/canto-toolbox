@@ -183,6 +183,30 @@
   font-family: t.$font-romanisation;
 }
 
+// Stands where the reading will appear, at its height, so revealing it does
+// not shift the senses underneath.
+.romanisation-reveal {
+  display: block;
+  margin-bottom: t.$space-1;
+  padding: 0 t.$space-2;
+  border: 1px dashed t.$color-border-bold;
+  border-radius: t.$radius-sm;
+  background: none;
+  font: inherit;
+  font-size: t.$text-xs;
+  font-weight: 600;
+  line-height: 20px;
+  color: t.$color-text-subtle;
+  cursor: pointer;
+
+  @include a.focus-ring(1px);
+
+  &:hover {
+    color: t.$color-primary;
+    border-color: t.$color-primary;
+  }
+}
+
 .definition-text {
   font-size: t.$text-base;
   color: t.$color-text-muted;

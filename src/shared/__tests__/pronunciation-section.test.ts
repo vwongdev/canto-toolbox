@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createPronunciationSection } from '../pronunciation-section.js';
 import type { DictionaryEntry } from '../types.js';
 
@@ -73,5 +73,49 @@ describe('createPronunciationSection', () => {
       entries: [makeEntry('hao3', [])],
     }, 'Mandarin', 'pinyin', { showPlaceholderWhenEmpty: true });
     expect(el.querySelector('.definition-text')?.textContent).toBe('Not found');
+  });
+});
+
+describe('createPronunciationSection with romanisation hidden', () => {
+  const hidden = () => createPronunciationSection(
+    { entries: [makeEntry('hao3', ['good']), makeEntry('hao4', ['to like'])] },
+    'Mandarin',
+    'pinyin',
+    { hideRomanisation: true },
+  );
+
+  it('puts a reveal control in place of each reading', () => {
+    const el = hidden();
+    expect(el.querySelector('.definition-pinyin')).toBeNull();
+    expect(Array.from(el.querySelectorAll('.romanisation-reveal'), n => n.textContent))
+      .toEqual(['Show Pinyin', 'Show Pinyin']);
+  });
+
+  it('still shows the senses', () => {
+    expect(hidden().querySelectorAll('.definition-item')).toHaveLength(2);
+  });
+
+  it('reveals only the reading that was pressed, without the press reaching the row', () => {
+    const el = hidden();
+    const row = document.createElement('div');
+    const rowClick = vi.fn();
+    row.addEventListener('click', rowClick);
+    row.appendChild(el);
+
+    (el.querySelector('.romanisation-reveal') as HTMLButtonElement).click();
+
+    expect(el.querySelector('.definition-pinyin')?.textContent).toBe('hǎo');
+    expect(el.querySelectorAll('.romanisation-reveal')).toHaveLength(1);
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
+  it('leaves an entry with no reading as it is', () => {
+    const el = createPronunciationSection(
+      { entries: [makeEntry('', ['dialect word'])] },
+      'Cantonese',
+      'jyutping',
+      { hideRomanisation: true },
+    );
+    expect(el.querySelector('.romanisation-reveal')).toBeNull();
   });
 });

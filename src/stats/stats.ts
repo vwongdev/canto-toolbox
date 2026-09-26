@@ -32,7 +32,7 @@ import { bandCoverage, forecast, retentionByDirection } from './insights.js';
 import { DEFAULT_SORT, isSortKey } from './ordering.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
 import { TransferControls } from './transfer-controls.js';
-import { watchSettings, type Settings } from '../shared/settings.js';
+import { DEFAULT_SETTINGS, watchSettings, type Settings } from '../shared/settings.js';
 
 const CLEAR_LABEL = 'Clear Statistics';
 const CLEAR_CONFIRM_LABEL = 'Clear everything?';
@@ -49,6 +49,7 @@ export class StatsManager {
   private controlsReady = false;
   private view: ListView =
     { stages: new Set(), bands: new Set(), showRetired: false, sort: DEFAULT_SORT };
+  private settings: Settings = DEFAULT_SETTINGS;
 
   constructor(document: Document, client: StatsClient, storage: StatsStorage) {
     this.document = document;
@@ -59,9 +60,11 @@ export class StatsManager {
   /**
    * The threshold decides which words are Candidates, so a change redraws the
    * list and its counts from the record already held rather than waiting for
-   * the page to be reopened.
+   * the page to be reopened. Redrawing closes any open row, so the next one
+   * opened is drawn with the new display settings too.
    */
   applySettings(settings: Settings): void {
+    this.settings = settings;
     this.view = { ...this.view, minCount: settings.minCount };
 
     const elements = getRequiredElements(this.document);
@@ -242,7 +245,7 @@ export class StatsManager {
     renderDefinitionLoading(container);
     const context = this.cachedStatistics?.[word]?.context;
     this.client.lookupWord(word, (response: LookupResponse | ErrorResponse) => {
-      renderDefinition(container, response, word, context);
+      renderDefinition(container, response, word, context, this.settings);
     });
   }
 

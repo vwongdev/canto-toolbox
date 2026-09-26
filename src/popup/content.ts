@@ -10,7 +10,8 @@ import { CHEVRON_SVG, createIcon } from '../shared/icons.js';
 import { popupClient, type PopupClient } from './popup-client.js';
 import popupStyles from './popup.scss?inline';
 import { createEtymologySection } from '../shared/etymology-section.js';
-import { createDefinitionSections } from '../shared/definition-section.js';
+import { createDefinitionSections, headwordFor } from '../shared/definition-section.js';
+import { DEFAULT_SETTINGS, watchSettings, type DisplaySettings } from '../shared/settings.js';
 import { MAX_CONTEXT_CHARS } from '../shared/context-sentence.js';
 import { mediaOcrManager } from '../ocr/media-controller.js';
 
@@ -117,6 +118,8 @@ export class ChineseHoverPopupManager {
   private readonly boundMouseUp: (e: MouseEvent) => void;
   private readonly boundScroll: () => void;
   private readonly boundKeyDown: (e: KeyboardEvent) => void;
+  /** Read afresh by every popup, so a change applies from the next word on. */
+  private display: DisplaySettings = DEFAULT_SETTINGS;
 
   constructor(document: Document, client: PopupClient) {
     this.document = document;
@@ -126,6 +129,10 @@ export class ChineseHoverPopupManager {
     this.boundMouseUp = (e) => this.handleSelection(e);
     this.boundScroll = () => this.followScroll();
     this.boundKeyDown = (e) => this.handleKeyDown(e);
+  }
+
+  applySettings(settings: DisplaySettings): void {
+    this.display = settings;
   }
 
   init(): void {
@@ -563,12 +570,18 @@ export class ChineseHoverPopupManager {
       from: shown,
     });
 
+    const headword = headwordFor(definition, this.display.script) || word;
+
     popup.appendChild(
       createElement({
         className: 'popup-header',
         children: [
           ...(previous ? [this.createBackButton(previous, x, y)] : []),
-          this.createHeadword(definition.word || word, follow, definition.charactersWithEntries),
+          this.createHeadword(
+            headword,
+            follow,
+            followableIn(headword, definition.word || word, definition.charactersWithEntries),
+          ),
           this.createActions(shown),
         ],
       }),
@@ -576,7 +589,7 @@ export class ChineseHoverPopupManager {
 
     // The reader stopped on this word to find out what it means, so the
     // readings come first and the breakdown follows, closed.
-    popup.appendChild(createDefinitionSections(definition));
+    popup.appendChild(createDefinitionSections(definition, this.display, headword));
 
     if (definition.etymology?.length) {
       popup.appendChild(createEtymologySection(definition.etymology, {
@@ -675,6 +688,9 @@ export const popupManager = new ChineseHoverPopupManager(document, popupClient);
 
 function start(): void {
   popupManager.init();
+  // Content scripts can read sync storage directly, so a change on the options
+  // page reaches every open tab without a round trip through the worker.
+  watchSettings(settings => popupManager.applySettings(settings));
   // Text in images and video frames becomes ordinary hoverable text, which is
   // why this starts alongside the popup rather than knowing anything about it.
   mediaOcrManager.init();
@@ -799,6 +815,24 @@ function isEditable(target: EventTarget | null): boolean {
  */
 function isInstantLookup(event: MouseEvent, document: Document): boolean {
   return event.shiftKey && event.buttons === 0 && !isEditable(document.activeElement);
+}
+
+/**
+ * Which characters of the headword can be followed, when the headword is drawn
+ * in a script other than the one the lookup matched. The two forms of an entry
+ * are the same length and line up character for character, and both scripts
+ * are indexed, so a character has an entry wherever its counterpart does.
+ */
+function followableIn(
+  headword: string,
+  matched: string,
+  charactersWithEntries: string[] | undefined,
+): string[] | undefined {
+  if (!charactersWithEntries || headword === matched) return charactersWithEntries;
+
+  const followable = new Set(charactersWithEntries);
+  const matchedCharacters = [...matched];
+  return [...headword].filter((_, index) => followable.has(matchedCharacters[index] ?? ''));
 }
 
 function extractChineseWordsFromText(text: string): string[] {

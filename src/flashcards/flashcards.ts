@@ -258,7 +258,7 @@ export class FlashcardManager {
       renderBackLoading(this.document);
 
       this.withDefinition(card, definition => {
-        renderWritingBack(this.document, card, definition, { mistakes, rating });
+        renderWritingBack(this.document, card, definition, { mistakes, rating }, this.settings);
       });
     });
   }
@@ -319,7 +319,7 @@ export class FlashcardManager {
     const heard = listening && this.listening ? { heard: this.listening } : {};
 
     this.withDefinition(card, definition => {
-      if (definition) renderBack(this.document, card, definition, heard);
+      if (definition) renderBack(this.document, card, definition, { ...heard, display: this.settings });
       else renderBackError(this.document, listening ? card.word : undefined);
       this.priceRatings(card);
     });

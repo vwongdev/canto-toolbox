@@ -15,6 +15,7 @@ import { createDefinitionElement } from '../shared/definition-section.js';
 import { createContextSentence } from '../shared/context-sentence.js';
 import { BAND_LABELS } from '../shared/frequency.js';
 import { MAX_TRACKED_WORDS } from '../shared/statistics-store.js';
+import { DEFAULT_SETTINGS, type DisplaySettings } from '../shared/settings.js';
 import { bandOf, sortWords, SORT_LABELS, type SortKey } from './ordering.js';
 import type { StudyOverview } from './overview.js';
 import {
@@ -379,7 +380,8 @@ export function renderDefinition(
   container: HTMLElement,
   response: LookupResponse | ErrorResponse | undefined,
   word: string,
-  context?: string
+  context?: string,
+  display: DisplaySettings = DEFAULT_SETTINGS,
 ): void {
   container.replaceChildren();
   if (context) container.appendChild(createContextSentence(word, context));
@@ -392,7 +394,7 @@ export function renderDefinition(
     return;
   }
 
-  container.appendChild(createDefinitionElement(word, response.definition, false));
+  container.appendChild(createDefinitionElement(word, response.definition, false, { display }));
   container.dataset.loaded = 'true';
 }
 

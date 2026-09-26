@@ -37,6 +37,7 @@ vi.mock('hanzi-writer', () => ({
 import { FlashcardManager } from '../flashcards.js';
 import type { FlashcardClient } from '../flashcard-client.js';
 import type { DefinitionResult, Statistics } from '../../shared/types.js';
+import { DEFAULT_SETTINGS, type Settings } from '../../shared/settings.js';
 
 // The real page markup, minus the asset references happy-dom would try to fetch.
 const HTML = readFileSync('src/flashcards/flashcards.html', 'utf-8')
@@ -883,5 +884,39 @@ describe('FlashcardManager listening cards', () => {
     voices.load();
 
     expect(direction()).toBe('listening');
+  });
+});
+
+describe('FlashcardManager with the reader\'s settings', () => {
+  let document: Document;
+
+  function start(settings: Partial<Settings>): void {
+    const manager = new FlashcardManager(document, createClient());
+    manager.applySettings({ ...DEFAULT_SETTINGS, ...settings });
+    manager.init();
+  }
+
+  beforeEach(() => {
+    document = new DOMParser().parseFromString(HTML, 'text/html');
+  });
+
+  it('sizes the session by the reader\'s new-card limit', () => {
+    start({ maxNewCards: 1 });
+    expect(document.getElementById('counter')!.textContent).toBe('Card 1 of 1');
+  });
+
+  it('enrols words at the reader\'s threshold', () => {
+    start({ minCount: 6 });
+    expect(document.getElementById('empty-state')!.style.display).toBe('');
+  });
+
+  it('withholds the reading on the answer when the reader hides it', () => {
+    start({ hideRomanisation: true });
+
+    document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+
+    const back = document.getElementById('card-back')!;
+    expect(back.querySelector('.definition-pinyin')).toBeNull();
+    expect(back.querySelectorAll('.romanisation-reveal')).toHaveLength(2);
   });
 });

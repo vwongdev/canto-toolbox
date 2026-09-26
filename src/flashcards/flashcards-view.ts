@@ -5,6 +5,7 @@ import { createContextSentence } from '../shared/context-sentence.js';
 import { primaryGloss } from '../shared/gloss.js';
 import { SPEAKER_SVG, createIcon } from '../shared/icons.js';
 import type { Reading } from '../shared/speech.js';
+import { DEFAULT_SETTINGS, type DisplaySettings } from '../shared/settings.js';
 import type { ReviewCard } from './session.js';
 
 export const ELEMENT_IDS = {
@@ -352,6 +353,26 @@ const RATING_LABELS: Readonly<Record<FlashcardRating, string>> = {
   easy: 'Easy',
 };
 
+/**
+ * Whether the card's question is the word's sound. Its answer is then the
+ * reading itself, and hiding the reading behind a press would hide the answer,
+ * so the reader's "hide romanisation" setting does not apply to it. A record
+ * rather than a list so a direction added later has to say which it is.
+ */
+const TESTS_READING: Readonly<Record<ReviewDirection, boolean>> = {
+  recognition: false,
+  production: false,
+  // The front plays the sound and asks for the meaning; the reading on the
+  // answer is information about what was heard, not the thing tested.
+  listening: false,
+  components: false,
+  writing: false,
+};
+
+function displayFor(card: ReviewCard, display: DisplaySettings): DisplaySettings {
+  return TESTS_READING[card.direction] ? { ...display, hideRomanisation: false } : display;
+}
+
 function countMistakes(mistakes: number): string {
   if (mistakes === 0) return 'No mistakes';
   return `${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`;
@@ -367,6 +388,7 @@ export function renderWritingBack(
   card: ReviewCard,
   definition: DefinitionResult | undefined,
   { mistakes, rating }: { mistakes: number; rating: FlashcardRating },
+  display: DisplaySettings = DEFAULT_SETTINGS,
 ): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   const showAnswerContainer = document.getElementById(ELEMENT_IDS.showAnswerContainer);
@@ -382,8 +404,11 @@ export function renderWritingBack(
 
     // The front was an outline the reader traced, so the answer names the
     // character it turned out to be.
-    if (definition) cardBack.appendChild(createDefinitionElement(card.word, definition, true));
-    else cardBack.appendChild(
+    if (definition) {
+      cardBack.appendChild(
+        createDefinitionElement(card.word, definition, true, { display: displayFor(card, display) }),
+      );
+    } else cardBack.appendChild(
       createElement({ className: 'flashcard-error', textContent: 'Definition not found' }),
     );
 
@@ -403,7 +428,7 @@ export function renderBack(
   document: Document,
   card: ReviewCard,
   definition: DefinitionResult,
-  { heard }: { heard?: Reading } = {},
+  { heard, display = DEFAULT_SETTINGS }: { heard?: Reading; display?: DisplaySettings } = {},
 ): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   const showAnswerContainer = document.getElementById(ELEMENT_IDS.showAnswerContainer);
@@ -430,6 +455,7 @@ export function renderBack(
     cardBack.appendChild(
       createDefinitionElement(card.word, definition, withheld, {
         expandEtymology: card.direction === 'components',
+        display: displayFor(card, display),
         ...(card.context !== undefined && { context: card.context }),
       })
     );
