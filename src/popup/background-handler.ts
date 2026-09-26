@@ -111,6 +111,7 @@ export function register(): void {
       popupStorage.updateStatistics(msg.word, {
         ...(await describe(msg.word)),
         ...(msg.context && { context: msg.context }),
+        ...(msg.source && { source: msg.source }),
         ...(msg.pin && { pinned: true }),
       });
       return { success: true, type: 'track_word' };
@@ -124,6 +125,7 @@ export function register(): void {
       popupStorage.setStatus(msg.word, { suppressed: msg.known }, {
         ...(msg.known && (await describe(msg.word))),
         ...(msg.context && { context: msg.context }),
+        ...(msg.source && { source: msg.source }),
       });
       return { success: true, type: 'mark_known' };
     },

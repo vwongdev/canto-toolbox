@@ -177,7 +177,11 @@ describe('PopupStorageClient', () => {
         client.updateStatistics('謝謝', { pinned: true });
       });
 
-      expect(stats['謝謝']).toMatchObject({ count: 2, pinned: true, context: '真的很謝謝你' });
+      expect(stats['謝謝']).toMatchObject({
+        count: 2,
+        pinned: true,
+        contexts: [{ text: '真的很謝謝你' }],
+      });
     });
 
     it('puts a retired word back without a sighting', async () => {
@@ -197,6 +201,53 @@ describe('PopupStorageClient', () => {
       });
 
       expect(stats['謝謝']).toBeUndefined();
+    });
+  });
+
+  describe('sentences', () => {
+    async function sighted(existing: Statistics, context: string, url = 'https://example.com/a') {
+      const { client, local } = setup(existing);
+      client.updateStatistics('謝謝', { context, source: { url, title: '新聞' } });
+      await vi.waitFor(() => expect(local.mocks.set).toHaveBeenCalled());
+      return (local.words() as Statistics)['謝謝']!;
+    }
+
+    it('records the sentence with the page it was read on, query and fragment dropped', async () => {
+      const stat = await sighted({}, '真的很謝謝你', 'https://example.com/news/1?session=abc#top');
+
+      expect(stat.contexts).toEqual([
+        { text: '真的很謝謝你', source: { url: 'https://example.com/news/1', title: '新聞' }, seen: expect.any(Number) },
+      ]);
+    });
+
+    it('adds a sentence the word has not been met in', async () => {
+      const stat = await sighted(
+        { 謝謝: { count: 1, firstSeen: 1, lastSeen: 2, contexts: [{ text: '真的很謝謝你', seen: 1 }] } },
+        '謝謝你的幫忙',
+      );
+
+      expect(stat.contexts!.map(c => c.text)).toEqual(['真的很謝謝你', '謝謝你的幫忙']);
+    });
+
+    it('counts a sighting of a sentence already held without adding it again', async () => {
+      const stat = await sighted(
+        { 謝謝: { count: 1, firstSeen: 1, lastSeen: 2, contexts: [{ text: '真的很謝謝你', seen: 1 }] } },
+        '真的很謝謝你！',
+      );
+
+      expect(stat.count).toBe(2);
+      expect(stat.contexts).toHaveLength(1);
+    });
+
+    it('folds a sentence stored in the old single form into the list', async () => {
+      const stat = await sighted(
+        { 謝謝: { count: 1, firstSeen: 1, lastSeen: 2, context: '真的很謝謝你' } },
+        '謝謝你的幫忙',
+      );
+
+      expect(stat.context).toBeUndefined();
+      expect(stat.contexts!.map(c => c.text)).toEqual(['真的很謝謝你', '謝謝你的幫忙']);
+      expect(stat.contexts![0]!.seen).toBe(1);
     });
   });
 

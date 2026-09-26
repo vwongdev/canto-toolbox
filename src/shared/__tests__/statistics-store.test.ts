@@ -163,6 +163,12 @@ describe('what sync carries', () => {
 
     expect(sync.words()['詞']).not.toHaveProperty('context');
     expect(local.words()['詞']).toHaveProperty('context');
+
+    const sentences = [{ text: '這個詞', source: { url: 'https://example.com/' }, seen: 1 }];
+    await store.mutate(() => ({ 詞: { ...studied(0), contexts: sentences } }));
+
+    expect(sync.words()['詞']).not.toHaveProperty('contexts');
+    expect(local.words()['詞']).toHaveProperty('contexts', sentences);
   });
 
   it('stays within the quotas however large the deck grows', async () => {

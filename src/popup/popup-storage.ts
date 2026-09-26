@@ -3,13 +3,16 @@ import { createBatchedDebounce } from '../shared/debounce.js';
 import { BoundedMap } from '../shared/bounded-map.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
 import { MAX_CONTEXT_CHARS } from '../shared/context-sentence.js';
-import type { Statistics, WordStatus } from '../shared/types';
+import { addContext, contextsOf, sourceFrom } from '../shared/word-contexts.js';
+import type { ContextSource, Statistics, WordStatus } from '../shared/types';
 
 const DEBOUNCE_DELAY = 500;
 
 /** What a sighting knows about the word beyond the fact that it happened. */
 export interface WordDetails {
   context?: string;
+  /** The page `context` was read on, as the content script reported it. */
+  source?: ContextSource;
   rank?: number;
   decomposable?: boolean;
   writable?: boolean;
@@ -106,8 +109,14 @@ export class PopupStorageClient implements PopupStorage {
     if (this.pendingDetails.has(word)) return;
 
     const context = details.context?.trim();
+    // Filtered here, on the way into the record, so no path into it can store
+    // more of a page's address than `sourceFrom` allows.
+    const source = context && details.source
+      ? sourceFrom(details.source.url, details.source.title)
+      : undefined;
     this.pendingDetails.set(word, {
       ...(context && { context: context.slice(0, MAX_CONTEXT_CHARS) }),
+      ...(source && { source }),
       ...(details.rank !== undefined && { rank: details.rank }),
       ...(details.decomposable !== undefined && { decomposable: details.decomposable }),
       ...(details.writable !== undefined && { writable: details.writable }),
@@ -151,9 +160,17 @@ export class PopupStorageClient implements PopupStorage {
 
         const seen = details.get(word);
 
-        // The sentence a word was first met in is the memory hook; later
-        // sightings do not overwrite it.
-        if (seen?.context && !entry.context) entry.context = seen.context;
+        // Each new sentence is another hook. One the word already holds is not
+        // added again, so the list grows with the reading rather than the
+        // hovering.
+        if (seen?.context) {
+          entry.contexts = addContext(contextsOf(entry), {
+            text: seen.context,
+            seen: now,
+            ...(seen.source && { source: seen.source }),
+          });
+          delete entry.context;
+        }
 
         // None of these change, but writing them on every sighting backfills
         // words tracked before they were recorded.

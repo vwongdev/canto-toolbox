@@ -168,16 +168,16 @@ test('hovering recognised text shows the definition popup and studies the word',
 
   await expect
     .poll(() => readStatistics(extensionPage), { timeout: 15000 })
-    .toMatchObject({ 去: { context: LINES[1] } });
+    .toMatchObject({ 去: { contexts: [{ text: LINES[1] }] } });
 
   await extensionPage.close();
   await page.close();
 });
 
-function readStatistics(page: Page): Promise<Record<string, { context?: string }>> {
+function readStatistics(page: Page): Promise<Record<string, { contexts?: { text: string }[] }>> {
   return page.evaluate(
     () =>
-      new Promise<Record<string, { context?: string }>>(resolve => {
+      new Promise<Record<string, { contexts?: { text: string }[] }>>(resolve => {
         // Local holds every word, one item each; sync carries only studied ones.
         chrome.storage.local.get(null, items =>
           resolve(

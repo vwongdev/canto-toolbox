@@ -181,6 +181,17 @@ describe('popup background-handler register()', () => {
     expect(popupStorage.updateStatistics).toHaveBeenCalledWith('謝謝', { context: '真的很謝謝你' });
   });
 
+  it('passes the page the sentence was read on through to storage', async () => {
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+    const source = { url: 'https://example.com/story', title: '新聞' };
+
+    listener({ type: 'track_word', word: '謝謝', context: '真的很謝謝你', source }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(popupStorage.updateStatistics).toHaveBeenCalledWith('謝謝', { context: '真的很謝謝你', source });
+  });
+
   it('records the corpus rank alongside the sighting', async () => {
     dictDefinition = { ...DEFINITION, frequency: { rank: 312, band: 'common' } };
     const listener = registerAndGetListener();

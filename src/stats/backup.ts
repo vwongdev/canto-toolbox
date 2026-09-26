@@ -1,5 +1,6 @@
 import type { Statistics } from '../shared/types.js';
 import { DIRECTION_KEYS, mergeStatistics } from '../shared/statistics-utils.js';
+import { isLinkable } from '../shared/word-contexts.js';
 
 /** Names the file as ours, so a stray JSON file is refused rather than merged. */
 export const BACKUP_FORMAT = 'canto-toolbox-statistics';
@@ -93,6 +94,24 @@ function badProgressField(progress: unknown): string | undefined {
   return badSrs === undefined ? undefined : `srs.${badSrs}`;
 }
 
+/**
+ * A source must be a web address: the stats page turns it into a link, and a
+ * backup file is text anyone could have edited.
+ */
+const isSource: Check = value =>
+  isRecord(value) &&
+  typeof value.url === 'string' &&
+  isLinkable(value.url) &&
+  (value.title === undefined || isString(value.title));
+
+const isSighting: Check = value =>
+  isRecord(value) &&
+  isString(value.text) &&
+  isNumber(value.seen) &&
+  (value.source === undefined || isSource(value.source));
+
+const isSightingList: Check = value => Array.isArray(value) && value.every(isSighting);
+
 function badWordField(stat: unknown): string | undefined {
   if (!isRecord(stat)) return '';
 
@@ -100,7 +119,9 @@ function badWordField(stat: unknown): string | undefined {
     stat,
     { count: isNumber, firstSeen: isNumber, lastSeen: isNumber },
     {
+      // A backup made before words kept several sentences holds one, as a string.
       context: isString,
+      contexts: isSightingList,
       rank: isNumber,
       decomposable: isBoolean,
       writable: isBoolean,

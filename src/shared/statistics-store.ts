@@ -79,9 +79,9 @@ const encoder = new TextEncoder();
 
 /**
  * The part of the record sync carries: the words with review progress or a
- * decision on them, best first, until the budget runs out. The sentence a word
- * was met in stays behind — it is the largest field and the only one a device
- * can do without, since merging keeps whichever area has one.
+ * decision on them, best first, until the budget runs out. The sentences a word
+ * was met in stay behind — they are the largest field and the only one a device
+ * can do without, since merging pools whatever each area has.
  */
 export function syncSelection(record: Statistics): Statistics {
   const candidates = Object.entries(record)
@@ -95,6 +95,7 @@ export function syncSelection(record: Statistics): Statistics {
   for (const [word, entry] of candidates) {
     const carried = { ...entry };
     delete carried.context;
+    delete carried.contexts;
 
     const key = WORD_KEY_PREFIX + word;
     bytes += encoder.encode(key).length + encoder.encode(JSON.stringify(carried)).length;

@@ -7,6 +7,7 @@ import type {
   WordStatus,
 } from './types';
 import { isLearning, isMastered } from './scheduler.js';
+import { contextsOf, mergeContexts } from './word-contexts.js';
 
 /**
  * Sightings before an unchosen word is enrolled in the deck.
@@ -155,13 +156,6 @@ function mergeFlashcardProgress(
   return (sync.lastReviewed ?? 0) >= (local.lastReviewed ?? 0) ? sync : local;
 }
 
-/** The snippet from whichever area met the word first — context records a first sighting. */
-function mergeContext(sync: WordStatistics, local: WordStatistics): string | undefined {
-  if (!sync.context) return local.context;
-  if (!local.context) return sync.context;
-  return sync.firstSeen <= local.firstSeen ? sync.context : local.context;
-}
-
 function mergeWord(sync: WordStatistics, local: WordStatistics): WordStatistics {
   // Spreading both areas first carries every field the branches below do not
   // name, so anything recorded per word survives a merge by default instead of
@@ -185,9 +179,14 @@ function mergeWord(sync: WordStatistics, local: WordStatistics): WordStatistics 
     else delete merged[key];
   }
 
-  const context = mergeContext(sync, local);
-  if (context) merged.context = context;
-  else delete merged.context;
+  // Sentences from both areas, or a backup, are all ones the word was met in,
+  // so they are pooled rather than one side's list winning. A single legacy
+  // sentence joins the pool as the list's first entry and is not written back
+  // in its old shape.
+  const contexts = mergeContexts(contextsOf(sync), contextsOf(local));
+  delete merged.context;
+  if (contexts.length > 0) merged.contexts = contexts;
+  else delete merged.contexts;
 
   // Retiring or choosing a word is a decision, and local is where every
   // decision lands: sync only carries it on to other devices and is skipped

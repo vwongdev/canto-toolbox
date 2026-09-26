@@ -86,15 +86,34 @@ describe('mergeStatistics', () => {
       { 好: { count: 1, firstSeen: 100, lastSeen: 300, context: '你好嗎' } },
       { 好: { count: 1, firstSeen: 100, lastSeen: 100 } }
     );
-    expect(result['好']!.context).toBe('你好嗎');
+    expect(result['好']!.contexts).toEqual([{ text: '你好嗎', seen: 100 }]);
+    expect(result['好']!.context).toBeUndefined();
   });
 
-  it('keeps the context from whichever area met the word first', () => {
+  it('pools the sentences of both areas in the order they were met', () => {
     const result = mergeStatistics(
-      { 好: { count: 1, firstSeen: 200, lastSeen: 300, context: '較晚' } },
-      { 好: { count: 1, firstSeen: 50, lastSeen: 100, context: '最早' } }
+      { 好: { count: 1, firstSeen: 200, lastSeen: 300, context: '較晚才看到的句子' } },
+      {
+        好: {
+          count: 1, firstSeen: 50, lastSeen: 400,
+          contexts: [{ text: '最早看到的句子', seen: 50 }, { text: '最近看到的例子', seen: 400 }],
+        },
+      }
     );
-    expect(result['好']!.context).toBe('最早');
+    expect(result['好']!.contexts!.map(c => c.text)).toEqual([
+      '最早看到的句子',
+      '較晚才看到的句子',
+      '最近看到的例子',
+    ]);
+  });
+
+  it('keeps one copy of a sentence both areas hold', () => {
+    const sighting = { text: '你好嗎', seen: 100 };
+    const result = mergeStatistics(
+      { 好: { count: 1, firstSeen: 100, lastSeen: 300, contexts: [sighting] } },
+      { 好: { count: 1, firstSeen: 100, lastSeen: 300, contexts: [sighting] } }
+    );
+    expect(result['好']!.contexts).toEqual([sighting]);
   });
 
   it('keeps the corpus rank for a word present in both', () => {

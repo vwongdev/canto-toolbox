@@ -117,6 +117,27 @@ describe('parseBackup', () => {
     expect(rejection(envelope({ statistics }))).toMatch(/\(production\.lastRating\)/);
   });
 
+  it('reads both the single sentence of an old backup and the list of a new one', () => {
+    const contexts = [{ text: '好嘢', source: { url: 'https://example.com/', title: '例子' }, seen: 1 }];
+    const statistics = { ...STATISTICS, 好: { ...STATISTICS['好'], contexts } };
+
+    const parsed = parseBackup(envelope({ statistics }));
+    expect(parsed['你好']!.context).toBe('你好，歡迎光臨');
+    expect(parsed['好']!.contexts).toEqual(contexts);
+  });
+
+  it('rejects a sentence without the time it was met', () => {
+    const statistics = { 好: { ...STATISTICS['好'], contexts: [{ text: '好嘢' }] } };
+    expect(rejection(envelope({ statistics }))).toMatch(/\(contexts\)/);
+  });
+
+  // The stats page turns a source into a link.
+  it('rejects a source that is not a web address', () => {
+    const contexts = [{ text: '好嘢', source: { url: 'javascript:alert(1)' }, seen: 1 }];
+    const statistics = { 好: { ...STATISTICS['好'], contexts } };
+    expect(rejection(envelope({ statistics }))).toMatch(/\(contexts\)/);
+  });
+
   // A field a later version adds is carried, the way a merge carries it.
   it('keeps fields the record does not define', () => {
     const statistics = { 好: { ...STATISTICS['好'], tags: ['hsk1'] } };
@@ -168,5 +189,17 @@ describe('restoreBackup', () => {
 
     expect(merged.pinned).toBe(true);
     expect(merged.suppressed).toBeUndefined();
+  });
+
+  it('adds the sentences an old backup holds to the ones recorded here', () => {
+    const existing: Statistics = {
+      你好: { count: 1, firstSeen: 1_695_000_000_000, lastSeen: 1_695_000_000_000, contexts: [
+        { text: '跟他說你好', seen: 1_695_000_000_000 },
+      ] },
+    };
+
+    const merged = restoreBackup(existing, STATISTICS).statistics['你好']!;
+
+    expect(merged.contexts!.map(c => c.text)).toEqual(['你好，歡迎光臨', '跟他說你好']);
   });
 });

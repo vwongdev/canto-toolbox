@@ -103,6 +103,24 @@ export interface FlashcardProgress {
   srs?: SrsState;
 }
 
+/**
+ * The page a sentence was read on — only as much of it as is safe to keep.
+ * `sourceFrom` decides what that is.
+ */
+export interface ContextSource {
+  url: string;
+  title?: string;
+}
+
+/** One sentence a word was met in. */
+export interface ContextSighting {
+  text: string;
+  /** Absent for a page not worth linking back to, or not safe to record. */
+  source?: ContextSource;
+  /** When it was met. */
+  seen: number;
+}
+
 export interface WordStatistics {
   count: number;
   firstSeen: number;
@@ -118,9 +136,15 @@ export interface WordStatistics {
   /** Stroke order. Only for single characters the stroke data covers. */
   writing?: FlashcardProgress;
   /**
-   * A snippet of the sentence the word was first met in. The strongest memory
-   * hook available and free to capture, so it is kept for recall — one per
-   * word, since every tracked word shares a single storage item.
+   * The sentences the word was met in, oldest first, each with the page it
+   * came from. The strongest memory hook available and free to capture, so it
+   * is kept for recall; `word-contexts.ts` decides how many and which.
+   */
+  contexts?: ContextSighting[];
+  /**
+   * The one sentence a word was first met in, from when every tracked word
+   * shared a single storage item and could afford no more. Read as the first
+   * of `contexts`, and folded into them the next time the word is written.
    */
   context?: string;
   /** SUBTLEX-CH rank recorded at track time, so study order can follow it. */
@@ -258,8 +282,10 @@ export interface LookupMessage {
 export interface TrackWordMessage {
   type: 'track_word';
   word: string;
-  /** Sentence the word was met in, recorded the first time it is studied. */
+  /** Sentence the word was met in, recorded when the word holds no sentence like it. */
   context?: string;
+  /** The page the sentence was read on, unfiltered; storage keeps only what is safe. */
+  source?: ContextSource;
   /** Set when the reader asked for the word outright rather than dwelling on it. */
   pin?: boolean;
 }
@@ -287,6 +313,7 @@ export interface MarkKnownMessage {
   /** False puts a word retired by mistake back into review. */
   known: boolean;
   context?: string;
+  source?: ContextSource;
 }
 
 export interface GetStatisticsMessage {

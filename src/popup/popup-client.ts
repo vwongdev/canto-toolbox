@@ -1,5 +1,6 @@
 import { sendMessage } from '../shared/message-manager.js';
 import type {
+  ContextSource,
   HoverSegment,
   LookupResponse,
   MarkKnownResponse,
@@ -47,7 +48,7 @@ class PopupMessageClient implements PopupClient {
     callback: (r: TrackWordResponse | ErrorResponse) => void,
     context?: string,
   ): void {
-    sendMessage({ type: 'track_word', word, ...(context && { context }) }, callback);
+    sendMessage({ type: 'track_word', word, ...sentence(context) }, callback);
   }
 
   pinWord(
@@ -55,7 +56,7 @@ class PopupMessageClient implements PopupClient {
     callback: (r: TrackWordResponse | ErrorResponse) => void,
     context?: string,
   ): void {
-    sendMessage({ type: 'track_word', word, pin: true, ...(context && { context }) }, callback);
+    sendMessage({ type: 'track_word', word, pin: true, ...sentence(context) }, callback);
   }
 
   markKnown(
@@ -64,8 +65,17 @@ class PopupMessageClient implements PopupClient {
     callback: (r: MarkKnownResponse | ErrorResponse) => void,
     context?: string,
   ): void {
-    sendMessage({ type: 'mark_known', word, known, ...(context && { context }) }, callback);
+    sendMessage({ type: 'mark_known', word, known, ...sentence(context) }, callback);
   }
+}
+
+/**
+ * A sentence travels with the page it was read on. The address is sent whole
+ * and filtered where it is stored, so what is kept is decided in one place.
+ */
+function sentence(context: string | undefined): { context?: string; source?: ContextSource } {
+  if (!context) return {};
+  return { context, source: { url: location.href, title: document.title } };
 }
 
 export const popupClient = new PopupMessageClient();
