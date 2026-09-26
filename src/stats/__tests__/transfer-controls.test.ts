@@ -49,6 +49,7 @@ describe('TransferControls', () => {
       getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics: STATISTICS })),
       lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: GOOD })),
       setWordStatus: vi.fn(),
+      getReviewLog: vi.fn(cb => cb({ success: true, type: 'get_review_log', log: {} })),
     };
     storage = {
       getStatistics: vi.fn(),

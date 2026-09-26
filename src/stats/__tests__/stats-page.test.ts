@@ -531,6 +531,7 @@ describe('StatsManager insights', () => {
     expect(rows).toEqual([
       ['Recognition', '50% of 2'],
       ['Production', 'No reviews yet'],
+      ['Listening', 'No reviews yet'],
       ['Components', 'No reviews yet'],
       ['Writing', 'No reviews yet'],
     ]);
