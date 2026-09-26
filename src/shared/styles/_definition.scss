@@ -28,6 +28,29 @@
   gap: t.$space-5;
 }
 
+.definition-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: t.$space-2;
+}
+
+// Which dictionary alone holds the word. It shares the frequency chip's shape
+// but is outlined rather than filled, so the band stays the chip that is read
+// first and this one reads as a qualifier on it.
+.availability-badge {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 1px t.$space-2;
+  border: 1px solid t.$color-border-muted;
+  border-radius: t.$radius-pill;
+  color: t.$color-text-subtle;
+  font-size: t.$text-xs;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: default;
+}
+
 // How common the word is, so the reader can tell what is worth learning.
 .frequency-badge {
   display: inline-flex;

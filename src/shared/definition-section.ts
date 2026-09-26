@@ -4,6 +4,7 @@ import { createPronunciationSection } from './pronunciation-section.js';
 import { createEtymologySection } from './etymology-section.js';
 import { createContextSentence } from './context-sentence.js';
 import { createFrequencyBadge } from './frequency-badge.js';
+import { createAvailabilityBadge } from './availability-badge.js';
 
 export function createMandarinSection(
   data: DefinitionResult['mandarin'],
@@ -90,13 +91,22 @@ export function createDefinitionSections(definition: DefinitionResult): HTMLElem
   });
 
   // How common the word is comes first — it is what decides whether the rest
-  // is worth reading — then the script counterpart, then the readings.
+  // is worth reading — then the script counterpart, then the readings. Which
+  // language the word belongs to rides beside the frequency: both say whether
+  // the word is worth learning, and for which half of the reader's study.
   const variant = findScriptVariant(definition);
+  const availability = createAvailabilityBadge(definition);
 
   return createElement({
     className: 'definition-body',
     children: [
-      createFrequencyBadge(definition.frequency),
+      createElement({
+        className: 'definition-badges',
+        children: [
+          createFrequencyBadge(definition.frequency),
+          ...(availability ? [availability] : []),
+        ],
+      }),
       ...(variant ? [createScriptVariantElement(variant)] : []),
       columns,
     ],
