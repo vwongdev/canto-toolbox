@@ -125,4 +125,97 @@ describe('PopupStorageClient', () => {
       expect(written['退休']).toBeDefined();
     });
   });
+
+  describe('decisions', () => {
+    /** Run `act` against a record, and return what its one batch wrote. */
+    async function written(existing: Statistics, act: (client: PopupStorageClient) => void) {
+      const sync = makeSyncStorage();
+      (sync.get as ReturnType<typeof vi.fn>).mockResolvedValue({ wordStatistics: existing });
+
+      const client = new PopupStorageClient(makeStore(sync, makeLocalStorage()));
+      act(client);
+      await vi.waitFor(() => expect(sync.set).toHaveBeenCalled());
+
+      return (sync.set as ReturnType<typeof vi.fn>).mock.calls[0]![0].wordStatistics as Statistics;
+    }
+
+    it('records a word marked known without counting it as a sighting', async () => {
+      const stats = await written({}, client => {
+        client.setStatus('謝謝', { suppressed: true }, { rank: 312 });
+      });
+
+      expect(stats['謝謝']).toMatchObject({ count: 0, suppressed: true, rank: 312 });
+    });
+
+    it('keeps a word retired when a dwell lands after Known', async () => {
+      const stats = await written({}, client => {
+        client.setStatus('謝謝', { suppressed: true });
+        client.updateStatistics('謝謝');
+      });
+
+      expect(stats['謝謝']).toMatchObject({ count: 1, suppressed: true });
+    });
+
+    it('lets the later of Study and Known decide', async () => {
+      const known = await written({}, client => {
+        client.updateStatistics('謝謝', { pinned: true });
+        client.setStatus('謝謝', { suppressed: true });
+      });
+      expect(known['謝謝']).toMatchObject({ count: 1, suppressed: true });
+      expect(known['謝謝']!.pinned).toBeUndefined();
+
+      const studied = await written({}, client => {
+        client.setStatus('謝謝', { suppressed: true });
+        client.updateStatistics('謝謝', { pinned: true });
+      });
+      expect(studied['謝謝']).toMatchObject({ count: 1, pinned: true });
+      expect(studied['謝謝']!.suppressed).toBeUndefined();
+    });
+
+    it('pins a word when Study follows a dwell in the same batch', async () => {
+      const stats = await written({}, client => {
+        client.updateStatistics('謝謝', { context: '真的很謝謝你' });
+        client.updateStatistics('謝謝', { pinned: true });
+      });
+
+      expect(stats['謝謝']).toMatchObject({ count: 2, pinned: true, context: '真的很謝謝你' });
+    });
+
+    it('puts a retired word back without a sighting', async () => {
+      const stats = await written(
+        { 謝謝: { count: 3, firstSeen: 1, lastSeen: 2, suppressed: true } },
+        client => client.setStatus('謝謝', { suppressed: false }),
+      );
+
+      expect(stats['謝謝']).toEqual({ count: 3, firstSeen: 1, lastSeen: 2 });
+    });
+
+    it('records nothing for a Known taken back before the word was ever tracked', async () => {
+      const stats = await written({}, client => {
+        client.setStatus('謝謝', { suppressed: true });
+        client.setStatus('謝謝', { suppressed: false });
+        client.updateStatistics('好');
+      });
+
+      expect(stats['謝謝']).toBeUndefined();
+    });
+  });
+
+  describe('statusOf', () => {
+    const record: Statistics = { 謝謝: { count: 3, firstSeen: 1, lastSeen: 2, pinned: true } };
+
+    it('reports the stored decisions about a word', () => {
+      const client = new PopupStorageClient(makeStore(makeSyncStorage(), makeLocalStorage()));
+
+      expect(client.statusOf('謝謝', record)).toEqual({ pinned: true });
+      expect(client.statusOf('好', record)).toEqual({});
+    });
+
+    it('reports a decision still waiting for its batch', () => {
+      const client = new PopupStorageClient(makeStore(makeSyncStorage(), makeLocalStorage()));
+      client.setStatus('謝謝', { suppressed: true });
+
+      expect(client.statusOf('謝謝', record)).toEqual({ suppressed: true });
+    });
+  });
 });

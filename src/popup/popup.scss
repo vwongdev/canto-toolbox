@@ -97,9 +97,10 @@
   }
 }
 
-// The header's two pills — back out of a followed component, and study the
-// word — differ only in which side of the centred word they take.
+// The header's pills — back out of a followed component on one side of the
+// centred word, and the decisions about the word on the other — share a look.
 .popup-back,
+.popup-known,
 .popup-study {
   grid-row: 1;
   padding: 2px t.$space-2;
@@ -144,15 +145,28 @@
   white-space: nowrap;
 }
 
-.popup-study {
+.popup-actions {
   grid-column: 2;
-  white-space: nowrap;
+  grid-row: 1;
+  display: flex;
+  gap: t.$space-1;
+}
 
-  &:disabled {
-    border-color: transparent;
-    color: t.$color-primary;
-    cursor: default;
-  }
+.popup-known,
+.popup-study {
+  white-space: nowrap;
+}
+
+// A decision already made reads the same on either button. Known stays
+// pressable, since pressing it again is how a retirement is taken back.
+.popup-study:disabled,
+.popup-known[aria-pressed='true'] {
+  border-color: transparent;
+  color: t.$color-primary;
+}
+
+.popup-study:disabled {
+  cursor: default;
 }
 
 // The popup floats over arbitrary host pages at a constrained width, so the

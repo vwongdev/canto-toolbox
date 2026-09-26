@@ -3,6 +3,7 @@ import type {
   HoverSegment,
   LookupResponse,
   ErrorResponse,
+  WordStatus,
 } from '../shared/types.js';
 import { createElement } from '../shared/dom-element.js';
 import { CHEVRON_SVG, createIcon } from '../shared/icons.js';
@@ -24,6 +25,7 @@ const DWELL_MS = 400;
 
 const STUDY_LABEL = '+ Study';
 const STUDY_ADDED_LABEL = 'Added';
+const KNOWN_LABEL = 'Known';
 
 const SENTENCE_BOUNDARY = /[\u3002\uff01\uff1f\uff1b\uff1a\u3001\n.!?;]/;
 const SELECTION_HIDE_DELAY_MS = 200;
@@ -53,6 +55,11 @@ interface ShownWord {
   word: string;
   definition: DefinitionResult;
   context?: string;
+  /**
+   * The reader's decisions about the word, updated in place as its buttons
+   * are pressed so that stepping back to it shows what was last chosen.
+   */
+  status: WordStatus;
 }
 
 interface CursorResult {
@@ -355,7 +362,12 @@ export class ChineseHoverPopupManager {
         // under it leads back to text the cursor has already left.
         if (from) this.trail.push(from);
         else this.trail = [];
-        this.showPopup(matched, response.definition, x, y, context);
+        this.showPopup({
+          word: matched,
+          definition: response.definition,
+          ...(context && { context }),
+          status: response.status ?? {},
+        }, x, y);
         this.scheduleTracking(matched, context);
       },
       segment,
@@ -382,34 +394,70 @@ export class ChineseHoverPopupManager {
   }
 
   /**
-   * Adds the word to the deck on the spot. Dwelling is a good guess at what a
-   * reader is studying, but it is only a guess: a word met once and known to
-   * matter should not have to be hovered twice more to be drilled.
+   * The two decisions a reader can make about a word from the popup. They
+   * answer the same question opposite ways, so each redraws the other: a
+   * Study pressed on a retired word puts it back, and Known takes a chosen
+   * word out of the deck.
+   *
+   * Study adds the word on the spot. Dwelling is a good guess at what a reader
+   * is studying, but it is only a guess: a word met once and known to matter
+   * should not have to be hovered twice more to be drilled. Known is the
+   * opposite — a word the reader already has should not wait for the deck to
+   * find that out one review at a time. Neither is a dwell, so pressing either
+   * cancels the one pending.
    */
-  private createStudyButton(word: string, context?: string): HTMLElement {
-    return createElement<HTMLButtonElement>({
+  private createActions(shown: ShownWord): HTMLElement {
+    const { word, context } = shown;
+    const report = (label: string) => (response: { success: boolean; error?: string }) => {
+      if (!response.success) console.error(`[Content] ${label} failed:`, response.error);
+    };
+
+    const study = createElement<HTMLButtonElement>({
       tag: 'button',
       className: 'popup-study',
-      textContent: STUDY_LABEL,
       attributes: { type: 'button', title: 'Add this word to your flashcards' },
       listeners: {
         click: (event: Event) => {
           event.stopPropagation();
-          const button = event.currentTarget as HTMLButtonElement;
-          button.textContent = STUDY_ADDED_LABEL;
-          button.disabled = true;
-
           this.clearTimer('track');
-          this.client.pinWord(
-            word,
-            (response) => {
-              if (!response.success) console.error('[Content] Study word failed:', response.error);
-            },
-            context,
-          );
+          shown.status = { pinned: true };
+          render();
+          this.client.pinWord(word, report('Study word'), context);
         },
       },
     });
+
+    const known = createElement<HTMLButtonElement>({
+      tag: 'button',
+      className: 'popup-known',
+      textContent: KNOWN_LABEL,
+      attributes: { type: 'button' },
+      listeners: {
+        click: (event: Event) => {
+          event.stopPropagation();
+          this.clearTimer('track');
+          const retire = !shown.status.suppressed;
+          shown.status = retire ? { suppressed: true } : {};
+          render();
+          this.client.markKnown(word, retire, report('Mark known'), context);
+        },
+      },
+    });
+
+    const render = (): void => {
+      const pinned = shown.status.pinned === true;
+      study.textContent = pinned ? STUDY_ADDED_LABEL : STUDY_LABEL;
+      study.disabled = pinned;
+
+      const retired = shown.status.suppressed === true;
+      known.setAttribute('aria-pressed', String(retired));
+      known.title = retired
+        ? 'Put this word back into review'
+        : 'You know this word: retire it from review';
+    };
+    render();
+
+    return createElement({ className: 'popup-actions', children: [known, study] });
   }
 
   private createBackButton(previous: ShownWord, x: number, y: number): HTMLElement {
@@ -478,16 +526,11 @@ export class ChineseHoverPopupManager {
     const previous = this.trail.pop();
     if (!previous) return;
 
-    this.showPopup(previous.word, previous.definition, x, y, previous.context);
+    this.showPopup(previous, x, y);
   }
 
-  private showPopup(
-    word: string,
-    definition: DefinitionResult,
-    x: number,
-    y: number,
-    context?: string,
-  ): void {
+  private showPopup(shown: ShownWord, x: number, y: number): void {
+    const { word, definition } = shown;
     const previous = this.trail[this.trail.length - 1];
     this.hidePopup();
 
@@ -517,7 +560,7 @@ export class ChineseHoverPopupManager {
     // hovered, so it goes through the same path — dwell, tracking and all —
     // with the word it was reached from left underneath it.
     const follow = (character: string): void => this.lookupAndShowWord(character, x, y, {
-      from: { word, definition, ...(context && { context }) },
+      from: shown,
     });
 
     popup.appendChild(
@@ -526,7 +569,7 @@ export class ChineseHoverPopupManager {
         children: [
           ...(previous ? [this.createBackButton(previous, x, y)] : []),
           this.createHeadword(definition.word || word, follow, definition.charactersWithEntries),
-          this.createStudyButton(word, context),
+          this.createActions(shown),
         ],
       }),
     );

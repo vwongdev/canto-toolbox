@@ -2,6 +2,7 @@ import { sendMessage } from '../shared/message-manager.js';
 import type {
   HoverSegment,
   LookupResponse,
+  MarkKnownResponse,
   TrackWordResponse,
   ErrorResponse,
 } from '../shared/types.js';
@@ -23,6 +24,13 @@ export interface PopupClient {
     callback: (r: TrackWordResponse | ErrorResponse) => void,
     context?: string,
   ): void;
+  /** Retire the word, or put it back, without counting it as a sighting. */
+  markKnown(
+    word: string,
+    known: boolean,
+    callback: (r: MarkKnownResponse | ErrorResponse) => void,
+    context?: string,
+  ): void;
 }
 
 class PopupMessageClient implements PopupClient {
@@ -31,7 +39,7 @@ class PopupMessageClient implements PopupClient {
     callback: (r: LookupResponse | ErrorResponse) => void,
     segment?: HoverSegment,
   ): void {
-    sendMessage({ type: 'lookup_word', word, ...(segment && { segment }) }, callback);
+    sendMessage({ type: 'lookup_word', word, withStatus: true, ...(segment && { segment }) }, callback);
   }
 
   trackWord(
@@ -48,6 +56,15 @@ class PopupMessageClient implements PopupClient {
     context?: string,
   ): void {
     sendMessage({ type: 'track_word', word, pin: true, ...(context && { context }) }, callback);
+  }
+
+  markKnown(
+    word: string,
+    known: boolean,
+    callback: (r: MarkKnownResponse | ErrorResponse) => void,
+    context?: string,
+  ): void {
+    sendMessage({ type: 'mark_known', word, known, ...(context && { context }) }, callback);
   }
 }
 

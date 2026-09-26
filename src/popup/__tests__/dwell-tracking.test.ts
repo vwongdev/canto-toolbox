@@ -22,6 +22,7 @@ function createClient(): PopupClient {
     lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: DEFINITION })),
     trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
     pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
+    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
   };
 }
 

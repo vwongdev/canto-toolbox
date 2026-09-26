@@ -247,6 +247,12 @@ export interface LookupMessage {
   type: 'lookup_word';
   word: string;
   segment?: HoverSegment;
+  /**
+   * Also report the reader's decisions about the matched word. Only the popup
+   * shows them, so the pages that already hold the record do not pay for
+   * reading it again.
+   */
+  withStatus?: boolean;
 }
 
 export interface TrackWordMessage {
@@ -268,6 +274,19 @@ export interface WordStatus {
 export interface SetWordStatusMessage extends WordStatus {
   type: 'set_word_status';
   word: string;
+}
+
+/**
+ * The popup's Known button. Retires the word as `set_word_status` does, but
+ * records a word not yet tracked so the retirement has somewhere to stick —
+ * without counting it as a sighting.
+ */
+export interface MarkKnownMessage {
+  type: 'mark_known';
+  word: string;
+  /** False puts a word retired by mistake back into review. */
+  known: boolean;
+  context?: string;
 }
 
 export interface GetStatisticsMessage {
@@ -293,6 +312,7 @@ export type BackgroundMessage =
   | GetReviewLogMessage
   | UpdateFlashcardMessage
   | SetWordStatusMessage
+  | MarkKnownMessage
   | OcrImageMessage
   | OcrRunMessage
   | CaptureTabMessage
@@ -302,6 +322,8 @@ export interface LookupResponse {
   success: true;
   type: 'lookup_word';
   definition: DefinitionResult;
+  /** The reader's decisions about the matched word, when `withStatus` asked. */
+  status?: WordStatus;
 }
 
 export interface ErrorResponse {
@@ -337,6 +359,11 @@ export interface SetWordStatusResponse {
   type: 'set_word_status';
 }
 
+export interface MarkKnownResponse {
+  success: true;
+  type: 'mark_known';
+}
+
 export interface OcrImageResponse {
   success: true;
   type: 'ocr_image';
@@ -370,6 +397,7 @@ export type BackgroundResponse =
   | TrackWordResponse
   | UpdateFlashcardResponse
   | SetWordStatusResponse
+  | MarkKnownResponse
   | OcrImageResponse
   | OcrRunResponse
   | CaptureTabResponse

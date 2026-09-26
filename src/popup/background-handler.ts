@@ -87,11 +87,25 @@ export function register(): void {
      * only once the content script confirms the word was dwelled on.
      */
     lookup_word: async (msg) => {
+      // Read alongside the lookup rather than after it, so the popup waits on
+      // whichever is slower instead of the two in turn. A record that cannot be
+      // read costs the popup its Known state, not its definition.
+      const statistics = msg.withStatus
+        ? popupStorage.read().catch((error: unknown) => {
+            console.error('[Background] Could not read word status:', error);
+            return {};
+          })
+        : null;
+
       await ensureOffscreenDocument();
       const definition = await lookupInOffscreen(msg.word, {
         ...(msg.segment && { segment: msg.segment }),
       });
-      return { success: true, type: 'lookup_word', definition };
+
+      if (!statistics) return { success: true, type: 'lookup_word', definition };
+
+      const status = popupStorage.statusOf(definition.word || msg.word, await statistics);
+      return { success: true, type: 'lookup_word', definition, status };
     },
     track_word: async (msg) => {
       popupStorage.updateStatistics(msg.word, {
@@ -100,6 +114,18 @@ export function register(): void {
         ...(msg.pin && { pinned: true }),
       });
       return { success: true, type: 'track_word' };
+    },
+    /**
+     * Knowing a word is not studying it, so this records no sighting. Only a
+     * word being retired is described: putting one back needs nothing new
+     * recorded about it.
+     */
+    mark_known: async (msg) => {
+      popupStorage.setStatus(msg.word, { suppressed: msg.known }, {
+        ...(msg.known && (await describe(msg.word))),
+        ...(msg.context && { context: msg.context }),
+      });
+      return { success: true, type: 'mark_known' };
     },
   });
 }

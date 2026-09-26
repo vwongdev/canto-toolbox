@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../popup-storage.js', () => ({
-  popupStorage: { updateStatistics: vi.fn() },
+  popupStorage: {
+    updateStatistics: vi.fn(),
+    setStatus: vi.fn(),
+    read: vi.fn(),
+    statusOf: vi.fn(),
+  },
 }));
 
 import { register } from '../background-handler.js';
@@ -41,6 +46,9 @@ describe('popup background-handler register()', () => {
 
     vi.mocked(chrome.runtime.onMessage.addListener).mockClear();
     vi.mocked(popupStorage.updateStatistics).mockReset();
+    vi.mocked(popupStorage.setStatus).mockReset();
+    vi.mocked(popupStorage.read).mockReset().mockResolvedValue({});
+    vi.mocked(popupStorage.statusOf).mockReset().mockReturnValue({});
 
     Object.assign(chrome.runtime, {
       getContexts: vi.fn(() => Promise.resolve([])),
@@ -186,6 +194,73 @@ describe('popup background-handler register()', () => {
       expect.any(Function),
     );
     expect(popupStorage.updateStatistics).toHaveBeenCalledWith('謝謝', { rank: 312 });
+  });
+
+  it('reports the status of the word the lookup matched when asked', async () => {
+    dictDefinition = { ...DEFINITION, word: '謝謝' };
+    const record = { 謝謝: { count: 3, firstSeen: 1, lastSeen: 2, suppressed: true } };
+    vi.mocked(popupStorage.read).mockResolvedValue(record);
+    vi.mocked(popupStorage.statusOf).mockReturnValue({ suppressed: true });
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener(
+      { type: 'lookup_word', word: '謝謝你', segment: { run: '謝謝你', offset: 0 }, withStatus: true },
+      {},
+      sendResponse,
+    );
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(popupStorage.statusOf).toHaveBeenCalledWith('謝謝', record);
+    expect(sendResponse.mock.calls[0]![0]).toMatchObject({ success: true, status: { suppressed: true } });
+  });
+
+  it('leaves the record unread for a lookup that did not ask for status', async () => {
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'lookup_word', word: '好' }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(popupStorage.read).not.toHaveBeenCalled();
+  });
+
+  it('still answers a lookup when the record cannot be read', async () => {
+    vi.mocked(popupStorage.read).mockRejectedValue(new Error('quota'));
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'lookup_word', word: '好', withStatus: true }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(sendResponse.mock.calls[0]![0]).toMatchObject({ success: true, definition: DEFINITION });
+  });
+
+  it('retires a word marked known without recording a sighting', async () => {
+    dictDefinition = { ...DEFINITION, frequency: { rank: 312, band: 'common' } };
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'mark_known', word: '謝謝', known: true, context: '真的很謝謝你' }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(popupStorage.setStatus).toHaveBeenCalledWith(
+      '謝謝',
+      { suppressed: true },
+      { rank: 312, context: '真的很謝謝你' },
+    );
+    expect(popupStorage.updateStatistics).not.toHaveBeenCalled();
+    expect(sendResponse).toHaveBeenCalledWith({ success: true, type: 'mark_known' });
+  });
+
+  it('puts a word back into review when Known is taken back', async () => {
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'mark_known', word: '謝謝', known: false }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(popupStorage.setStatus).toHaveBeenCalledWith('謝謝', { suppressed: false }, {});
   });
 
   it('marks a word the reader asked for outright as pinned', async () => {
