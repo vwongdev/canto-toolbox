@@ -47,6 +47,16 @@ export const SECTIONS: readonly SectionCopy[] = [
     ],
   },
   {
+    title: 'Reading',
+    fields: [
+      {
+        key: 'markUnknownWords',
+        label: 'Underline words I do not know yet',
+        hint: 'A corner badge also shows how much of the page you know, to help pick text at your level.',
+      },
+    ],
+  },
+  {
     title: 'Flashcards',
     fields: [
       {

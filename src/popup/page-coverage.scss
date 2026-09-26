@@ -1,0 +1,77 @@
+@use '../shared/styles/tokens' as t;
+@use '../shared/styles/dark-mode' as *;
+@use '../shared/styles/theme' as theme;
+@use '../shared/styles/a11y' as a;
+
+// Unknown words, and the corner chip saying how much of the page is known.
+// Injected into pages the extension does not own, so the palette goes on the
+// chip rather than on the host's :root.
+@include theme.theme('.canto-coverage-chip');
+
+// The words are marked by the page's own text, not by an element of ours, so
+// the palette cannot be planted on them. These are `--ct-ocr-underline` in
+// each theme — the same hairline marks text the popup will answer for in a
+// picture. Dotted and translucent so a page full of new words is still
+// readable; a decoration takes no space, so nothing on the page moves.
+::highlight(canto-unknown) {
+  text-decoration: underline dotted rgba(0, 102, 204, 0.55);
+}
+
+@include dark {
+  ::highlight(canto-unknown) {
+    text-decoration-color: rgba(108, 179, 255, 0.55);
+  }
+}
+
+.canto-coverage-chip {
+  position: fixed;
+  right: t.$space-3;
+  bottom: t.$space-3;
+  z-index: 999996;
+  display: flex;
+  align-items: center;
+  gap: t.$space-1;
+  padding: t.$space-1 t.$space-1 t.$space-1 t.$space-3;
+  border: 1px solid t.$color-border-bold;
+  border-radius: t.$radius-pill;
+  background: t.$color-surface;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: t.$color-text-muted;
+  font-family: t.$font-system;
+  font-size: t.$text-sm;
+  line-height: 1.4;
+  // Faint until wanted: it sits over someone else's page.
+  opacity: 0.8;
+  transition: opacity 120ms ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  @include a.reduced-motion {
+    @include a.still;
+  }
+}
+
+.canto-coverage-figure {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.canto-coverage-close {
+  @include a.unstyled-button;
+  width: 20px;
+  height: 20px;
+  border-radius: t.$radius-pill;
+  font-size: t.$text-base;
+  line-height: 1;
+  text-align: center;
+  color: t.$color-text-subtle;
+
+  &:hover {
+    background: t.$color-chip-bg;
+    color: t.$color-text;
+  }
+
+  @include a.focus-ring(1px);
+}

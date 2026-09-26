@@ -14,6 +14,7 @@ import { createDefinitionSections, headwordFor } from '../shared/definition-sect
 import { DEFAULT_SETTINGS, watchSettings, type DisplaySettings } from '../shared/settings.js';
 import { MAX_CONTEXT_CHARS } from '../shared/context-sentence.js';
 import { mediaOcrManager } from '../ocr/media-controller.js';
+import { pageCoverageManager } from './page-coverage.js';
 
 const CHINESE_REGEX = /[\u4e00-\u9fff]+/g;
 
@@ -690,7 +691,10 @@ function start(): void {
   popupManager.init();
   // Content scripts can read sync storage directly, so a change on the options
   // page reaches every open tab without a round trip through the worker.
-  watchSettings(settings => popupManager.applySettings(settings));
+  watchSettings(settings => {
+    popupManager.applySettings(settings);
+    pageCoverageManager.applySettings(settings);
+  });
   // Text in images and video frames becomes ordinary hoverable text, which is
   // why this starts alongside the popup rather than knowing anything about it.
   mediaOcrManager.init();

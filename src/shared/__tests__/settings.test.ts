@@ -24,6 +24,7 @@ describe('normaliseSettings', () => {
       primaryLanguage: 'mandarin',
       script: 'as-written',
       hideRomanisation: false,
+      markUnknownWords: false,
     });
   });
 
@@ -35,6 +36,7 @@ describe('normaliseSettings', () => {
       primaryLanguage: 'cantonese',
       script: 'traditional',
       hideRomanisation: true,
+      markUnknownWords: true,
     };
     expect(normaliseSettings(stored)).toEqual(stored);
   });

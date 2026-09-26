@@ -61,6 +61,10 @@ export const SETTING_SPECS = {
   primaryLanguage: choice<PrimaryLanguage>('mandarin', ['mandarin', 'cantonese']),
   script: choice<ScriptPreference>('as-written', ['as-written', 'traditional', 'simplified']),
   hideRomanisation: boolean(false),
+  // Off by default: marking a page is a change to every site the reader visits,
+  // and it costs a pass over the page's text that a reader who never asked for
+  // it should not pay.
+  markUnknownWords: boolean(false),
 } as const;
 
 type ValueOf<S> =
