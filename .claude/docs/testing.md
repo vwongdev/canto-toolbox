@@ -82,6 +82,10 @@ romanisation, definitions or ranks.
 - `src/shared/gloss.ts`, `redundant-store.ts`, `storage-manager.ts`,
   `message-manager.ts`, `speech.ts`
 - `src/stats/ordering.ts` / `overview.ts` — sorting, band filtering, the summary
+- `src/stats/backup.ts` — the backup round trip, which files are refused and
+  why, and the restore merge (nothing already recorded is lost)
+- `src/stats/card-export.ts` — the export set, headword and reading choice,
+  Anki quoting and Pleco's unquoted line format
 - `src/flashcards/session.ts` — which card a word offers and in what order,
   including the gate each direction gets — `components` on `decomposable`,
   `writing` on `writable`, and neither before recognition graduates — and
@@ -121,6 +125,10 @@ romanisation, definitions or ranks.
   paths, so the fake records what it was asked to quiz and hands the test the
   completion callback. The listening card stubs `speechSynthesis` per test,
   including a voice list that starts empty and loads on `voiceschanged`
+- `src/stats/transfer-controls.ts` — downloads captured by stubbing
+  `URL.createObjectURL` and the anchor's `click`; restore driven by a `File`
+  set on the input, and the action-popup hand-off to a tab by giving
+  `chrome.tabs.getCurrent` no tab to return
 
 **Message handlers** — `src/popup/background-handler.ts` is tested by stubbing
 `chrome.offscreen` / `getContexts`, the `dict_lookup` hop through

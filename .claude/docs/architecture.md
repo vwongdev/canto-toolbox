@@ -30,6 +30,9 @@ canto-toolbox/
 │   │   ├── stats-client.ts
 │   │   ├── overview.ts        # Due/accuracy summary over the whole record
 │   │   ├── ordering.ts        # List sorting and frequency-band filtering
+│   │   ├── backup.ts          # Backup file format, validation, merging restore
+│   │   ├── card-export.ts     # Anki / Pleco text export of the deck
+│   │   ├── transfer-controls.ts # Backup, restore and export buttons
 │   │   └── stats-storage.ts   # Statistics read path (sync+local merge)
 │   ├── flashcards/            # Flashcard review page
 │   │   ├── flashcards.ts / flashcards.html / flashcards.scss
@@ -328,6 +331,18 @@ flowchart TD
   every word seen too rarely to have enrolled itself, ranked by the default
   "most studied" sort, so the ones nearest the threshold are the ones offered
   first and each row's **Study this** is one click.
+- **Backup and export** (`transfer-controls.ts`, folded under the filters):
+  **Back up** downloads the whole record as versioned JSON (`backup.ts`);
+  **Restore** validates such a file and merges it through `mutateStatistics`
+  with the backup in the sync area's place — counts, dates and schedules
+  resolve as they do between the two areas, and this device keeps its own
+  retire and study decisions for a word both hold. Nothing is replaced, so an
+  old file cannot wipe newer progress. A file picker closes the action popup,
+  so Restore in the popup opens the page in a tab (`#restore`) instead.
+  **Anki** and **Pleco** export the deck (enrolled or scheduled, not retired)
+  or every tracked word as text (`card-export.ts`). Readings and definitions
+  are not in the record, so each word is looked up through `lookup_word`, a
+  few at a time, with progress shown.
 
 ### Flashcards Page (`src/flashcards/`)
 
