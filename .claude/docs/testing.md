@@ -71,12 +71,18 @@ romanisation, definitions or ranks.
 
 **Pure logic** — no browser/Chrome dependency, straightforward to unit test:
 - `src/dictionary/dictionary.ts` — lookup, longest-match, offset-aware
-  segmentation, Cantonese filtering, frequency and etymology enrichment
+  segmentation, Cantonese filtering, frequency and etymology enrichment.
+  `segmentRun` (whole runs split into words: script variants, unranked proper
+  nouns, UTF-16 offsets past a non-BMP character) has its own file,
+  `segmentation.test.ts`, with its own fixture
+- `src/popup/known-words.ts` — the known set, the join with segmented words
+  (either script, names dropped), which storage changes move a verdict, and
+  that the worker's cache reads the record once until one does
 - `src/shared/bounded-map.ts` — map operations, pruning, batch insert
 - `src/shared/debounce.ts` — debounce / batched-debounce timing
 - `src/shared/scheduler.ts` — FSRS review transitions, due/leech/mastery
-- `src/shared/statistics-utils.ts` — merging, stage derivation, the per-direction
-  schedule walk
+- `src/shared/statistics-utils.ts` — merging, stage derivation, the "known"
+  rule, the per-direction schedule walk
 - `src/shared/frequency.ts` — rank → band boundaries
 - `src/shared/pinyin.ts` — syllable splitting and tone tagging
 - `src/shared/gloss.ts`, `message-manager.ts`, `speech.ts`
@@ -97,7 +103,7 @@ romanisation, definitions or ranks.
 - `src/stats/card-export.ts` — the export set, headword and reading choice,
   Anki quoting and Pleco's unquoted line format
 - `src/stats/insights.ts` — forecast day boundaries, streak, heatmap layout,
-  per-direction accuracy, the "known" rule and band sizes (checked against
+  per-direction accuracy and band sizes (checked against
   `bandForRank`)
 - `src/shared/review-log.ts` — local day keys, pruning, and that overlapping
   writes all count (against the `chrome.storage.local` mock)
@@ -138,6 +144,15 @@ romanisation, definitions or ranks.
   follows playback: cleared on `play`, re-read on `seeked`, and the same frame
   never read twice. `capture.js` is mocked, so these are about the lifecycle
   rather than pixels
+- `src/popup/page-coverage.ts` — which text is read and which is skipped, the
+  slices, the marks and the chip, re-reading only what a mutation added, and
+  re-asking only when a word's known state moves. The segment client is a
+  fake and the idle scheduler runs its callback at once. happy-dom has no
+  Custom Highlight API, so the tests plant a `Set`-backed `Highlight` and a
+  `CSS.highlights` map on `globalThis` and remove them after (not
+  `vi.unstubAllGlobals()`, which would take the `chrome` mock with them).
+  happy-dom delivers mutation records on a timer fake timers do not reach, so a
+  test that changes the page waits a few real milliseconds for them
 - the popup, stats and flashcard surfaces drawn with non-default settings:
   column order, headword script, hidden romanisation, session limits and the
   enrolment threshold. Each controller takes settings through `applySettings`,
@@ -160,7 +175,7 @@ romanisation, definitions or ranks.
 `sendMessage`, and the stroke index `fetch` behind the writing-card gate (the
 index is memoised for the life of the module, so one stub serves the file),
 with `popup-storage.js` mocked so `mark_known` and the `withStatus` read are
-asserted as calls; the batch itself — decisions against sightings, latest
+asserted as calls, and `segment_text` answered through a `dict_segment` stub; the batch itself — decisions against sightings, latest
 decision wins — is tested on `PopupStorageClient` directly; `src/dictionary/offscreen-handler.ts` is tested with the
 dictionary module mocked via `vi.mock('../dictionary.js', …)`;
 `src/flashcards/background-handler.ts` is tested against the statistics store.

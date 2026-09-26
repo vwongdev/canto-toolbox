@@ -19,8 +19,10 @@ canto-toolbox/
 │   ├── service-worker.ts      # MV3 service-worker entry; registers handlers
 │   ├── popup/                 # Hover-popup feature (content script)
 │   │   ├── content.ts         # Injected content script; hover/selection detection
-│   │   ├── background-handler.ts # lookup_word / track_word / mark_known
+│   │   ├── background-handler.ts # lookup_word / track_word / mark_known / segment_text
 │   │   ├── popup-client.ts    # Typed client wrapper over sendMessage
+│   │   ├── page-coverage.ts   # Unknown-word marks and the page coverage chip
+│   │   ├── known-words.ts     # Page words joined with the record; known-set cache
 │   │   ├── popup-storage.ts   # Statistics write path (debounced, bounded)
 │   │   └── popup.scss
 │   ├── stats/                 # Statistics page
@@ -208,6 +210,61 @@ flowchart TD
   much as a character is read through its components. A single-character word
   stays a plain heading, since it leads nowhere.
 
+### Unknown Words on the Page (`src/popup/page-coverage.ts`)
+
+- **Purpose**: show which words on a page the reader does not know yet, and
+  what share of the page's words they do, so a learner can pick text at their
+  level. Opt-in (`markUnknownWords`, off by default); `content.ts` hands it the
+  settings alongside the popup, so switching it applies to open tabs at once.
+- **No DOM changes**: unknown words are a CSS Custom Highlight
+  (`CSS.highlights`, name `canto-unknown`) over `Range`s, drawn as a dotted
+  underline in the OCR hairline's colours. No text node is wrapped or split, so
+  the page's scripts and the popup's `caretRangeFromPoint` see the page exactly
+  as before, and a decoration takes no layout space. Without the API (not in
+  Chrome before 105) the figure is still counted.
+- **What is read**: text nodes holding Chinese under `body`, walked by hand so
+  skipped subtrees are pruned — scripts, form fields, `contenteditable`, text
+  `checkVisibility` says is hidden, and the extension's own UI: the popup, the
+  chip and the OCR overlay (text guessed out of a picture is not the page's).
+  The content script is not `all_frames`, so only the top frame is read;
+  iframes are neither marked nor counted. A run split across elements
+  (`<b>中</b>文`) is segmented per text node, as a hover takes it.
+- **Scheduling**: nodes nearest the viewport go first, in slices of
+  `SLICE_CHARS` sent one at a time behind `requestIdleCallback`, up to
+  `MAX_PAGE_CHARS` per page. The offscreen document is single-threaded and
+  hovers queue behind whatever it is doing, so a lookup waits for one slice at
+  most. Each node's result is kept with the text it was read from, so a later
+  pass sends only nodes that are new or changed and drops ranges for ones gone.
+- **Re-reading**: a `MutationObserver` on the body (ignoring the extension's
+  own UI) schedules a pass `RESCAN_DELAY_MS` after the first change — not
+  pushed back by later ones, or a ticking clock would starve it. A URL change
+  (seen on the next pass, or by `popstate` / `hashchange`) starts the page's
+  figure afresh. A statistics change re-asks every word, but only when
+  `changesKnown` says a verdict moved: a dwell's count going up changes none,
+  so reading does not trigger re-reads. Old marks stay until replaced.
+- **The join happens in the worker**: `segment_text` carries the runs; the
+  worker forwards `dict_segment` to the offscreen document and judges each
+  word against the record through `KnownWordsCache` (`known-words.ts`), which
+  reads the record once and drops it only when `changesKnown` fires. A tab thus
+  receives a verdict per word, never the record, and the worker already reads
+  the record for the popup's Known state.
+- **Known** is `isKnown` (`statistics-utils.ts`) — the rule the stats page's
+  band coverage uses — checked against the word and its other script form,
+  since a word is recorded in the script it was hovered in.
+- **Coverage**: word tokens known over word tokens counted, each occurrence
+  weighted, plus the number of distinct unknown words (`summariseCoverage`).
+  Characters no entry covers are skipped; single-character words, function
+  words included, count like any other. A proper noun — CC-CEDICT capitalises
+  its pinyin — is left out of both marks and figure only when SUBTLEX-CH does
+  not rank it: 中國 and 中文 are capitalised too and are vocabulary. Rare words
+  count; a text full of them is a hard text. The figure is withheld below
+  `MIN_WORDS_FOR_FIGURE` words.
+- **The chip** sits fixed in the bottom-right corner ("82% known · 14 new
+  words"); its × hides it until the URL changes, leaving the marks. It is not
+  repeated on the action popup: the figure describes the page in front of the
+  reader, where the chip already is, and reaching the tab from the popup would
+  add a tab message for no new information.
+
 ### Service Worker (`src/service-worker.ts`)
 
 - **Purpose**: MV3 background entry point. It does not contain handler logic
@@ -232,7 +289,9 @@ flowchart TD
   with named parts, and whether the stroke data covers it — since the pages
   that build sessions cannot look any of them up. Stroke coverage and
   decomposability are asked separately: a character can have strokes without
-  its etymology naming any parts.
+  its etymology naming any parts. `segment_text` splits page text into words
+  through `dict_segment` and returns whether the reader knows each one (see
+  Unknown Words on the Page).
 - **stats**: handles `get_statistics` (reads merged sync+local statistics)
   and `get_review_log` (reads the per-day review log).
 - **flashcards**: handles `update_flashcard` (advances one direction's FSRS
@@ -271,6 +330,12 @@ flowchart TD
   because only the document holding the maps can say which components are
   worth following. `charactersWithEntries` says the same of a compound's own
   characters, for the same reason.
+- **Segmentation**: `segmentRun` walks a run left to right taking the longest
+  word from each point — `lookupWord`'s scan, repeated — and steps over a
+  character no entry starts with. It checks the index before decoding a row and
+  enriches nothing, so it leaves the hover path untouched. Each word carries
+  its other script forms and whether it is an unranked proper noun.
+  `dict_segment` answers many runs per message.
 
 ### Media OCR (`src/ocr/`)
 
@@ -364,6 +429,8 @@ flowchart TD
   - **Known by frequency** — known words per band against `BAND_SIZES`.
     *Known* means the recognition card is familiar or mastered, or the reader
     retired the word; a word buried as a leech is retired but not known.
+    The rule is `isKnown` in `statistics-utils.ts`, shared with the page's
+    unknown-word marks so a word counts the same way on both.
 - Each row can retire a word or pin it for study, through `set_word_status`.
 - **Retired words are left out of the list** unless the **Show retired** pill is
   pressed — the one filter that is on by default, since a retired word was taken
@@ -461,8 +528,9 @@ flowchart TD
 
 - **What they are**: the reader's preferences — session size, new cards per
   session, the enrolment threshold, which reading leads, which script the
-  headword is drawn in, and whether romanisation waits for a press. Every
-  default reproduces what the extension did before it had settings.
+  headword is drawn in, whether romanisation waits for a press, and whether
+  unknown words are marked on the page. Every default reproduces what the
+  extension did before it had settings.
 - **One declaration each**: `SETTING_SPECS` states a setting's kind (integer,
   choice, boolean), default and range; the `Settings` type, `DEFAULT_SETTINGS`
   and `normaliseSettings` all follow from it. Sync storage is written by every
@@ -513,6 +581,11 @@ flowchart TD
    stats/flashcards pages read both
    areas and reconcile with `mergeStatistics`, which preserves every field a
    word carries rather than the handful the merge names.
+5. **Page coverage (optional)** — with `markUnknownWords` on, the content
+   script sends the page's runs in slices as `segment_text`; the worker
+   forwards `dict_segment`, joins the words with its cached known set, and
+   replies with a verdict per word, which the page draws as a highlight and a
+   coverage chip.
 
 ## Storage
 
@@ -718,6 +791,13 @@ is written in.
 - **`getFlashcardStage`** (`src/shared/statistics-utils.ts`) — candidate / new /
   learning / familiar / mastered, derived from the scheduler so `mastered`
   decays. `candidate` is seen-but-not-enrolled, which the stats page filters to.
+- **`isKnown`** (`src/shared/statistics-utils.ts`) — familiar, mastered or
+  retired, but not buried as a leech; the stats page's band coverage and the
+  page's unknown-word marks both use it.
+- **`PageCoverageManager` / `summariseCoverage`** (`src/popup/page-coverage.ts`)
+  — the unknown-word highlight, the incremental pass over the page, and the
+  coverage figure; `KnownWordsCache` / `changesKnown` (`src/popup/known-words.ts`)
+  — the worker's known set and the test for a change that moves it.
 - **`reviewCard` / `isDue` / `isLeech`** (`src/shared/scheduler.ts`) — FSRS
   scheduling, persisted as the compact `SrsState` on each direction's progress.
 - **`progressFor` / `DIRECTION_FIELD` / `schedulesOf`**
@@ -749,7 +829,7 @@ is written in.
 - **`recognise`** (`src/ocr/engine.ts`) — image URL → text with boxes, over the
   packaged PP-OCRv6 model.
 - **`dictionary.ts`** — `initDictionaries`, `lookupWord`, `lookupWordAt`,
-  `lookupEtymology`, `lookupFrequency`.
+  `lookupEtymology`, `lookupFrequency`, `segmentRun`.
 - **`bandForRank` / `BAND_LABELS`** (`src/shared/frequency.ts`) — a corpus rank
   banded into something a learner can act on (Core 1000 → Rare);
   `frequency-badge.ts` draws it on the definition.
