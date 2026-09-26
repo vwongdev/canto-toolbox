@@ -103,10 +103,13 @@ export class ChineseHoverPopupManager {
    * reply for a word the cursor has left cannot paint over the current one.
    */
   private lookupGeneration = 0;
+  /** What the pending `show` timer will do, so Shift can do it early. */
+  private pendingShow: (() => void) | null = null;
   private readonly boundMouseMove: (e: MouseEvent) => void;
   private readonly boundMouseOut: (e: MouseEvent) => void;
   private readonly boundMouseUp: (e: MouseEvent) => void;
   private readonly boundScroll: () => void;
+  private readonly boundKeyDown: (e: KeyboardEvent) => void;
 
   constructor(document: Document, client: PopupClient) {
     this.document = document;
@@ -115,6 +118,7 @@ export class ChineseHoverPopupManager {
     this.boundMouseOut = (e) => this.handleMouseOut(e);
     this.boundMouseUp = (e) => this.handleSelection(e);
     this.boundScroll = () => this.followScroll();
+    this.boundKeyDown = (e) => this.handleKeyDown(e);
   }
 
   init(): void {
@@ -123,6 +127,7 @@ export class ChineseHoverPopupManager {
     this.document.addEventListener('mouseout', this.boundMouseOut, true);
     this.document.addEventListener('mouseup', this.boundMouseUp, true);
     this.document.addEventListener('scroll', this.boundScroll, { passive: true });
+    this.document.addEventListener('keydown', this.boundKeyDown, true);
   }
 
   destroy(): void {
@@ -130,6 +135,7 @@ export class ChineseHoverPopupManager {
     this.document.removeEventListener('mouseout', this.boundMouseOut, true);
     this.document.removeEventListener('mouseup', this.boundMouseUp, true);
     this.document.removeEventListener('scroll', this.boundScroll);
+    this.document.removeEventListener('keydown', this.boundKeyDown, true);
     if (this.mousemoveThrottle !== null) {
       cancelAnimationFrame(this.mousemoveThrottle);
       this.mousemoveThrottle = null;
@@ -262,13 +268,37 @@ export class ChineseHoverPopupManager {
       // Whatever is already on screen stays put until the new word resolves, so
       // crossing text on the way to the popup neither dismisses it nor replaces
       // the word it is showing.
-      this.setTimer('show', () => {
+      this.pendingShow = () => {
         this.lookupAndShowWord(run, clientX, clientY, {
           segment: { run, offset: runOffset },
           context,
         });
-      }, HOVER_INTENT_MS);
+      };
+      this.setTimer('show', this.pendingShow, HOVER_INTENT_MS);
     }
+
+    if (isInstantLookup(event, this.document)) this.showNow();
+  }
+
+  /**
+   * Shift says "this one" outright, so the pause that tells a reader resting
+   * on a word from one passing over it has nothing left to decide.
+   */
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (event.key !== 'Shift' || event.repeat) return;
+    // Shift is also half of every capital letter typed into a field.
+    if (isEditable(event.target) || isEditable(this.document.activeElement)) return;
+    this.showNow();
+  }
+
+  /** Run the pending lookup at once, if the cursor is resting on a word. */
+  private showNow(): void {
+    const show = this.pendingShow;
+    if (!show || this.timers.show === null) return;
+
+    this.clearTimer('show');
+    this.pendingShow = null;
+    show();
   }
 
   private handleSelectionTracking(event: MouseEvent): void {
@@ -708,6 +738,24 @@ function getChineseWordAtCursor(document: Document, event: MouseEvent): CursorRe
     textNode: cursorData.textNode,
     offset: cursorData.offset,
   };
+}
+
+/** Text entry, where Shift is typing rather than asking. */
+function isEditable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return target instanceof HTMLInputElement ||
+         target instanceof HTMLTextAreaElement ||
+         target instanceof HTMLSelectElement;
+}
+
+/**
+ * A move made with Shift held skips the hover pause. Not while a button is
+ * down — Shift with a drag is extending a selection — and not while a field
+ * has focus, where Shift is held for typing.
+ */
+function isInstantLookup(event: MouseEvent, document: Document): boolean {
+  return event.shiftKey && event.buttons === 0 && !isEditable(document.activeElement);
 }
 
 function extractChineseWordsFromText(text: string): string[] {
