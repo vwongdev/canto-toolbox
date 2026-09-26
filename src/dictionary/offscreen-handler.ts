@@ -3,6 +3,7 @@ import {
   lookupWordAt,
   lookupWordInDictionaries,
   initDictionaries,
+  segmentRun,
 } from './dictionary.js';
 import { registerHandlers } from '../shared/message-router.js';
 
@@ -14,14 +15,18 @@ import { registerHandlers } from '../shared/message-router.js';
 export function register(): void {
   const dictionariesReady = initDictionaries();
 
+  async function ready(): Promise<void> {
+    try {
+      await dictionariesReady;
+    } catch (error) {
+      console.error('[Offscreen] Dictionary init failed:', error);
+      throw new Error('Dictionary failed to load', { cause: error });
+    }
+  }
+
   registerHandlers({
     dict_lookup: async (msg) => {
-      try {
-        await dictionariesReady;
-      } catch (error) {
-        console.error('[Offscreen] Dictionary init failed:', error);
-        throw new Error('Dictionary failed to load', { cause: error });
-      }
+      await ready();
 
       const definition = msg.allowMissing
         ? lookupWordInDictionaries(msg.word)
@@ -30,6 +35,15 @@ export function register(): void {
           : lookupWord(msg.word);
 
       return { success: true, type: 'dict_lookup', definition };
+    },
+    /**
+     * This document has one thread, and a hover waits behind whatever it is
+     * doing. The page sends its text a slice at a time and waits for each
+     * reply, so a lookup is never queued behind more than one slice.
+     */
+    dict_segment: async (msg) => {
+      await ready();
+      return { success: true, type: 'dict_segment', words: msg.runs.map(segmentRun) };
     },
   });
 }

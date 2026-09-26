@@ -3,7 +3,8 @@ import { registerHandlers } from '../shared/message-router.js';
 import { sendMessage } from '../shared/message-manager.js';
 import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
 import { hasStrokes } from '../shared/strokes.js';
-import type { DefinitionResult, HoverSegment } from '../shared/types.js';
+import type { DefinitionResult, HoverSegment, SegmentedWord } from '../shared/types.js';
+import { KnownWordsCache, classifyWords } from './known-words.js';
 
 /**
  * Whether the word can carry a components card: one character, and an
@@ -51,7 +52,21 @@ function lookupInOffscreen(
   });
 }
 
+function segmentInOffscreen(runs: string[]): Promise<SegmentedWord[][]> {
+  return new Promise((resolve, reject) => {
+    sendMessage({ type: 'dict_segment', runs }, (response) => {
+      if (!response.success) {
+        reject(new Error(response.error));
+        return;
+      }
+      resolve(response.words);
+    });
+  });
+}
+
 export function register(): void {
+  const knownWords = new KnownWordsCache(() => popupStorage.read());
+
   // Start the host that holds the maps as soon as the worker boots, so a
   // hover shortly after idle is not also paying for document creation.
   void ensureOffscreenDocument();
@@ -128,6 +143,18 @@ export function register(): void {
         ...(msg.source && { source: msg.source }),
       });
       return { success: true, type: 'mark_known' };
+    },
+    /**
+     * The join happens here rather than in the tab: the worker already reads
+     * the record for the popup's Known state, and a page is then sent one
+     * verdict per word instead of every word the reader has ever met.
+     */
+    segment_text: async (msg) => {
+      const known = knownWords.get();
+      await ensureOffscreenDocument();
+      const segmented = await segmentInOffscreen(msg.runs);
+
+      return { success: true, type: 'segment_text', words: classifyWords(msg.runs, segmented, await known) };
     },
   });
 }

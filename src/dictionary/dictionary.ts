@@ -6,6 +6,7 @@ import type {
   EtymologyDictionary,
   FrequencyRanks,
   CharacterEtymology,
+  SegmentedWord,
   WordFrequency,
 } from '../shared/types.js';
 import { parseComponents } from '../shared/decomposition.js';
@@ -283,6 +284,78 @@ export function findWordCoveringOffset(
   }
 
   return null;
+}
+
+/**
+ * Whether either index holds the word at all — the cheap test that lets the
+ * page-wide scan skip decoding rows for the many candidates that are not words.
+ */
+function isIndexed(word: string): boolean {
+  return mandarinDict.index[word] !== undefined || cantoneseDict.index[word] !== undefined;
+}
+
+/**
+ * CC-CEDICT capitalises the pinyin of a proper noun. Only one the corpus does
+ * not rank is set aside: 中國 and 中文 are capitalised too, and a reader has to
+ * know them, whereas the name of a minor character in a novel is read past.
+ */
+function isName(word: string, definition: DefinitionResult): boolean {
+  const mandarin = definition.mandarin.entries;
+  if (mandarin.length === 0 || !mandarin.every(entry => /^[A-Z]/.test(entry.romanisation))) {
+    return false;
+  }
+  return lookupFrequency(word, [...mandarin, ...definition.cantonese.entries]) === undefined;
+}
+
+function segmentedWord(word: string, definition: DefinitionResult, start: number): SegmentedWord {
+  const variants = new Set<string>();
+  for (const entry of [...definition.mandarin.entries, ...definition.cantonese.entries]) {
+    if (entry.traditional) variants.add(entry.traditional);
+    if (entry.simplified) variants.add(entry.simplified);
+  }
+  variants.delete(word);
+
+  return {
+    start,
+    end: start + word.length,
+    ...(variants.size > 0 && { variants: [...variants] }),
+    ...(isName(word, definition) && { name: true as const }),
+  };
+}
+
+/**
+ * A run split into words, left to right, each the longest the dictionaries
+ * hold from where the last one ended — the scan `lookupWord` makes, repeated
+ * along the run. A character no entry starts with is stepped over. Nothing is
+ * enriched, and a row is decoded only once the index has the candidate, so a
+ * page of text costs far less than a hover per word.
+ */
+export function segmentRun(run: string): SegmentedWord[] {
+  const characters = [...run];
+  const words: SegmentedWord[] = [];
+  let position = 0;
+  let offset = 0;
+
+  while (position < characters.length) {
+    let length = Math.min(MAX_WORD_LENGTH, characters.length - position);
+
+    for (; length >= 1; length--) {
+      const candidate = characters.slice(position, position + length).join('');
+      if (!isIndexed(candidate)) continue;
+
+      const definition = lookupEntries(candidate);
+      if (!hasValidDefinition(definition)) continue;
+
+      words.push(segmentedWord(candidate, definition, offset));
+      break;
+    }
+
+    const step = Math.max(length, 1);
+    for (let i = 0; i < step; i++) offset += characters[position + i]!.length;
+    position += step;
+  }
+
+  return words;
 }
 
 /** Look up the hovered character's word, falling back to a plain lookup. */

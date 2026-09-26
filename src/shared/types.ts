@@ -267,6 +267,50 @@ export interface DictLookupMessage {
   allowMissing?: boolean;
 }
 
+/**
+ * One dictionary word found in a run of text, as UTF-16 offsets into the run
+ * so the page can build a `Range` over it directly.
+ */
+export interface SegmentedWord {
+  start: number;
+  end: number;
+  /**
+   * The word's other script forms. A word is recorded in the script it was
+   * hovered in, so a reader who learnt 學習 on one page still knows 学习 on
+   * the next.
+   */
+  variants?: string[];
+  /** A proper noun the corpus does not rank: a name to read past, not vocabulary. */
+  name?: true;
+}
+
+/**
+ * The worker's hop to the offscreen document to split runs of Chinese into
+ * words. Many runs travel together, so a page costs a few round trips rather
+ * than one per word.
+ */
+export interface DictSegmentMessage {
+  type: 'dict_segment';
+  runs: string[];
+}
+
+/** A word on the page, and whether the reader's record says they know it. */
+export interface PageWord {
+  start: number;
+  end: number;
+  known: boolean;
+}
+
+/**
+ * The content script asking which words of some runs of page text the reader
+ * knows. The join with the statistics record happens in the worker, so a tab
+ * is sent a verdict per word rather than the reader's whole record.
+ */
+export interface SegmentTextMessage {
+  type: 'segment_text';
+  runs: string[];
+}
+
 export interface LookupMessage {
   type: 'lookup_word';
   word: string;
@@ -343,7 +387,9 @@ export type BackgroundMessage =
   | OcrImageMessage
   | OcrRunMessage
   | CaptureTabMessage
-  | DictLookupMessage;
+  | DictLookupMessage
+  | DictSegmentMessage
+  | SegmentTextMessage;
 
 export interface LookupResponse {
   success: true;
@@ -416,6 +462,23 @@ export interface DictLookupResponse {
   definition: DefinitionResult;
 }
 
+export interface DictSegmentResponse {
+  success: true;
+  type: 'dict_segment';
+  /** One list per run, in the order the runs were sent. */
+  words: SegmentedWord[][];
+}
+
+export interface SegmentTextResponse {
+  success: true;
+  type: 'segment_text';
+  /**
+   * One list per run. Names are left out, and so is any character no entry
+   * covers: neither says anything about the reader's vocabulary.
+   */
+  words: PageWord[][];
+}
+
 export type BackgroundResponse =
   | LookupResponse
   | ErrorResponse
@@ -428,7 +491,9 @@ export type BackgroundResponse =
   | OcrImageResponse
   | OcrRunResponse
   | CaptureTabResponse
-  | DictLookupResponse;
+  | DictLookupResponse
+  | DictSegmentResponse
+  | SegmentTextResponse;
 
 // Every non-error response carries a `type` that matches its request, so the
 // success response for a given message is derivable from the union — no

@@ -353,6 +353,41 @@ describe('popup background-handler register()', () => {
     expect(popupStorage.updateStatistics).toHaveBeenCalledWith('謝謝', { context: '謝謝你' });
   });
 
+  it('answers segment_text with each word judged against the record', async () => {
+    vi.mocked(popupStorage.read).mockResolvedValue({
+      學習: { count: 2, firstSeen: 1, lastSeen: 2, suppressed: true },
+    });
+    vi.mocked(chrome.runtime.sendMessage).mockImplementation(((
+      message: BackgroundMessage,
+      callback: (r: BackgroundResponse) => void,
+    ) => {
+      expect(message).toEqual({ type: 'dict_segment', runs: ['我学习孔子'] });
+      callback({
+        success: true,
+        type: 'dict_segment',
+        words: [[
+          { start: 0, end: 1 },
+          { start: 1, end: 3, variants: ['學習'] },
+          { start: 3, end: 5, name: true },
+        ]],
+      });
+    }) as typeof chrome.runtime.sendMessage);
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'segment_text', runs: ['我学习孔子'] }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      type: 'segment_text',
+      words: [[
+        { start: 0, end: 1, known: false },
+        { start: 1, end: 3, known: true },
+      ]],
+    });
+  });
+
   it('ignores unknown message types', () => {
     const listener = registerAndGetListener();
     const sendResponse = vi.fn();

@@ -5,6 +5,7 @@ vi.mock('../dictionary.js', () => ({
   lookupWord: vi.fn(),
   lookupWordAt: vi.fn(),
   lookupWordInDictionaries: vi.fn(),
+  segmentRun: vi.fn(),
 }));
 
 import { register } from '../offscreen-handler.js';
@@ -13,6 +14,7 @@ import {
   lookupWord,
   lookupWordAt,
   lookupWordInDictionaries,
+  segmentRun,
 } from '../dictionary.js';
 import type { BackgroundMessage, BackgroundResponse, DefinitionResult } from '../../shared/types.js';
 
@@ -102,6 +104,21 @@ describe('dictionary offscreen-handler register()', () => {
       success: false,
       error: 'boom',
       errorName: 'Error',
+    });
+  });
+
+  it('segments every run of a dict_segment in one reply', async () => {
+    vi.mocked(segmentRun).mockImplementation(run => [{ start: 0, end: run.length }]);
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'dict_segment', runs: ['我', '學習'] }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      type: 'dict_segment',
+      words: [[{ start: 0, end: 1 }], [{ start: 0, end: 2 }]],
     });
   });
 
