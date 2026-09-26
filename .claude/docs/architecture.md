@@ -36,6 +36,7 @@ canto-toolbox/
 │   │   ├── flashcards-view.ts # Screens, card faces, element ids
 │   │   ├── session.ts         # Card selection across the review directions
 │   │   ├── writing.ts         # Stroke-order quiz and the grade it measures
+│   │   ├── listening.ts       # Which reading the listening card plays in
 │   │   ├── background-handler.ts # update_flashcard / set_word_status
 │   │   └── flashcard-client.ts
 │   ├── ocr/                   # Reading Chinese out of images and video frames
@@ -333,10 +334,21 @@ flowchart TD
 - Spaced review driven by `src/shared/scheduler.ts` (FSRS). Each word carries a
   schedule per **review direction**: `recognition` (word → meaning, stored under
   the original `flashcard` key), `production` (meaning + cloze sentence → word),
-  `components` (character → its parts) and `writing` (character → its stroke
-  order). Production unlocks once recognition leaves its learning steps;
-  components additionally needs `decomposable` and writing needs `writable`,
-  both recorded at track time because this page has no dictionary.
+  `listening` (the word spoken → meaning), `components` (character → its parts)
+  and `writing` (character → its stroke order). Production and listening unlock
+  once recognition leaves its learning steps; components additionally needs
+  `decomposable` and writing needs `writable`, both recorded at track time
+  because this page has no dictionary.
+- The **listening card** depends on the browser rather than the word: it is
+  offered only when a voice can say it, in Cantonese when a Cantonese voice
+  exists and Mandarin otherwise (`listening.ts`), and the answer says which was
+  played. The session waits for the voice list (`whenVoicesReady`), since
+  Chrome reports it empty until it loads. Without a voice, `selectSession`
+  neither introduces a listening card nor lets a due one take the word's slot,
+  and `nextReviewAt` leaves it out — its schedule waits for a browser that can
+  play it. The front autoplays and replays on its button or `R`; Chrome refuses
+  speech before the tab's first click or key, so the first card of a freshly
+  opened tab may need the replay.
 - `flashcards.ts` runs the session; `flashcards-view.ts` renders the screens and
   card faces and owns the element ids.
 - `selectSession` (`session.ts`) takes the cards the scheduler says are due,
@@ -364,7 +376,8 @@ flowchart TD
   and rating it again would have FSRS recompute stability over an interval of
   roughly zero. "I know this" (or `K`) retires the word outright.
 - Definitions render via the shared `definition-section`; only the production
-  front needs a lookup before the question can be posed.
+  front needs a lookup before the question can be posed. The production and
+  listening answers lead with the word, since their fronts withheld it.
 
 ## Data Flow
 
@@ -526,7 +539,7 @@ is written in.
   scheduling, persisted as the compact `SrsState` on each direction's progress.
 - **`progressFor` / `DIRECTION_FIELD` / `schedulesOf`**
   (`src/shared/statistics-utils.ts`) — where each review direction's schedule
-  lives on a word, and the shared walk over all three.
+  lives on a word, and the shared walk over all of them.
 - **`selectSession`** (`src/flashcards/session.ts`) — which card each word
   offers a session, and in what order.
 - **`ratingForMistakes` / `startQuiz`** (`src/flashcards/writing.ts`) — the
@@ -567,3 +580,5 @@ is written in.
 - **`speech.ts`** — `canSpeak` / `speak` over the browser's speech synthesis.
   Voice matching is strict per reading: Cantonese never falls back to a
   Mandarin voice, since the wrong pronunciation is worse than none.
+  `whenVoicesReady` hands over the voice list once it has loaded, or after a
+  bounded wait for a browser that has none.

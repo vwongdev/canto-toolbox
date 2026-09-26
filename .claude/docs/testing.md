@@ -84,7 +84,9 @@ romanisation, definitions or ranks.
 - `src/stats/ordering.ts` / `overview.ts` — sorting, band filtering, the summary
 - `src/flashcards/session.ts` — which card a word offers and in what order,
   including the gate each direction gets — `components` on `decomposable`,
-  `writing` on `writable`, and neither before recognition graduates
+  `writing` on `writable`, and neither before recognition graduates — and
+  `listening` only when the page reports a voice to play it with
+- `src/flashcards/listening.ts` — which reading the voices on offer allow
 - `src/flashcards/writing.ts` — mistakes → the grade the writing card submits.
   The quiz itself is not under test there; `hanzi-writer` is mocked away
 - `src/ocr/capture.ts` — the capture-size cap, and which failure falls back to
@@ -117,7 +119,8 @@ romanisation, definitions or ranks.
   through their page controllers. The writing card's lifecycle is covered there
   with `hanzi-writer` mocked — happy-dom neither renders SVG nor grades pointer
   paths, so the fake records what it was asked to quiz and hands the test the
-  completion callback
+  completion callback. The listening card stubs `speechSynthesis` per test,
+  including a voice list that starts empty and loads on `voiceschanged`
 
 **Message handlers** — `src/popup/background-handler.ts` is tested by stubbing
 `chrome.offscreen` / `getContexts`, the `dict_lookup` hop through
