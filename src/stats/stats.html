@@ -65,6 +65,26 @@
           <button class="filter-tab" type="button" aria-pressed="false" data-status="retired" title="Retired words are left out of the list — press to show them">Show retired <span class="tab-count" id="count-retired">0</span></button>
         </div>
       </div>
+
+      <details class="transfer" id="transfer">
+        <summary>Backup and export</summary>
+        <div class="transfer-body">
+          <div class="transfer-group">
+            <button id="backup-btn" class="btn btn-outline" type="button" title="Download every word and its review progress as JSON">Back up</button>
+            <button id="restore-btn" class="btn btn-outline" type="button" title="Merge a backup file into this record">Restore</button>
+            <input id="restore-input" type="file" accept="application/json,.json" hidden>
+          </div>
+          <div class="transfer-group">
+            <select id="export-scope" aria-label="Words to export">
+              <option value="deck">Study deck</option>
+              <option value="all">All tracked words</option>
+            </select>
+            <button id="export-anki-btn" class="btn btn-outline" type="button" title="Tab-separated text for Anki's File → Import">Anki</button>
+            <button id="export-pleco-btn" class="btn btn-outline" type="button" title="Text for Pleco's flashcard import">Pleco</button>
+          </div>
+          <p class="transfer-status" id="transfer-status" role="status" aria-live="polite"></p>
+        </div>
+      </details>
     </section>
 
     <div class="stats-container">

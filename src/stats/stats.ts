@@ -25,6 +25,7 @@ import {
 import { summarise } from './overview.js';
 import { DEFAULT_SORT, isSortKey } from './ordering.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
+import { TransferControls } from './transfer-controls.js';
 
 const CLEAR_LABEL = 'Clear Statistics';
 const CLEAR_CONFIRM_LABEL = 'Clear everything?';
@@ -52,6 +53,7 @@ export class StatsManager {
     this.loadStatistics();
     this.setupClearButton();
     this.setupFlashcardButton();
+    new TransferControls(this.document, this.client, this.storage, () => this.loadStatistics()).init();
   }
 
   private loadStatistics(): void {

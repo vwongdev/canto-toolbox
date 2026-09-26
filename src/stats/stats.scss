@@ -197,6 +197,84 @@ h1 {
   padding: t.$space-3 t.$space-4;
 }
 
+// Moving the record in and out is occasional, so it folds away under the
+// filters rather than taking a row of the popup on every open.
+.transfer {
+  border-top: 1px solid t.$color-border-muted;
+
+  summary {
+    padding: t.$space-2 t.$space-4;
+    color: t.$color-text-subtle;
+    font-size: t.$text-sm;
+    cursor: pointer;
+
+    @include a.focus-ring;
+
+    &:hover {
+      color: t.$color-primary;
+    }
+  }
+}
+
+.transfer-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: t.$space-2 t.$space-4;
+  padding: 0 t.$space-4 t.$space-3;
+}
+
+.transfer-group {
+  display: flex;
+  align-items: center;
+  gap: t.$space-2;
+
+  select {
+    padding: 5px t.$space-2;
+    border: 1px solid t.$color-border-muted;
+    border-radius: t.$radius-sm;
+    background: t.$color-bg;
+    color: t.$color-text;
+    font: inherit;
+    font-size: t.$text-sm;
+    cursor: pointer;
+
+    @include a.focus-ring;
+  }
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: t.$color-border-bold;
+  color: t.$color-text;
+  font-size: t.$text-sm;
+
+  &:hover:not(:disabled) {
+    border-color: t.$color-primary;
+    color: t.$color-primary;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.transfer-status {
+  flex-basis: 100%;
+  color: t.$color-text-subtle;
+  font-size: t.$text-sm;
+  font-variant-numeric: tabular-nums;
+
+  &:empty {
+    display: none;
+  }
+
+  &.is-error {
+    color: t.$color-danger;
+  }
+}
+
 // Sort orders the list, so it lives on the list rather than between the two
 // filter rows — where a wrap left it stranded on a line of its own.
 .sort-control {
