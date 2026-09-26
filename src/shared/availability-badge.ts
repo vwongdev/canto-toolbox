@@ -11,22 +11,28 @@ const LABELS: Record<LanguageAvailability, string> = {
 
 const DESCRIPTIONS: Record<LanguageAvailability, string> = {
   mandarin: 'Only CC-CEDICT has an entry for this word; CC-Canto gives no Cantonese reading for it.',
-  cantonese: 'Only CC-Canto has an entry for this word. Often colloquial Cantonese, though ' +
-    'CC-CEDICT also leaves out compounds that mean no more than their characters.',
+  cantonese: 'Only CC-Canto has an entry for this word, and it is not in the Mandarin subtitle ' +
+    'corpus either, so it is most likely colloquial Cantonese.',
 };
 
 /**
  * Which dictionary alone holds the word, if only one does. A Cantonese entry
  * with no senses is a bare reading — it says how the characters are said, not
  * that the word is Cantonese — so it is not enough to call a word Cantonese
- * only.
+ * only. Nor is CC-CEDICT's silence: it leaves out compounds that mean no more
+ * than their characters (很多, 試試), so a word with a SUBTLEX-CH rank is in
+ * everyday Mandarin whatever CC-CEDICT says.
  */
 export function languageAvailability(definition: DefinitionResult): LanguageAvailability | null {
   const mandarin = definition.mandarin?.entries ?? [];
   const cantonese = definition.cantonese?.entries ?? [];
 
   if (mandarin.length > 0 && cantonese.length === 0) return 'mandarin';
-  if (mandarin.length === 0 && cantonese.some(entry => entry.definitions.length > 0)) {
+  if (
+    mandarin.length === 0 &&
+    !definition.frequency &&
+    cantonese.some(entry => entry.definitions.length > 0)
+  ) {
     return 'cantonese';
   }
   return null;

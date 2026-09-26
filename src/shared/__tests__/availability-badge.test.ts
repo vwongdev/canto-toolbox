@@ -36,6 +36,18 @@ describe('languageAvailability', () => {
     expect(languageAvailability(BOTH)).toBeNull();
   });
 
+  it('does not call a word in the Mandarin subtitle corpus Cantonese only', () => {
+    // CC-CEDICT has no entry for 很多, but SUBTLEX-CH ranks it 254th.
+    const many = {
+      ...define('很多', [], [
+        { traditional: '很多', simplified: '很多', romanisation: 'han2 do1', definitions: ['noun; a lot of'] },
+      ]),
+      frequency: { rank: 254, band: 'core' as const },
+    };
+
+    expect(languageAvailability(many)).toBeNull();
+  });
+
   it('does not call a bare Cantonese reading a Cantonese word', () => {
     // CC-Canto lists 來說 with a reading and no senses.
     const reading = define('來說', [], [
