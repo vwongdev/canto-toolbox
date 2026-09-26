@@ -223,6 +223,12 @@ describe('getFlashcardStage', () => {
     expect(getFlashcardStage(stat, NOW)).toBe('candidate');
   });
 
+  it('counts enrolment against the threshold it is given', () => {
+    const stat: WordStatistics = { count: 2, firstSeen: 1, lastSeen: 2 };
+    expect(getFlashcardStage(stat, NOW, 2)).toBe('new');
+    expect(getFlashcardStage(stat, NOW, 3)).toBe('candidate');
+  });
+
   it('is new for a rarely seen word the reader chose outright', () => {
     const stat: WordStatistics = { count: 1, firstSeen: 1, lastSeen: 2, pinned: true };
     expect(getFlashcardStage(stat, NOW)).toBe('new');

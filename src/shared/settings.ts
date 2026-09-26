@@ -12,7 +12,9 @@
  * new toggle is a spec here and a label on the options page.
  */
 
-export type PrimaryLanguage = 'mandarin' | 'cantonese';
+import { MIN_COUNT } from './statistics-utils.js';
+
+export type PrimaryLanguage ='mandarin' | 'cantonese';
 
 /**
  * Which form of a word leads. `as-written` keeps whatever script the page used,
@@ -54,7 +56,7 @@ export const SETTING_SPECS = {
   // Zero is allowed on purpose: a reader behind on reviews can stop new cards
   // arriving until the backlog is cleared.
   maxNewCards: integer(10, 0, 50),
-  minCount: integer(5, 1, 50),
+  minCount: integer(MIN_COUNT, 1, 50),
   // Mandarin has always been the left-hand column.
   primaryLanguage: choice<PrimaryLanguage>('mandarin', ['mandarin', 'cantonese']),
   script: choice<ScriptPreference>('as-written', ['as-written', 'traditional', 'simplified']),

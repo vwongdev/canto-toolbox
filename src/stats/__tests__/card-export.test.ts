@@ -47,6 +47,10 @@ describe('wordsToExport', () => {
     expect(wordsToExport(statistics, 'deck')).toEqual(['女', '好']);
   });
 
+  it('counts the deck against the reader\'s threshold', () => {
+    expect(wordsToExport(statistics, 'deck', 1)).toEqual(['女', '好', '字']);
+  });
+
   it('takes every tracked word when asked for all', () => {
     expect(wordsToExport(statistics, 'all')).toEqual(['女', '好', '字', '子']);
   });

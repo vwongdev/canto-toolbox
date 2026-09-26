@@ -13,11 +13,14 @@ import { isLearning, isMastered } from './scheduler.js';
  *
  * Tracking a word and drilling it are different claims. Hovering is a cheap,
  * honest record of what was read; enrolment spends a session slot on every
- * review the word ever gets, and the deck only has `MAX_CARDS` of them. At two
+ * review the word ever gets, and a session only has so many of them. At two
  * sightings the commonest words enrolled themselves faster than anything else
  * could — which is why retiring by hand was routine rather than rare. A word
  * looked up this many times is one the reader demonstrably has not retained,
  * which is better evidence than a judgement made mid-sentence.
+ *
+ * This is the default. The reader can move it in settings, so every caller
+ * that can see the settings passes their value instead.
  */
 export const MIN_COUNT = 5;
 
@@ -26,8 +29,8 @@ export const MIN_COUNT = 5;
  * often enough to have earned a slot. A word already carrying a schedule stays
  * in regardless — this only gates the first card a word is ever offered.
  */
-export function isEnrolled(stat: WordStatistics): boolean {
-  return stat.pinned === true || stat.count >= MIN_COUNT;
+export function isEnrolled(stat: WordStatistics, minCount: number = MIN_COUNT): boolean {
+  return stat.pinned === true || stat.count >= minCount;
 }
 
 /**
@@ -66,11 +69,15 @@ export function applyWordStatus(stat: WordStatistics, status: WordStatus): WordS
  * of `mastered` on its own once its recall probability drops — a streak from
  * six months ago is not mastery.
  */
-export function getFlashcardStage(stat: WordStatistics, now: Date = new Date()): FlashcardStage {
+export function getFlashcardStage(
+  stat: WordStatistics,
+  now: Date = new Date(),
+  minCount: number = MIN_COUNT,
+): FlashcardStage {
   const fc = stat.flashcard;
   // Seen but not in the deck is its own answer, not a kind of `new`: one is
   // waiting to be taught, the other is waiting to be chosen.
-  if (!fc || fc.reviews === 0) return isEnrolled(stat) ? 'new' : 'candidate';
+  if (!fc || fc.reviews === 0) return isEnrolled(stat, minCount) ? 'new' : 'candidate';
   if (isLearning(fc)) return 'learning';
   return isMastered(fc, now) ? 'mastered' : 'familiar';
 }

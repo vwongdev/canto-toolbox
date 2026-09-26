@@ -1,11 +1,10 @@
 import { dueAt, isDue, isLearning } from '../shared/scheduler.js';
 import { isEnrolled, progressFor } from '../shared/statistics-utils.js';
+import { DEFAULT_SETTINGS, type Settings } from '../shared/settings.js';
 import type { ReviewDirection, Statistics, WordStatistics } from '../shared/types.js';
 
-export const MAX_CARDS = 20;
-
-/** Cap on cards introduced per session, so due reviews are never crowded out. */
-const MAX_NEW_CARDS = 10;
+/** How big a session is and what may enter it, as the reader has set them. */
+export type SessionLimits = Pick<Settings, 'maxCards' | 'maxNewCards' | 'minCount'>;
 
 export interface ReviewCard {
   word: string;
@@ -54,8 +53,8 @@ function isOffered(direction: ReviewDirection, capabilities: DeckCapabilities): 
   return direction !== 'listening' || capabilities.listening === true;
 }
 
-function isUnlocked(stat: WordStatistics, direction: ReviewDirection): boolean {
-  if (direction === 'recognition') return isEnrolled(stat);
+function isUnlocked(stat: WordStatistics, direction: ReviewDirection, minCount: number): boolean {
+  if (direction === 'recognition') return isEnrolled(stat, minCount);
 
   // Producing a word, hearing it, taking it apart, or writing it tests nothing
   // until it is recognised reliably — which is exactly what leaving the
@@ -88,6 +87,7 @@ function chooseCard(
   stat: WordStatistics,
   now: number,
   capabilities: DeckCapabilities,
+  minCount: number,
 ): { card: ReviewCard; due: number } | { card: ReviewCard; introduce: true } | null {
   const directions = INTRODUCTION_ORDER.filter(direction => isOffered(direction, capabilities));
   let owed: { direction: ReviewDirection; due: number } | null = null;
@@ -105,7 +105,7 @@ function chooseCard(
 
   for (const direction of directions) {
     if (progressFor(stat, direction)?.srs) continue;
-    if (!isUnlocked(stat, direction)) continue;
+    if (!isUnlocked(stat, direction, minCount)) continue;
     return { card: toCard(word, stat, direction), introduce: true };
   }
 
@@ -130,12 +130,14 @@ function compareNewWords(a: WordStatistics, b: WordStatistics): number {
  * A session is the cards the scheduler says are owed, most overdue first,
  * topped up with cards not yet introduced. Words already in the deck stay
  * eligible however rarely they are hovered; new ones still have to clear the
- * exposure gate, and retired ones are left out entirely.
+ * exposure gate, and retired ones are left out entirely. New cards have a cap
+ * of their own inside the session's, so due reviews are never crowded out.
  */
 export function selectSession(
   statistics: Statistics,
   now: number = Date.now(),
   capabilities: DeckCapabilities = {},
+  { maxCards, maxNewCards, minCount }: SessionLimits = DEFAULT_SETTINGS,
 ): ReviewCard[] {
   const due: Array<{ card: ReviewCard; due: number }> = [];
   const fresh: Array<{ card: ReviewCard; stat: WordStatistics }> = [];
@@ -143,7 +145,7 @@ export function selectSession(
   for (const [word, stat] of Object.entries(statistics)) {
     if (stat.suppressed) continue;
 
-    const chosen = chooseCard(word, stat, now, capabilities);
+    const chosen = chooseCard(word, stat, now, capabilities, minCount);
     if (!chosen) continue;
 
     if ('due' in chosen) due.push(chosen);
@@ -153,8 +155,8 @@ export function selectSession(
   due.sort((a, b) => a.due - b.due);
   fresh.sort((a, b) => compareNewWords(a.stat, b.stat));
 
-  const reviews = due.slice(0, MAX_CARDS).map(entry => entry.card);
-  const room = Math.min(MAX_NEW_CARDS, MAX_CARDS - reviews.length);
+  const reviews = due.slice(0, maxCards).map(entry => entry.card);
+  const room = Math.min(maxNewCards, maxCards - reviews.length);
 
   return [...reviews, ...fresh.slice(0, room).map(entry => entry.card)];
 }

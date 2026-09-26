@@ -83,6 +83,15 @@ export interface ListView {
    */
   showRetired: boolean;
   sort: SortKey;
+  /**
+   * The reader's enrolment threshold. It decides which words are Candidates,
+   * so the pills and badges have to count with the value the deck uses.
+   */
+  minCount?: number;
+}
+
+function stageOf(stat: WordStatistics, view: ListView): FlashcardStage {
+  return getFlashcardStage(stat, undefined, view.minCount);
 }
 
 /** Lazily loads and renders a word's definition into its expanded container. */
@@ -194,7 +203,7 @@ export function updateFilterCounts(
       if (!view.showRetired) continue;
     }
 
-    stages[getFlashcardStage(stat)]++;
+    stages[stageOf(stat, view)]++;
     bands[bandOf(stat)]++;
   }
 
@@ -264,7 +273,7 @@ function setFilterReset(emptyStateEl: HTMLElement, clearFilters: (() => void) | 
 
 function matchesView(stat: WordStatistics, view: ListView): boolean {
   if (stat.suppressed && !view.showRetired) return false;
-  if (view.stages.size > 0 && !view.stages.has(getFlashcardStage(stat))) return false;
+  if (view.stages.size > 0 && !view.stages.has(stageOf(stat, view))) return false;
   if (view.bands.size > 0 && !view.bands.has(bandOf(stat))) return false;
   return true;
 }
@@ -352,7 +361,7 @@ export function renderStatistics(
   sortWords(filtered, statistics, view.sort).forEach(word => {
     const stat = statistics[word];
     if (!stat) return;
-    statsListEl.appendChild(createStatItem(word, stat, loadDefinition, setStatus));
+    statsListEl.appendChild(createStatItem(word, stat, stageOf(stat, view), loadDefinition, setStatus));
   });
 }
 
@@ -508,7 +517,7 @@ export function refreshStatRow(
 
   item
     .querySelector('.stage-badge:not(.stage-badge--retired)')
-    ?.replaceWith(createStageBadge(getFlashcardStage(stat)));
+    ?.replaceWith(createStageBadge(stageOf(stat, view)));
 
   const retiredBadge = item.querySelector('.stage-badge--retired');
   if (stat.suppressed === true) {
@@ -529,11 +538,10 @@ export function refreshStatRow(
 function createStatItem(
   word: string,
   stat: WordStatistics,
+  stage: FlashcardStage,
   loadDefinition: LoadDefinition,
   setStatus: SetWordStatus,
 ): HTMLElement {
-  const stage = getFlashcardStage(stat);
-
   const item = createElement({
     className: 'stat-item',
     dataset: { word }

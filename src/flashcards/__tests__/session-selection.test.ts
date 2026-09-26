@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nextReviewAt, selectSession } from '../session.js';
+import { nextReviewAt, selectSession, type SessionLimits } from '../session.js';
 import { MIN_COUNT } from '../../shared/statistics-utils.js';
 import type { Statistics, WordStatistics } from '../../shared/types.js';
 
@@ -32,8 +32,8 @@ function scheduled(dueOffsetMs: number): WordStatistics {
 }
 
 /** The words a session offers, in order, ignoring which card each one is. */
-function words(stats: Statistics, now = NOW): string[] {
-  return selectSession(stats, now).map(card => card.word);
+function words(stats: Statistics, now = NOW, limits?: SessionLimits): string[] {
+  return selectSession(stats, now, {}, limits).map(card => card.word);
 }
 
 describe('selectSession', () => {
@@ -124,6 +124,39 @@ describe('selectSession', () => {
 
   it('is empty when nothing is tracked', () => {
     expect(selectSession({}, NOW)).toEqual([]);
+  });
+
+  describe('with the reader\'s limits', () => {
+    const limits = { maxCards: 3, maxNewCards: 2, minCount: 2 };
+
+    it('caps unseen words at the reader\'s new-card limit', () => {
+      const stats: Statistics = {};
+      for (let i = 0; i < 30; i++) stats[`字${i}`] = tracked(5);
+
+      expect(selectSession(stats, NOW, {}, limits)).toHaveLength(2);
+    });
+
+    it('fills the session with due reviews up to the reader\'s size before any new word', () => {
+      const stats: Statistics = {
+        一: scheduled(-HOUR_MS),
+        二: scheduled(-2 * HOUR_MS),
+        三: scheduled(-3 * HOUR_MS),
+        四: scheduled(-4 * HOUR_MS),
+        新: tracked(5),
+      };
+
+      expect(words(stats, NOW, limits)).toEqual(['四', '三', '二']);
+    });
+
+    it('enrols unseen words at the reader\'s threshold', () => {
+      const stats: Statistics = { 一次: tracked(1), 兩次: tracked(2) };
+      expect(words(stats, NOW, limits)).toEqual(['兩次']);
+    });
+
+    it('offers no new cards when the reader has turned them off', () => {
+      const stats: Statistics = { 新: tracked(5), 舊: scheduled(-HOUR_MS) };
+      expect(words(stats, NOW, { ...limits, maxNewCards: 0 })).toEqual(['舊']);
+    });
   });
 
   it('carries the context sentence on the card', () => {

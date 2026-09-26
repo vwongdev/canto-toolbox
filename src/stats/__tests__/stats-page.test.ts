@@ -6,6 +6,7 @@ import type { StatsClient } from '../stats-client.js';
 import type { StatsStorage } from '../stats-storage.js';
 import { SORT_LABELS } from '../ordering.js';
 import type { Statistics } from '../../shared/types.js';
+import { DEFAULT_SETTINGS } from '../../shared/settings.js';
 
 // The real page markup, minus the asset references happy-dom would try to fetch.
 const HTML = readFileSync('src/stats/stats.html', 'utf-8')
@@ -305,6 +306,20 @@ describe('StatsManager empty list', () => {
 
     const words = Array.from(document.querySelectorAll('.stat-word'), el => el.textContent);
     expect(words).toEqual(['少見']);
+  });
+
+  it('counts candidates against the reader\'s threshold, redrawing when it changes', () => {
+    const page = new DOMParser().parseFromString(HTML, 'text/html');
+    const manager = new StatsManager(page, createClient(), storage);
+    manager.init();
+    expect(page.getElementById('count-candidate')!.textContent).toBe('1');
+
+    manager.applySettings({ ...DEFAULT_SETTINGS, minCount: 10 });
+
+    expect(page.getElementById('count-candidate')!.textContent).toBe('2');
+    expect(
+      page.querySelector('[data-word="常見"] .stage-badge')!.textContent,
+    ).toBe('Candidate');
   });
 
   it('offers Study this on a candidate row', () => {

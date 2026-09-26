@@ -32,6 +32,7 @@ import { bandCoverage, forecast, retentionByDirection } from './insights.js';
 import { DEFAULT_SORT, isSortKey } from './ordering.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
 import { TransferControls } from './transfer-controls.js';
+import { watchSettings, type Settings } from '../shared/settings.js';
 
 const CLEAR_LABEL = 'Clear Statistics';
 const CLEAR_CONFIRM_LABEL = 'Clear everything?';
@@ -55,12 +56,30 @@ export class StatsManager {
     this.storage = storage;
   }
 
+  /**
+   * The threshold decides which words are Candidates, so a change redraws the
+   * list and its counts from the record already held rather than waiting for
+   * the page to be reopened.
+   */
+  applySettings(settings: Settings): void {
+    this.view = { ...this.view, minCount: settings.minCount };
+
+    const elements = getRequiredElements(this.document);
+    if (elements && this.cachedStatistics) this.render(elements, this.cachedStatistics);
+  }
+
   init(): void {
     this.loadStatistics();
     this.loadReviewLog();
     this.setupClearButton();
     this.setupFlashcardButton();
-    new TransferControls(this.document, this.client, this.storage, () => this.loadStatistics()).init();
+    new TransferControls(
+      this.document,
+      this.client,
+      this.storage,
+      () => this.loadStatistics(),
+      () => this.view.minCount,
+    ).init();
   }
 
   private loadStatistics(): void {
@@ -296,6 +315,8 @@ export class StatsManager {
 }
 
 export const statsManager = new StatsManager(document, statsClient, statsStorage);
+
+watchSettings(settings => statsManager.applySettings(settings));
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => statsManager.init());

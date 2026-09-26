@@ -46,6 +46,8 @@ export class TransferControls {
     private readonly storage: StatsStorage,
     /** Called once a restore has changed the record, so the page can reload it. */
     private readonly onRestored: () => void,
+    /** The reader's enrolment threshold, read at export time so it is current. */
+    private readonly minCount: () => number | undefined = () => undefined,
   ) {}
 
   init(): void {
@@ -184,7 +186,7 @@ export class TransferControls {
         scopeEl instanceof HTMLSelectElement && scopeEl.value === 'all' ? 'all' : 'deck';
 
       const statistics = await this.getStatistics();
-      const words = wordsToExport(statistics, scope);
+      const words = wordsToExport(statistics, scope, this.minCount());
       if (words.length === 0) {
         this.setStatus(scope === 'deck'
           ? 'No words in the study deck yet. Choose All tracked words to export everything.'

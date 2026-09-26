@@ -9,10 +9,14 @@ import { toSyllables } from '../shared/pinyin.js';
  */
 export type ExportScope = 'deck' | 'all';
 
-export function wordsToExport(statistics: Statistics, scope: ExportScope): string[] {
+export function wordsToExport(
+  statistics: Statistics,
+  scope: ExportScope,
+  minCount?: number,
+): string[] {
   return Object.entries(statistics)
     .filter(([, stat]) =>
-      scope === 'all' || (!stat.suppressed && getFlashcardStage(stat) !== 'candidate'))
+      scope === 'all' || (!stat.suppressed && getFlashcardStage(stat, undefined, minCount) !== 'candidate'))
     .sort(([, a], [, b]) => a.firstSeen - b.firstSeen)
     .map(([word]) => word);
 }

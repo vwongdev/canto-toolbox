@@ -45,6 +45,7 @@ import { progressFor } from '../shared/statistics-utils.js';
 import { ratingForMistakes, startQuiz, type WritingQuiz } from './writing.js';
 import { listeningReading } from './listening.js';
 import { speak, whenVoicesReady, type Reading } from '../shared/speech.js';
+import { DEFAULT_SETTINGS, watchSettings, type Settings } from '../shared/settings.js';
 
 const NOTHING_TRACKED =
   'No words to review yet.\nPress + Study in the popup to add a word, ' +
@@ -130,10 +131,19 @@ export class FlashcardManager {
   private retired: RetiredWord | undefined;
   /** The reading listening cards play in, or null when no voice can say one. */
   private listening: Reading | null = null;
+  private settings: Settings = DEFAULT_SETTINGS;
 
   constructor(document: Document, client: FlashcardClient) {
     this.document = document;
     this.client = client;
+  }
+
+  /**
+   * A change lands on the next card drawn. The session already chosen stays as
+   * it is: resizing it mid-review would drop cards the reader was promised.
+   */
+  applySettings(settings: Settings): void {
+    this.settings = settings;
   }
 
   init(): void {
@@ -164,7 +174,7 @@ export class FlashcardManager {
   private startSession(statistics: Statistics): void {
     const now = Date.now();
     const capabilities: DeckCapabilities = { listening: this.listening !== null };
-    const session = selectSession(statistics, now, capabilities);
+    const session = selectSession(statistics, now, capabilities, this.settings);
 
     if (session.length === 0) {
       renderEmptyState(this.document, emptyStateMessage(statistics, now, capabilities));
@@ -544,8 +554,18 @@ export class FlashcardManager {
 
 const flashcardManager = new FlashcardManager(document, flashcardClient);
 
+// The session is sized by the settings, so it is not built until they are read.
+const settingsRead = new Promise<void>(resolve => {
+  watchSettings(settings => {
+    flashcardManager.applySettings(settings);
+    resolve();
+  });
+});
+
+const start = (): void => void settingsRead.then(() => flashcardManager.init());
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => flashcardManager.init());
+  document.addEventListener('DOMContentLoaded', start);
 } else {
-  flashcardManager.init();
+  start();
 }
