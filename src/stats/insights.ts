@@ -1,8 +1,7 @@
 import { dayKey, shiftDay } from '../shared/review-log.js';
-import { isLeech } from '../shared/scheduler.js';
 import {
   DIRECTION_FIELD,
-  getFlashcardStage,
+  isKnown,
   progressFor,
   schedulesOf,
 } from '../shared/statistics-utils.js';
@@ -11,7 +10,6 @@ import type {
   ReviewDirection,
   ReviewLog,
   Statistics,
-  WordStatistics,
 } from '../shared/types.js';
 import { bandOf } from './ordering.js';
 
@@ -153,24 +151,6 @@ export function retentionByDirection(statistics: Statistics): DirectionRetention
       accuracy: reviews > 0 ? correct / reviews : undefined,
     };
   });
-}
-
-/**
- * Whether the reader knows the word, for coverage purposes: its recognition
- * card has left the learning steps and is holding (familiar or mastered), or
- * the reader retired it themselves. A word buried as a leech is retired too,
- * but because it kept being forgotten — it counts as anything but known.
- */
-export function isKnown(stat: WordStatistics, now: Date = new Date()): boolean {
-  if (stat.suppressed) {
-    for (const progress of schedulesOf(stat)) {
-      if (isLeech(progress)) return false;
-    }
-    return true;
-  }
-
-  const stage = getFlashcardStage(stat, now);
-  return stage === 'familiar' || stage === 'mastered';
 }
 
 /**

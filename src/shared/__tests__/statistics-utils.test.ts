@@ -3,11 +3,12 @@ import {
   MIN_COUNT,
   applyWordStatus,
   getFlashcardStage,
+  isKnown,
   lastReviewedAt,
   mergeStatistics,
   nextDueAt,
 } from '../statistics-utils.js';
-import { reviewCard } from '../scheduler.js';
+import { LEECH_LAPSES, reviewCard } from '../scheduler.js';
 import type { FlashcardProgress, WordStatistics } from '../types.js';
 
 describe('mergeStatistics', () => {
@@ -270,6 +271,54 @@ describe('getFlashcardStage', () => {
     const neglected = new Date(stat.flashcard!.lastReviewed! + stability * DAY_MS * 10);
 
     expect(getFlashcardStage(stat, neglected)).toBe('familiar');
+  });
+});
+
+describe('isKnown', () => {
+  const now = new Date('2026-09-27T12:00:00Z');
+  const DAY_MS = 86_400_000;
+
+  function progress(srs: Partial<NonNullable<FlashcardProgress['srs']>> = {}): FlashcardProgress {
+    return {
+      reviews: 4,
+      correct: 3,
+      consecutiveCorrect: 2,
+      srs: {
+        due: now.getTime() + DAY_MS,
+        stability: 5,
+        difficulty: 5,
+        scheduledDays: 5,
+        learningSteps: 0,
+        lapses: 0,
+        state: 2,
+        ...srs,
+      },
+    };
+  }
+
+  function word(extra: Partial<WordStatistics> = {}): WordStatistics {
+    return { count: 3, firstSeen: 1, lastSeen: 2, ...extra };
+  }
+
+  it('counts a recognition card that has left its learning steps', () => {
+    expect(isKnown(word({ flashcard: progress() }), now)).toBe(true);
+  });
+
+  it('does not count a card still being learnt', () => {
+    expect(isKnown(word({ flashcard: progress({ state: 1 }) }), now)).toBe(false);
+  });
+
+  it('does not count a word never reviewed', () => {
+    expect(isKnown(word({ pinned: true }), now)).toBe(false);
+  });
+
+  it('counts a word the reader retired', () => {
+    expect(isKnown(word({ suppressed: true }), now)).toBe(true);
+  });
+
+  it('does not count a word buried as a leech', () => {
+    const leech = word({ suppressed: true, production: progress({ lapses: LEECH_LAPSES }) });
+    expect(isKnown(leech, now)).toBe(false);
   });
 });
 

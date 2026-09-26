@@ -6,7 +6,7 @@ import type {
   WordStatistics,
   WordStatus,
 } from './types';
-import { isLearning, isMastered } from './scheduler.js';
+import { isLeech, isLearning, isMastered } from './scheduler.js';
 import { contextsOf, mergeContexts } from './word-contexts.js';
 
 /**
@@ -81,6 +81,26 @@ export function getFlashcardStage(
   if (!fc || fc.reviews === 0) return isEnrolled(stat, minCount) ? 'new' : 'candidate';
   if (isLearning(fc)) return 'learning';
   return isMastered(fc, now) ? 'mastered' : 'familiar';
+}
+
+/**
+ * Whether the reader knows the word: its recognition card has left the
+ * learning steps and is holding (familiar or mastered), or the reader retired
+ * it themselves. A word buried as a leech is retired too, but because it kept
+ * being forgotten — it counts as anything but known. The stats page's band
+ * coverage and the page's unknown-word marks both ask this, so a word counts
+ * the same way on both.
+ */
+export function isKnown(stat: WordStatistics, now: Date = new Date()): boolean {
+  if (stat.suppressed) {
+    for (const progress of schedulesOf(stat)) {
+      if (isLeech(progress)) return false;
+    }
+    return true;
+  }
+
+  const stage = getFlashcardStage(stat, now);
+  return stage === 'familiar' || stage === 'mastered';
 }
 
 /**

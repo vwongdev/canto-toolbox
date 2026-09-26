@@ -5,12 +5,10 @@ import {
   bandCoverage,
   currentStreak,
   forecast,
-  isKnown,
   retentionByDirection,
   BAND_SIZES,
 } from '../insights.js';
 import { bandForRank } from '../../shared/frequency.js';
-import { LEECH_LAPSES } from '../../shared/scheduler.js';
 import { DIRECTION_FIELD } from '../../shared/statistics-utils.js';
 import type { FlashcardProgress, FrequencyBand, Statistics } from '../../shared/types.js';
 
@@ -163,34 +161,6 @@ describe('retentionByDirection', () => {
     };
 
     expect(retentionByDirection(stats)[0]!.reviews).toBe(0);
-  });
-});
-
-describe('isKnown', () => {
-  const now = new Date(NOW);
-
-  it('counts a recognition card that has left its learning steps', () => {
-    expect(isKnown(word({ flashcard: progress() }), now)).toBe(true);
-  });
-
-  it('does not count a card still being learnt', () => {
-    expect(isKnown(word({ flashcard: progress({}, { state: 1 }) }), now)).toBe(false);
-  });
-
-  it('does not count a word never reviewed', () => {
-    expect(isKnown(word({ pinned: true }), now)).toBe(false);
-  });
-
-  it('counts a word the reader retired', () => {
-    expect(isKnown(word({ suppressed: true }), now)).toBe(true);
-  });
-
-  it('does not count a word buried as a leech', () => {
-    const leech = word({
-      suppressed: true,
-      production: progress({}, { lapses: LEECH_LAPSES }),
-    });
-    expect(isKnown(leech, now)).toBe(false);
   });
 });
 
