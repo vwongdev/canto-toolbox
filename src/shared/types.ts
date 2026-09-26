@@ -139,6 +139,9 @@ export interface Statistics {
   [word: string]: WordStatistics;
 }
 
+/** Local calendar day (`YYYY-MM-DD`) → cards answered that day. */
+export type ReviewLog = Record<string, number>;
+
 export interface WordFrequency {
   /** 1 is the commonest word in the corpus. */
   rank: number;

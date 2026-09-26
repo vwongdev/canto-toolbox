@@ -5,8 +5,13 @@ vi.mock('../../shared/statistics-store.js', () => ({
   mutateStatistics: vi.fn(),
 }));
 
+vi.mock('../../shared/review-log.js', () => ({
+  recordReview: vi.fn(async () => {}),
+}));
+
 import { register } from '../background-handler.js';
 import { mutateStatistics } from '../../shared/statistics-store.js';
+import { recordReview } from '../../shared/review-log.js';
 import { LEECH_LAPSES } from '../../shared/scheduler.js';
 import type { BackgroundMessage, BackgroundResponse, Statistics } from '../../shared/types.js';
 
@@ -159,5 +164,39 @@ describe('flashcard background-handler set_word_status', () => {
     });
 
     expect(stats['你好']!.flashcard?.reviews).toBe(4);
+  });
+});
+
+describe('flashcard background-handler review log', () => {
+  beforeEach(() => {
+    vi.mocked(chrome.runtime.onMessage.addListener).mockClear();
+    vi.mocked(mutateStatistics).mockReset();
+    vi.mocked(recordReview).mockClear();
+  });
+
+  it('logs a review against the day it was given', async () => {
+    await applied({ type: 'update_flashcard', word: '你好', rating: 'good' }, TRACKED);
+    expect(recordReview).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs nothing for a word that is not tracked', async () => {
+    await applied({ type: 'update_flashcard', word: '沒有', rating: 'good' }, TRACKED);
+    expect(recordReview).not.toHaveBeenCalled();
+  });
+
+  it('still reports the rating saved when the log cannot be written', async () => {
+    vi.mocked(recordReview).mockRejectedValueOnce(new Error('quota'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const listener = registerAndGetListener();
+    vi.mocked(mutateStatistics).mockImplementation(async (transform) => {
+      transform(TRACKED);
+    });
+    const sendResponse = vi.fn();
+    listener({ type: 'update_flashcard', word: '你好', rating: 'good' }, {}, sendResponse);
+
+    await vi.waitFor(() =>
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, type: 'update_flashcard' }),
+    );
   });
 });

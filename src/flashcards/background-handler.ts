@@ -1,5 +1,6 @@
 import { registerHandlers } from '../shared/message-router.js';
 import { mutateStatistics } from '../shared/statistics-store.js';
+import { recordReview } from '../shared/review-log.js';
 import { isLeech, reviewCard } from '../shared/scheduler.js';
 import { DIRECTION_FIELD, applyWordStatus, progressFor } from '../shared/statistics-utils.js';
 import type { FlashcardProgress, WordStatistics } from '../shared/types.js';
@@ -20,6 +21,8 @@ export function register(): void {
       // A rating that predates the other card directions is a recognition one.
       const direction = msg.direction ?? 'recognition';
 
+      let reviewed = false;
+
       await mutateStatistics((existing) => {
         const stats = { ...existing };
         const stat = stats[msg.word];
@@ -30,8 +33,17 @@ export function register(): void {
           ...withLeechBuried(stat, progress),
           [DIRECTION_FIELD[direction]]: progress,
         };
+        reviewed = true;
         return stats;
       });
+
+      // The review itself is already saved, so a log that fails to write costs
+      // a square on the calendar rather than the rating the reader just gave.
+      if (reviewed) {
+        await recordReview().catch((error: unknown) => {
+          console.warn('[Flashcards] Failed to log review:', error);
+        });
+      }
       return { success: true, type: 'update_flashcard' };
     },
 
