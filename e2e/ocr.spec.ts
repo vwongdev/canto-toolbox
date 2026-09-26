@@ -178,7 +178,16 @@ function readStatistics(page: Page): Promise<Record<string, { context?: string }
   return page.evaluate(
     () =>
       new Promise<Record<string, { context?: string }>>(resolve => {
-        chrome.storage.sync.get('wordStatistics', v => resolve(v.wordStatistics ?? {}));
+        // Local holds every word, one item each; sync carries only studied ones.
+        chrome.storage.local.get(null, items =>
+          resolve(
+            Object.fromEntries(
+              Object.entries(items)
+                .filter(([key]) => key.startsWith('word:'))
+                .map(([key, stat]) => [key.slice('word:'.length), stat]),
+            ),
+          ),
+        );
       }),
   );
 }

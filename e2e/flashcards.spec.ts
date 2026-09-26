@@ -38,15 +38,18 @@ test.afterAll(async () => {
 });
 
 /**
- * Both areas, because the extension reads the record as the two of them
- * reconciled and a write reaches both. Seeding sync alone left whatever an
- * earlier test's ratings had written to local still standing — and local is
- * the area that decides a word's schedule and its flags.
+ * The record is exactly `data`: one local item per word, as the extension
+ * keeps it. Both areas are cleared first, because the extension reads the two
+ * reconciled — an earlier test's ratings left standing in either would still
+ * count, and sync carries the reviewed words it would otherwise put back.
  */
 async function seedStorage(page: Page, data: Record<string, WordStat>): Promise<void> {
   await page.evaluate(async (storageData) => {
-    await chrome.storage.sync.set({ wordStatistics: storageData });
-    await chrome.storage.local.set({ wordStatistics: storageData });
+    await chrome.storage.sync.clear();
+    await chrome.storage.local.clear();
+    await chrome.storage.local.set(
+      Object.fromEntries(Object.entries(storageData).map(([word, stat]) => [`word:${word}`, stat])),
+    );
   }, data);
 }
 

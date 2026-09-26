@@ -39,11 +39,14 @@ async function openStatsPage(): Promise<Page> {
   return page;
 }
 
-/** Both areas — see the note on the flashcards spec's copy. */
+/** One local item per word — see the note on the flashcards spec's copy. */
 async function seedStorage(page: Page, data: Record<string, WordStat>): Promise<void> {
   await page.evaluate(async (storageData) => {
-    await chrome.storage.sync.set({ wordStatistics: storageData });
-    await chrome.storage.local.set({ wordStatistics: storageData });
+    await chrome.storage.sync.clear();
+    await chrome.storage.local.clear();
+    await chrome.storage.local.set(
+      Object.fromEntries(Object.entries(storageData).map(([word, stat]) => [`word:${word}`, stat])),
+    );
   }, data);
 }
 
