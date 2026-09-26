@@ -81,7 +81,7 @@ export class PopupStorageClient implements PopupStorage {
 
   /** The whole record, reconciled across both storage areas. */
   read(): Promise<Statistics> {
-    return this.store.read<Statistics>(STATISTICS_KEY, reconcileStatistics);
+    return this.store.read();
   }
 
   /**

@@ -131,14 +131,11 @@ describe('PopupStorageClient', () => {
   describe('decisions', () => {
     /** Run `act` against a record, and return what its one batch wrote. */
     async function written(existing: Statistics, act: (client: PopupStorageClient) => void) {
-      const sync = makeSyncStorage();
-      (sync.get as ReturnType<typeof vi.fn>).mockResolvedValue({ wordStatistics: existing });
-
-      const client = new PopupStorageClient(makeStore(sync, makeLocalStorage()));
+      const { client, local } = setup(existing);
       act(client);
-      await vi.waitFor(() => expect(sync.set).toHaveBeenCalled());
+      await vi.waitFor(() => expect(local.mocks.set).toHaveBeenCalled());
 
-      return (sync.set as ReturnType<typeof vi.fn>).mock.calls[0]![0].wordStatistics as Statistics;
+      return local.words() as Statistics;
     }
 
     it('records a word marked known without counting it as a sighting', async () => {
@@ -207,14 +204,14 @@ describe('PopupStorageClient', () => {
     const record: Statistics = { 謝謝: { count: 3, firstSeen: 1, lastSeen: 2, pinned: true } };
 
     it('reports the stored decisions about a word', () => {
-      const client = new PopupStorageClient(makeStore(makeSyncStorage(), makeLocalStorage()));
+      const client = setup().client;
 
       expect(client.statusOf('謝謝', record)).toEqual({ pinned: true });
       expect(client.statusOf('好', record)).toEqual({});
     });
 
     it('reports a decision still waiting for its batch', () => {
-      const client = new PopupStorageClient(makeStore(makeSyncStorage(), makeLocalStorage()));
+      const client = setup().client;
       client.setStatus('謝謝', { suppressed: true });
 
       expect(client.statusOf('謝謝', record)).toEqual({ suppressed: true });
