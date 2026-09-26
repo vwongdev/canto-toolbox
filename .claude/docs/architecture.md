@@ -637,13 +637,14 @@ is written in.
 - **`languageAvailability` / `createAvailabilityBadge`**
   (`src/shared/availability-badge.ts`) — "Mandarin only" when only CC-CEDICT
   has the word, "Cantonese only" when only CC-Canto has it with at least one
-  sense (a bare reading says how characters are said, not that the word is
-  Cantonese). It sits beside the frequency chip in the shared
+  sense and it has no corpus rank (a bare reading says how characters are
+  said, not that the word is Cantonese). It sits beside the frequency chip in the shared
   `definition-section` rather than in the popup alone: which language a word
   belongs to is a property of the word, and it matters most on the flashcard
-  and stats surfaces, where a learner decides what to drill. Its tooltip is
-  hedged because CC-CEDICT also omits compounds that mean no more than their
-  characters — 很多 and 還要 read as "Cantonese only" for that reason.
+  and stats surfaces, where a learner decides what to drill. CC-CEDICT omits
+  compounds that mean no more than their characters (很多, 還要), so a word
+  with a SUBTLEX-CH rank is never called Cantonese only — the corpus is
+  Mandarin.
 - **`parseComponents`** (`src/shared/decomposition.ts`) — the component glyphs
   of a makemeahanzi decomposition, Ideographic Description Characters dropped.
 - **`pronunciation-section.ts` / `etymology-section.ts` /
