@@ -10,6 +10,7 @@ vi.stubGlobal('chrome', {
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
   },
   storage: {
+    onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     sync: {
       get: vi.fn().mockResolvedValue({}),
       set: vi.fn().mockResolvedValue(undefined),
