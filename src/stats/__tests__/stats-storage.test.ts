@@ -46,3 +46,20 @@ describe('StatsStorageClient.getStatistics', () => {
     expect(result).toEqual(only);
   });
 });
+
+describe('StatsStorageClient.restoreStatistics', () => {
+  it('merges the backup into the record through the shared write path', async () => {
+    const existing: Statistics = { 字: { count: 4, firstSeen: 5, lastSeen: 6 } };
+    const backup: Statistics = {
+      字: { count: 2, firstSeen: 1, lastSeen: 3 },
+      好: { count: 1, firstSeen: 1, lastSeen: 1 },
+    };
+    vi.mocked(chrome.storage.local.get).mockResolvedValueOnce({ wordStatistics: existing } as never);
+
+    const outcome = await makeClient(makeArea(), makeArea()).restoreStatistics(backup);
+
+    const written = { 字: { count: 4, firstSeen: 1, lastSeen: 6 }, 好: backup['好'] };
+    expect(outcome).toEqual({ statistics: written, imported: 2, added: 1 });
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({ wordStatistics: written });
+  });
+});

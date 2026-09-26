@@ -54,6 +54,7 @@ function createClient(): StatsClient {
 const storage: StatsStorage = {
   getStatistics: vi.fn(async () => STATISTICS),
   clearStatistics: vi.fn(async () => {}),
+  restoreStatistics: vi.fn(),
 };
 
 describe('StatsManager overview', () => {
