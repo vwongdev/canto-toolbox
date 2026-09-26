@@ -26,9 +26,10 @@ canto-toolbox/
 │   ├── stats/                 # Statistics page
 │   │   ├── stats.ts / stats.html / stats.scss
 │   │   ├── stats-view.ts      # DOM rendering; element ids live here
-│   │   ├── background-handler.ts # get_statistics handler
+│   │   ├── background-handler.ts # get_statistics / get_review_log handler
 │   │   ├── stats-client.ts
 │   │   ├── overview.ts        # Due/accuracy summary over the whole record
+│   │   ├── insights.ts        # Forecast, streak, retention, band coverage
 │   │   ├── ordering.ts        # List sorting and frequency-band filtering
 │   │   ├── backup.ts          # Backup file format, validation, merging restore
 │   │   ├── card-export.ts     # Anki / Pleco text export of the deck
@@ -64,6 +65,7 @@ canto-toolbox/
 │   │   ├── storage-manager.ts # Thin chrome.storage wrapper
 │   │   ├── redundant-store.ts # sync/local reconciliation policy
 │   │   ├── statistics-store.ts# The shared statistics key, cap and store
+│   │   ├── review-log.ts      # Cards answered per local day (local only)
 │   │   ├── statistics-utils.ts# mergeStatistics(), getFlashcardStage()
 │   │   ├── scheduler.ts       # FSRS review scheduling
 │   │   ├── bounded-map.ts     # Top-N-by-sort-key map
@@ -205,9 +207,11 @@ flowchart TD
   that build sessions cannot look any of them up. Stroke coverage and
   decomposability are asked separately: a character can have strokes without
   its etymology naming any parts.
-- **stats**: handles `get_statistics` (reads merged sync+local statistics).
+- **stats**: handles `get_statistics` (reads merged sync+local statistics)
+  and `get_review_log` (reads the per-day review log).
 - **flashcards**: handles `update_flashcard` (advances one direction's FSRS
-  state, and buries a word once its lapses reach `LEECH_LAPSES`) and
+  state, buries a word once its lapses reach `LEECH_LAPSES`, and adds one to
+  today's count in the review log) and
   `set_word_status` (retire or pin a word, keeping its progress).
 - Message passing is plain functions, not a class. The typed send helper is
   `sendMessage()` in `src/shared/message-manager.ts`; each feature has a thin
@@ -318,6 +322,21 @@ flowchart TD
   due today, review accuracy and retired count — deliberately unaffected by the
   list's own filters. `ordering.ts` supplies the frequency-band filter and the
   sort (most studied, most common, due soonest, recently seen).
+- Below the overview, four collapsible **insights** (`insights.ts` for the
+  logic, `stats-view.ts` for the DOM), closed by default with a headline in
+  each summary line so the popup stays compact. Like the overview they read
+  the whole record and leave retired words' schedules out:
+  - **Review forecast** — cards due on each of the next `FORECAST_DAYS` local
+    days, overdue cards counted on today, as CSS bars.
+  - **Activity** — the current streak and a calendar heatmap of the review
+    log over `ACTIVITY_WEEKS`. The log starts empty for existing users, so an
+    empty log is reported as such rather than drawn as months of rest days.
+    A streak survives until the end of a day not yet studied.
+  - **Retention by card** — accuracy per review direction, walked over
+    `DIRECTION_FIELD` so a new direction appears without edits here.
+  - **Known by frequency** — known words per band against `BAND_SIZES`.
+    *Known* means the recognition card is familiar or mastered, or the reader
+    retired the word; a word buried as a leech is retired but not known.
 - Each row can retire a word or pin it for study, through `set_word_status`.
 - **Retired words are left out of the list** unless the **Show retired** pill is
   pressed — the one filter that is on by default, since a retired word was taken
@@ -435,6 +454,12 @@ flowchart TD
   reviewed words (tie-broken by last review) outrank pinned, which outrank
   retired, which outrank the merely-seen — so pruning cannot throw away FSRS
   history.
+- **Review log**: `REVIEW_LOG_KEY` in `chrome.storage.local` only
+  (`src/shared/review-log.ts`) — local calendar day → cards answered, pruned
+  to `REVIEW_LOG_DAYS`. Kept apart from the statistics record because the
+  record holds only each card's latest review, so past days cannot be
+  recovered from it, and a log growing by the day has no place in sync's
+  8 KB item. Writes are serialised so ratings in quick succession all count.
 - **Dictionaries**: generated JSON under `public/data/` (bundled as
   `web_accessible_resources`), fetched at runtime — never written.
 - **Stroke graphics**: generated JSON under `public/strokes/`, one file per

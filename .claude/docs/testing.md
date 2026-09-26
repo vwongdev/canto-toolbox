@@ -86,6 +86,11 @@ romanisation, definitions or ranks.
   why, and the restore merge (nothing already recorded is lost)
 - `src/stats/card-export.ts` — the export set, headword and reading choice,
   Anki quoting and Pleco's unquoted line format
+- `src/stats/insights.ts` — forecast day boundaries, streak, heatmap layout,
+  per-direction accuracy, the "known" rule and band sizes (checked against
+  `bandForRank`)
+- `src/shared/review-log.ts` — local day keys, pruning, and that overlapping
+  writes all count (against the `chrome.storage.local` mock)
 - `src/flashcards/session.ts` — which card a word offers and in what order,
   including the gate each direction gets — `components` on `decomposable`,
   `writing` on `writable`, and neither before recognition graduates — and
