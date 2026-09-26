@@ -224,6 +224,28 @@ describe('FlashcardManager keyboard shortcuts', () => {
     expect(context?.querySelector('.context-sentence')?.textContent).toBe('你好嗎');
   });
 
+  it('links the sentence on the answer to the page it was read on', () => {
+    start({
+      getStatistics: vi.fn(cb =>
+        cb({
+          success: true,
+          type: 'get_statistics',
+          statistics: {
+            你好: {
+              count: 5, firstSeen: 1, lastSeen: 2,
+              contexts: [{ text: '你好嗎', source: { url: 'https://example.com/chat', title: '傾偈' }, seen: 1 }],
+            },
+          },
+        })
+      ),
+    });
+    press(' ');
+
+    const link = document.getElementById('card-back')!.querySelector<HTMLAnchorElement>('.context-source');
+    expect(link?.getAttribute('href')).toBe('https://example.com/chat');
+    expect(link?.textContent).toBe('傾偈');
+  });
+
   it('places the sentence above the character breakdown', () => {
     start({
       lookupWord: vi.fn((_word, cb) =>
@@ -496,6 +518,23 @@ describe('FlashcardManager production cards', () => {
     const blank = document.getElementById('card-front')!.querySelector('.context-blank');
 
     expect(blank?.textContent).toHaveLength(2);
+  });
+
+  // A page title can name the very word the reader is asked for.
+  it('keeps the source page off the production front', () => {
+    const statistics: Statistics = {
+      你好: {
+        ...GRADUATED['你好']!,
+        contexts: [{ text: '你好嗎', source: { url: 'https://example.com/', title: '你好' }, seen: 1 }],
+      },
+    };
+    client = createClient({
+      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics })),
+    });
+    new FlashcardManager(document, client).init();
+
+    expect(document.getElementById('card-front')!.querySelector('.context-blank')).not.toBeNull();
+    expect(document.getElementById('card-front')!.querySelector('.context-source')).toBeNull();
   });
 
   it('reveals the word on the answer', () => {

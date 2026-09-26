@@ -498,6 +498,43 @@ describe('StatsManager row status', () => {
   });
 });
 
+describe('StatsManager met-in sentences', () => {
+  it('lists every sentence a word was met in, each linked to its page', () => {
+    const statistics: Statistics = {
+      常見: {
+        ...STATISTICS['常見']!,
+        contexts: [
+          { text: '這個字很常見', source: { url: 'https://example.com/a', title: '文章' }, seen: 1 },
+          { text: '常見問題', seen: 2 },
+        ],
+      },
+    };
+    const client: StatsClient = {
+      ...createClient(),
+      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics })),
+      lookupWord: vi.fn((word, cb) => cb({
+        success: true,
+        type: 'lookup_word',
+        definition: { word, mandarin: { entries: [] }, cantonese: { entries: [] } },
+      })),
+    };
+    const page = new DOMParser().parseFromString(HTML, 'text/html');
+    new StatsManager(page, client, storage).init();
+
+    const item = page.querySelector('.stat-item[data-word="常見"]') as HTMLElement;
+    (item.querySelector('.stat-header') as HTMLButtonElement)
+      .dispatchEvent(new Event('click', { bubbles: true }));
+
+    const sentences = Array.from(item.querySelectorAll('.context-sentence'), el => el.textContent);
+    expect(sentences).toEqual(['這個字很常見', '常見問題']);
+
+    const links = item.querySelectorAll<HTMLAnchorElement>('a.context-source');
+    expect(links).toHaveLength(1);
+    expect(links[0]!.getAttribute('href')).toBe('https://example.com/a');
+    expect(links[0]!.rel).toBe('noopener');
+  });
+});
+
 describe('StatsManager insights', () => {
   function load(client: StatsClient = createClient()): Document {
     const page = new DOMParser().parseFromString(HTML, 'text/html');

@@ -1,5 +1,6 @@
 import type { DefinitionResult, DictionaryEntry, Statistics } from '../shared/types.js';
 import { getFlashcardStage } from '../shared/statistics-utils.js';
+import { firstContext } from '../shared/word-contexts.js';
 import { toSyllables } from '../shared/pinyin.js';
 
 /**
@@ -29,6 +30,10 @@ export interface ExportCard {
   pinyin: string[];
   jyutping: string[];
   definitions: string[];
+  /**
+   * One sentence, since a card has one field for it: the first the word was
+   * met in, the hook it was learned on and the one the record keeps longest.
+   */
   context?: string;
 }
 
@@ -176,7 +181,7 @@ export async function collectCards(
       const index = next++;
       const word = words[index]!;
       const definition = await lookup(word).catch(() => undefined);
-      cards[index] = cardFromDefinition(word, definition, statistics[word]?.context);
+      cards[index] = cardFromDefinition(word, definition, firstContext(statistics[word])?.text);
       onProgress(++done, words.length);
     }
   };

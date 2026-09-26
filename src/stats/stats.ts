@@ -31,6 +31,7 @@ import { summarise } from './overview.js';
 import { bandCoverage, forecast, retentionByDirection } from './insights.js';
 import { DEFAULT_SORT, isSortKey } from './ordering.js';
 import { applyWordStatus } from '../shared/statistics-utils.js';
+import { contextsOf } from '../shared/word-contexts.js';
 import { TransferControls } from './transfer-controls.js';
 import { DEFAULT_SETTINGS, watchSettings, type Settings } from '../shared/settings.js';
 
@@ -244,9 +245,9 @@ export class StatsManager {
 
   private loadDefinition(word: string, container: HTMLElement): void {
     renderDefinitionLoading(container);
-    const context = this.cachedStatistics?.[word]?.context;
+    const contexts = contextsOf(this.cachedStatistics?.[word]);
     this.client.lookupWord(word, (response: LookupResponse | ErrorResponse) => {
-      renderDefinition(container, response, word, context, this.settings);
+      renderDefinition(container, response, word, contexts, this.settings);
     });
   }
 

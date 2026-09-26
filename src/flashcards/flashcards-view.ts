@@ -177,7 +177,7 @@ function createProductionFront(card: ReviewCard, definition: DefinitionResult | 
   ];
 
   if (card.context) {
-    children.push(createContextSentence(card.word, card.context, { blank: true, label: 'In context' }));
+    children.push(createContextSentence(card.word, card.context.text, { blank: true, label: 'In context' }));
   }
 
   return children;

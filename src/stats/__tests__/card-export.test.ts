@@ -196,6 +196,19 @@ describe('collectCards', () => {
     expect(progress).toHaveBeenLastCalledWith(2, 2);
   });
 
+  it('exports the first sentence a word was met in', async () => {
+    const statistics: Statistics = {
+      好: {
+        count: 2, firstSeen: 1, lastSeen: 5,
+        contexts: [{ text: '好嘢', seen: 1 }, { text: '你好嗎', seen: 5 }],
+      },
+    };
+
+    const [card] = await collectCards(['好'], statistics, async () => 好);
+
+    expect(card!.context).toBe('好嘢');
+  });
+
   it('carries on past a failed lookup', async () => {
     const lookup = vi.fn(async (word: string) => {
       if (word === '好') throw new Error('offscreen document gone');

@@ -131,7 +131,7 @@ describe('createDefinitionElement', () => {
   });
 
   it('puts the met-in sentence under the senses and above the breakdown', () => {
-    const el = createDefinitionElement('字', withEtymology(), true, { context: '寫字' });
+    const el = createDefinitionElement('字', withEtymology(), true, { context: { text: '寫字' } });
     const order = Array.from(el.children).map(child => child.className);
 
     expect(order).toEqual([

@@ -1,8 +1,8 @@
-import type { DefinitionResult, DictionaryEntry } from './types.js';
+import type { ContextSighting, DefinitionResult, DictionaryEntry } from './types.js';
 import { createElement } from './dom-element.js';
 import { createPronunciationSection } from './pronunciation-section.js';
 import { createEtymologySection } from './etymology-section.js';
-import { createContextSentence } from './context-sentence.js';
+import { createContextList } from './context-sentence.js';
 import { createFrequencyBadge } from './frequency-badge.js';
 import { createAvailabilityBadge } from './availability-badge.js';
 import { DEFAULT_SETTINGS, type DisplaySettings, type ScriptPreference } from './settings.js';
@@ -151,9 +151,9 @@ export interface DefinitionElementOptions {
   /**
    * The sentence the word was met in. Sits under the senses and above the
    * breakdown: a gloss says what a word means, this says how it was used, and
-   * the components are the optional extra.
+   * the components are the optional extra. Its page, if kept, is linked.
    */
-  context?: string;
+  context?: Pick<ContextSighting, 'text' | 'source'>;
   /** How the reader has asked for definitions to be drawn. */
   display?: DisplaySettings;
 }
@@ -187,7 +187,7 @@ export function createDefinitionElement(
   children.push(createDefinitionSections(definition, display, displayWord));
 
   if (context) {
-    children.push(createContextSentence(word, context));
+    children.push(createContextList(word, [context]));
   }
 
   if (definition.etymology?.length) {

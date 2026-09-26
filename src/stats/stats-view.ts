@@ -1,4 +1,5 @@
 import type {
+  ContextSighting,
   FlashcardStage,
   FrequencyBand,
   ReviewLog,
@@ -12,7 +13,7 @@ import { getFlashcardStage } from '../shared/statistics-utils.js';
 import { createElement, setMultilineText } from '../shared/dom-element.js';
 import { CHEVRON_SVG, createIcon } from '../shared/icons.js';
 import { createDefinitionElement } from '../shared/definition-section.js';
-import { createContextSentence } from '../shared/context-sentence.js';
+import { createContextList } from '../shared/context-sentence.js';
 import { BAND_LABELS } from '../shared/frequency.js';
 import { MAX_TRACKED_WORDS } from '../shared/statistics-store.js';
 import { DEFAULT_SETTINGS, type DisplaySettings } from '../shared/settings.js';
@@ -381,11 +382,11 @@ export function renderDefinition(
   container: HTMLElement,
   response: LookupResponse | ErrorResponse | undefined,
   word: string,
-  context?: string,
+  contexts: readonly ContextSighting[] = [],
   display: DisplaySettings = DEFAULT_SETTINGS,
 ): void {
   container.replaceChildren();
-  if (context) container.appendChild(createContextSentence(word, context));
+  if (contexts.length > 0) container.appendChild(createContextList(word, contexts));
 
   if (!response || !response.success || !response.definition) {
     container.appendChild(createElement({

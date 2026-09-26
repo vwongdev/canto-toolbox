@@ -161,7 +161,20 @@ describe('selectSession', () => {
 
   it('carries the context sentence on the card', () => {
     const stats: Statistics = { 你好: { ...scheduled(-HOUR_MS), context: '你好嗎' } };
-    expect(selectSession(stats, NOW)[0]!.context).toBe('你好嗎');
+    expect(selectSession(stats, NOW)[0]!.context?.text).toBe('你好嗎');
+  });
+
+  // Each card is answered once a session, so its review count picks the next
+  // sentence and a cloze is not cut from the same one every time.
+  it('turns to the next sentence as the card is reviewed', () => {
+    const contexts = ['你好嗎', '跟他說你好', '你好，歡迎光臨'].map((text, i) => ({ text, seen: i }));
+    const withReviews = (reviews: number): Statistics => ({
+      你好: { ...tracked(1), contexts, flashcard: { ...srs(-HOUR_MS), reviews } },
+    });
+
+    expect(selectSession(withReviews(1), NOW)[0]!.context?.text).toBe('跟他說你好');
+    expect(selectSession(withReviews(2), NOW)[0]!.context?.text).toBe('你好，歡迎光臨');
+    expect(selectSession(withReviews(3), NOW)[0]!.context?.text).toBe('你好嗎');
   });
 });
 

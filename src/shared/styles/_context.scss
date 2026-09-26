@@ -26,6 +26,25 @@
   line-height: 1.6;
 }
 
+.context-entry + .context-entry {
+  margin-top: t.$space-2;
+}
+
+// Where the sentence was read: a quiet line under it, so a list of several
+// still reads as sentences first.
+.context-source {
+  display: block;
+  overflow: hidden;
+  color: t.$color-text-subtle;
+  font-size: t.$text-xs;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    color: t.$color-primary;
+  }
+}
+
 .context-word {
   color: t.$color-primary;
   font-weight: 600;

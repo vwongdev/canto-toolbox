@@ -1,7 +1,8 @@
 import { dueAt, isDue, isLearning } from '../shared/scheduler.js';
 import { isEnrolled, progressFor } from '../shared/statistics-utils.js';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings.js';
-import type { ReviewDirection, Statistics, WordStatistics } from '../shared/types.js';
+import { contextForReview } from '../shared/word-contexts.js';
+import type { ContextSighting, ReviewDirection, Statistics, WordStatistics } from '../shared/types.js';
 
 /** How big a session is and what may enter it, as the reader has set them. */
 export type SessionLimits = Pick<Settings, 'maxCards' | 'maxNewCards' | 'minCount'>;
@@ -9,8 +10,11 @@ export type SessionLimits = Pick<Settings, 'maxCards' | 'maxNewCards' | 'minCoun
 export interface ReviewCard {
   word: string;
   direction: ReviewDirection;
-  /** The sentence the word was met in, when one was captured. */
-  context?: string;
+  /**
+   * One of the sentences the word was met in, when any was captured — a
+   * different one each time this card comes round, see `contextForReview`.
+   */
+  context?: ContextSighting;
 }
 
 export function cardKey(card: ReviewCard): string {
@@ -70,10 +74,11 @@ function isUnlocked(stat: WordStatistics, direction: ReviewDirection, minCount: 
 }
 
 function toCard(word: string, stat: WordStatistics, direction: ReviewDirection): ReviewCard {
+  const context = contextForReview(stat, progressFor(stat, direction)?.reviews ?? 0);
   return {
     word,
     direction,
-    ...(stat.context !== undefined && { context: stat.context }),
+    ...(context && { context }),
   };
 }
 
