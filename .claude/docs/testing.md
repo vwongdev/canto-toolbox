@@ -137,7 +137,8 @@ romanisation, definitions or ranks.
 - `src/popup/content.ts` — hover detection, the dwell study signal,
   following a breakdown component — or a character of the headword — to its
   own entry and back, the Shift shortcut past the hover pause (and the
-  editable-field and drag cases it leaves alone), and the Known button's
+  editable-field and drag cases it leaves alone), Escape closing the popup
+  before the dwell, and the Known button's
   pressed state and how it and Study redraw each other
 - `src/shared/availability-badge.ts` — which dictionary alone holds a word,
   including the bare Cantonese reading that does not count

@@ -179,6 +179,9 @@ flowchart TD
   pause has nothing left to decide. It is ignored while a mouse button is down
   (Shift-click and Shift-drag extend a selection) and while a text field or
   `contenteditable` has focus, where Shift is typing.
+- **Escape closes it**, cancelling any pending lookup and the dwell with it —
+  a word dismissed was not studied. The key is not consumed, since the page
+  may use Escape too.
 - **Study signal**: showing a popup is not studying. After `DWELL_MS` with the
   popup still on the same word, the script sends `track_word` — once per word,
   along with `extractContext`'s snippet of the sentence it was met in and the
