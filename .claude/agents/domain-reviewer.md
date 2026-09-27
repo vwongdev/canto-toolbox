@@ -13,8 +13,8 @@ type):
   handler that runs in the offscreen document. May import only from
   `src/shared/`. The generated JSON is not imported; it is `fetch`ed at runtime
   via `chrome.runtime.getURL('data/*.json')`.
-- `src/popup/` — content script, popup client/storage, and the `lookup_word` /
-  `track_word` background handler. May import from `src/shared/` and
+- `src/popup/` — content script (hover popup, unknown-word marks), popup
+  client/storage, and its background handler. May import from `src/shared/` and
   `src/ocr/media-controller.ts`. Lookups are forwarded to the offscreen
   document rather than run in the worker; popup must not import
   `src/dictionary/`.
@@ -23,24 +23,21 @@ type):
   the offscreen engine (cache/queue) and the `ocr_image` / `capture_tab`
   background handlers. May import from `src/shared/`. It produces hoverable
   text and nothing else, so it must not import from `src/popup/`,
-  `src/dictionary/`, `src/stats/` or `src/flashcards/` — the popup finds its
+  `src/dictionary/` or any other feature domain — the popup finds its
   output through the DOM, not through a call.
 - `src/offscreen/` — composition root for the offscreen document. It imports
   `src/dictionary/offscreen-handler.ts` and `src/ocr/offscreen.ts` and calls
   their `register()`. This is the one offscreen place allowed to reach into
   multiple feature domains.
-- `src/stats/` — stats page (controller + view + client + storage, plus
-  `ordering` and `overview`) and the `get_statistics` background handler. May
+- `src/stats/` — stats page and its background handler. May import from
+  `src/shared/`.
+- `src/flashcards/` — flashcard review page and its background handler. May
   import from `src/shared/`.
-- `src/flashcards/` — flashcard review page (controller + view + session +
-  client + the `writing` stroke-order quiz) and the `update_flashcard` /
-  `set_word_status` handler. May import from `src/shared/`.
-- `src/shared/` — utilities used by more than one domain: types, dom-element,
-  the `*-section` components and `definition-list`, `frequency` /
-  `frequency-badge`, `decomposition`, `context-sentence`, `gloss`, `pinyin`,
-  `speech`, `strokes`, message-manager, message-router, offscreen-document,
-  statistics-store, statistics-utils, scheduler, bounded-map,
-  debounce. No imports from any feature domain.
+- `src/settings/` — the options page. May import from `src/shared/`. The
+  settings themselves live in `src/shared/settings.ts`, since every surface
+  reads them.
+- `src/shared/` — code used by more than one domain. No imports from any
+  feature domain.
 - `src/service-worker.ts` — the MV3 composition root. It imports each feature's
   `background-handler.ts` and calls `register()`. This is one of two places
   allowed to reach into multiple feature domains; the other is
@@ -48,11 +45,10 @@ type):
 
 ## Rules
 
-1. `src/shared/` must not import from `src/dictionary/`, `src/popup/`,
-   `src/stats/`, or `src/flashcards/`.
+1. `src/shared/` must not import from any other `src/` directory.
 2. `src/dictionary/` must import only from `src/shared/`.
-3. The feature domains `src/popup/`, `src/stats/`, `src/flashcards/` and
-   `src/ocr/` must not import from one another. The single exception is
+3. The feature domains `src/popup/`, `src/stats/`, `src/flashcards/`,
+   `src/settings/` and `src/ocr/` must not import from one another. The single exception is
    `src/popup/content.ts` importing `src/ocr/media-controller.ts` to start it:
    both run in the content script, and one entry point has to bootstrap the
    other. That import is a bootstrap only — nothing else may cross, in either
