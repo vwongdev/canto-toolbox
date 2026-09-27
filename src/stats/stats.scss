@@ -28,7 +28,7 @@ body {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: t.$space-5;
 }
 
 header {
@@ -311,7 +311,7 @@ h1 {
   font-size: t.$text-sm;
 
   select {
-    padding: 4px t.$space-2;
+    padding: t.$space-1 t.$space-2;
     border: 1px solid t.$color-border-muted;
     border-radius: t.$radius-sm;
     background: t.$color-bg;
@@ -345,7 +345,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 5px t.$space-3;
   line-height: 1.25;
   border: 1px solid t.$color-border-bold;
   border-radius: t.$radius-pill;
@@ -407,7 +407,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  border-radius: 10px;
+  border-radius: t.$radius-pill;
   font-size: t.$text-xs;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -516,7 +516,7 @@ h1 {
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: t.$space-3;
 }
 
 .stat-item {
