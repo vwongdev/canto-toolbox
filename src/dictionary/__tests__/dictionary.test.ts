@@ -4,9 +4,7 @@ import {
   isDefinitionValid,
   hasValidDefinition,
   lookupWordInDictionaries,
-  findLongestMatchingWord,
   findWordCoveringOffset,
-  lookupWord,
   lookupWordAt,
   lookupEtymology,
 } from '../dictionary.js';
@@ -226,81 +224,28 @@ describe('lookupEtymology', () => {
   });
 });
 
-describe('findLongestMatchingWord', () => {
-  it('returns null when no match exists', () => {
-    expect(findLongestMatchingWord('囧')).toBeNull();
-  });
-
-  it('returns the longest matching prefix', () => {
-    const result = findLongestMatchingWord('好字囧');
-    expect(result).not.toBeNull();
-    expect(result!.matchedWord).toBe('好字');
-  });
-
-  it('falls back to a shorter match when the longest has no definition', () => {
-    // '好囧' is not in the dictionary but '好' is
-    const result = findLongestMatchingWord('好囧');
-    expect(result).not.toBeNull();
-    expect(result!.matchedWord).toBe('好');
-  });
-
-  it('returns definition alongside matched word', () => {
-    const result = findLongestMatchingWord('字');
-    expect(result!.definition.word).toBe('字');
-    expect(result!.definition.mandarin.entries.length).toBeGreaterThan(0);
-  });
-
-  it('matches the same word the offset-aware scan finds at the start', () => {
-    const prefix = findLongestMatchingWord('好字囧');
-    const covering = findWordCoveringOffset('好字囧', 0);
-
-    expect(prefix!.matchedWord).toBe(covering!.matchedWord);
-  });
-
-  it('counts a leading astral character as one character', () => {
-    // Outside the BMP, so a UTF-16 scan would split it and match nothing.
-    expect(findLongestMatchingWord('𠮷好字')).toBeNull();
-  });
-});
-
-describe('lookupWord', () => {
-  it('returns a definition for a known word', () => {
-    const result = lookupWord('好');
-    expect(result.word).toBe('好');
-    expect(result.mandarin.entries.length).toBeGreaterThan(0);
-  });
-
-  it('sets word to the matched prefix, not the full input', () => {
-    const result = lookupWord('好囧');
-    expect(result.word).toBe('好');
-  });
-
-  it('throws when the word is not found', () => {
-    expect(() => lookupWord('囧')).toThrow('囧');
-  });
-});
 
 describe('lookupFrequency', () => {
   it('bands a very common word as core vocabulary', () => {
-    expect(lookupWord('好').frequency).toEqual({ rank: 10, band: 'core' });
+    expect(lookupWordAt('好').frequency).toEqual({ rank: 10, band: 'core' });
   });
 
   it('bands a mid-frequency word by its rank', () => {
-    expect(lookupWord('字').frequency).toEqual({ rank: 1207, band: 'common' });
+    expect(lookupWordAt('字').frequency).toEqual({ rank: 1207, band: 'common' });
   });
 
   it('finds a traditional word through its simplified counterpart', () => {
     // 廣東話 is not in the corpus under its traditional form; 广东话 is.
-    expect(lookupWord('廣東話').frequency).toEqual({ rank: 18450, band: 'uncommon' });
+    expect(lookupWordAt('廣東話').frequency).toEqual({ rank: 18450, band: 'uncommon' });
   });
 
   it('finds the same entry under the simplified form', () => {
-    expect(lookupWord('广东话').word).toBe('广东话');
-    expect(lookupWord('广东话').mandarin.entries[0]!.traditional).toBe('廣東話');
+    expect(lookupWordAt('广东话').word).toBe('广东话');
+    expect(lookupWordAt('广东话').mandarin.entries[0]!.traditional).toBe('廣東話');
   });
 
   it('omits frequency for a word rarer than the corpus cap', () => {
-    expect(lookupWord('好字').frequency).toBeUndefined();
+    expect(lookupWordAt('好字').frequency).toBeUndefined();
   });
 });
 
@@ -356,5 +301,15 @@ describe('lookupWordAt', () => {
 
   it('throws when no word covers the offset', () => {
     expect(() => lookupWordAt('囧', 0)).toThrow();
+  });
+
+  it('defaults to the longest word the run starts with', () => {
+    expect(lookupWordAt('好字囧').word).toBe('好字');
+    expect(lookupWordAt('好囧').word).toBe('好');
+  });
+
+  it('counts a leading astral character as one character', () => {
+    // Outside the BMP, so a UTF-16 scan would split it and match nothing.
+    expect(() => lookupWordAt('𠮷好字')).toThrow();
   });
 });

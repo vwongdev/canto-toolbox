@@ -1,5 +1,4 @@
 import {
-  lookupWord,
   lookupWordAt,
   lookupWordInDictionaries,
   initDictionaries,
@@ -30,9 +29,7 @@ export function register(): void {
 
       const definition = msg.allowMissing
         ? lookupWordInDictionaries(msg.word)
-        : msg.segment
-          ? lookupWordAt(msg.segment.run, msg.segment.offset)
-          : lookupWord(msg.word);
+        : lookupWordAt(msg.segment?.run ?? msg.word, msg.segment?.offset);
 
       return { success: true, type: 'dict_lookup', definition };
     },

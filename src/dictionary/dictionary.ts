@@ -239,25 +239,6 @@ export function hasValidDefinition(definition: DefinitionResult): boolean {
 }
 
 /**
- * The longest dictionary word starting at the beginning of `word`. This is the
- * offset-aware scan anchored at the first character: candidates covering
- * offset 0 can only start there, so the two searches are the same one.
- */
-export function findLongestMatchingWord(word: string): { definition: DefinitionResult; matchedWord: string } | null {
-  return findWordCoveringOffset(word, 0);
-}
-
-export function lookupWord(word: string): DefinitionResult {
-  const matchResult = findLongestMatchingWord(word);
-  if (matchResult) {
-    return matchResult.definition;
-  }
-
-  console.error('[Dict] Word not found:', word);
-  throw new Error(`Word "${word}" not found in dictionary`);
-}
-
-/**
  * The longest dictionary word that *covers* the hovered character, rather than
  * one that merely starts there — hovering the middle of 中國人 should find
  * 中國人, not 國人. Candidates of equal length are tried nearest the cursor
@@ -325,7 +306,7 @@ function segmentedWord(word: string, definition: DefinitionResult, start: number
 
 /**
  * A run split into words, left to right, each the longest the dictionaries
- * hold from where the last one ended — the scan `lookupWord` makes, repeated
+ * hold from where the last one ended — the scan `lookupWordAt` makes from offset 0, repeated
  * along the run. A character no entry starts with is stepped over. Nothing is
  * enriched, and a row is decoded only once the index has the candidate, so a
  * page of text costs far less than a hover per word.
@@ -358,8 +339,12 @@ export function segmentRun(run: string): SegmentedWord[] {
   return words;
 }
 
-/** Look up the hovered character's word, falling back to a plain lookup. */
-export function lookupWordAt(run: string, offset: number): DefinitionResult {
+/**
+ * The word covering the hovered character. At offset 0 that is the longest
+ * word the run starts with, since candidates covering the first character can
+ * only start there.
+ */
+export function lookupWordAt(run: string, offset = 0): DefinitionResult {
   const match = findWordCoveringOffset(run, offset);
   if (match) return match.definition;
 

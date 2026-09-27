@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../dictionary.js', () => ({
   initDictionaries: vi.fn(() => Promise.resolve()),
-  lookupWord: vi.fn(),
   lookupWordAt: vi.fn(),
   lookupWordInDictionaries: vi.fn(),
   segmentRun: vi.fn(),
@@ -11,7 +10,6 @@ vi.mock('../dictionary.js', () => ({
 import { register } from '../offscreen-handler.js';
 import {
   initDictionaries,
-  lookupWord,
   lookupWordAt,
   lookupWordInDictionaries,
   segmentRun,
@@ -40,14 +38,13 @@ describe('dictionary offscreen-handler register()', () => {
   beforeEach(() => {
     vi.mocked(chrome.runtime.onMessage.addListener).mockClear();
     vi.mocked(initDictionaries).mockResolvedValue(undefined);
-    vi.mocked(lookupWord).mockReset();
     vi.mocked(lookupWordAt).mockReset();
     vi.mocked(lookupWordInDictionaries).mockReset();
     vi.mocked(lookupWordInDictionaries).mockReturnValue(DEFINITION);
   });
 
   it('answers a dict_lookup message', async () => {
-    vi.mocked(lookupWord).mockReturnValue(DEFINITION);
+    vi.mocked(lookupWordAt).mockReturnValue(DEFINITION);
     const listener = registerAndGetListener();
     const sendResponse = vi.fn();
 
@@ -60,6 +57,7 @@ describe('dictionary offscreen-handler register()', () => {
       type: 'dict_lookup',
       definition: DEFINITION,
     });
+    expect(lookupWordAt).toHaveBeenCalledWith('好', undefined);
   });
 
   it('segments from the hovered run when one is supplied', async () => {
@@ -75,7 +73,6 @@ describe('dictionary offscreen-handler register()', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(lookupWordAt).toHaveBeenCalledWith('中國人', 1);
-    expect(lookupWord).not.toHaveBeenCalled();
   });
 
   it('returns an empty definition when missing is allowed', async () => {
@@ -87,11 +84,11 @@ describe('dictionary offscreen-handler register()', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(lookupWordInDictionaries).toHaveBeenCalledWith('好');
-    expect(lookupWord).not.toHaveBeenCalled();
+    expect(lookupWordAt).not.toHaveBeenCalled();
   });
 
   it('reports an error response when lookup throws', async () => {
-    vi.mocked(lookupWord).mockImplementation(() => {
+    vi.mocked(lookupWordAt).mockImplementation(() => {
       throw new Error('boom');
     });
     const listener = registerAndGetListener();
