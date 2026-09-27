@@ -6,14 +6,13 @@ Read Chinese on the web without leaving the page. Hover any word for Mandarin an
 
 ## Features
 
-- **Nothing to type or copy**: rest the cursor on Chinese anywhere on any site and the word under it comes up — hold Shift to skip the pause
-- **Mandarin and Cantonese together**: both readings side by side, tone-coloured, each with a speaker button and its own definitions, plus how common the word is and whether only one language uses it
-- **Read a word through its parts**: click a character of a compound, or a component of a character, to open its own entry
-- **See what you don't know yet**: optionally underline the words on a page you haven't learned, with a figure like "82% known · 14 new words" — pick texts at your level
-- **Reading becomes revision**: words you keep meeting are saved with the sentences you met them in, then come back as spaced-repetition flashcards — meaning, cloze recall, listening, character parts and stroke order
-- **Text inside images and video too**: screenshots, panels, menus, signage — and the frame a video is paused on. Click the badge and its Chinese becomes hoverable like any other text, flashcards and all
-- **Offline and private**: the dictionaries and the OCR model ship with the extension — no accounts, no API calls, no lookup leaves your browser
-- **Your data stays yours**: review progress syncs across your Chrome devices, backs up to a file, and exports to Anki or Pleco
+- **Hover to look up**: rest the cursor on any Chinese text; hold Shift to skip the pause
+- **Mandarin and Cantonese side by side**: tone-coloured readings, audio, definitions and word frequency
+- **Break words down**: click a character or component to open its own entry
+- **Spot unknown words**: optionally underline what you haven't learned, with a page score like "82% known"
+- **Review what you read**: words you keep meeting become flashcards, with the sentences you met them in
+- **Read images and video**: turn the Chinese in a picture or paused frame into hoverable text
+- **Offline and private**: no accounts or API calls; progress syncs across Chrome and exports to Anki or Pleco
 
 ## Screenshots
 
