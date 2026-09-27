@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "bench": "pnpm build:scripts && node build-tools/dist/build-tools/benchmark.js",
     "test:e2e": "playwright test",
+    "worktree:prepare": "sh build-tools/prepare-worktree.sh",
     "lint": "eslint src/ build-tools/",
     "prepare": "husky"
   },
