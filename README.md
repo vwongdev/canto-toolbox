@@ -45,13 +45,10 @@ Read Chinese on the web without leaving the page. Hover any word for Mandarin an
 
 ## Usage
 
-1. **Read**
-   - Hover Chinese text for a popup with both readings, definitions, frequency and a per-character breakdown. Drag-select for a phrase.
-   - For Chinese inside an image or a paused video, click the badge in its corner. Seeking to the next subtitle re-reads the frame.
-   - Captions a site renders as real text (YouTube's own, for one) need no badge — hover them.
-2. **Track**: rest on a word and it's recorded with its sentence. Press **+ Study** to add it to your deck now, or **Known** to never drill it. Words you meet often enough join the deck on their own. The extension icon opens your word list.
-3. **Review**: open the flashcard page and rate each card Again, Hard, Good or Easy. The stroke-order card grades itself on how many strokes went astray. The [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) scheduler decides when a card comes back.
-4. **Adjust**: the gear on the word list opens settings — which reading leads, simplified or traditional headwords, hidden romanisation, session size, when a word joins the deck, and unknown-word marks.
+1. **Read**: hover a word, or drag-select a phrase. For images and paused video, click the badge in the corner.
+2. **Track**: press **+ Study** to add a word to your deck, or **Known** to skip it. The extension icon opens your word list.
+3. **Review**: rate each flashcard Again, Hard, Good or Easy; [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) schedules the next review.
+4. **Adjust**: the gear on the word list opens settings for scripts, readings, session size and unknown-word marks.
 
 ## Building from Source
 
