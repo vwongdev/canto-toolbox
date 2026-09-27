@@ -71,8 +71,9 @@ When a change alters behaviour those docs describe, update them in a separate
 ## Specialised Agents
 Prefer these subagents for their areas:
 
-- `domain-reviewer` — run after refactors or cross-domain imports to check
-  `src/` domain boundaries
+- `domain-reviewer` — run after refactors or file moves. `pnpm lint` already
+  rejects imports across domains; the agent judges what lint cannot, such as
+  whether a module belongs in `src/shared/` or in one domain
 - `dict-inspector` — for `build-tools/` and dictionary-pipeline questions
 - `doc-reviewer` — run after refactors, file moves or build/script changes to
   catch drift in `CLAUDE.md`, `.claude/docs/`, `.claude/agents/` and `.claude/skills/`

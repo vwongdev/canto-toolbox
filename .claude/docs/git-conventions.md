@@ -2,7 +2,10 @@
 
 This repository follows semantic commit message conventions, enforced by the
 husky `commit-msg` hook (`.husky/commit-msg`). A message that does not match
-`type(domain): Description` is rejected at commit time.
+`type(domain): Description` is rejected at commit time, as is a domain not in
+the list below, more than three domains, or domains out of alphabetical order.
+Adding a domain means adding it to both this list and the hook's
+`valid_domains`.
 
 ## Commit Message Format
 

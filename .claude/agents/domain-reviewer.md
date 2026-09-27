@@ -45,6 +45,10 @@ type):
 
 ## Rules
 
+Rules 1–4 are also enforced by `no-restricted-imports` in `eslint.config.js`,
+so `pnpm lint` fails on a violation. Keep that config and this list in step;
+rules 5 and 6 are judgement only you can make.
+
 1. `src/shared/` must not import from any other `src/` directory.
 2. `src/dictionary/` must import only from `src/shared/`.
 3. The feature domains `src/popup/`, `src/stats/`, `src/flashcards/`,
