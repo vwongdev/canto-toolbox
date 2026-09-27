@@ -139,12 +139,28 @@ body {
   text-decoration: underline;
 
   @include a.focus-ring;
+
+  &:hover {
+    color: t.$color-primary-hover;
+  }
 }
 
 .finished-actions {
   display: flex;
   align-items: center;
   gap: t.$space-3;
+}
+
+// A decision about the word rather than an answer to the card, so it carries
+// no fill or border until it is pointed at.
+.btn-subtle {
+  background: transparent;
+  color: t.$color-text-subtle;
+
+  &:hover {
+    background: t.$color-chip-bg;
+    color: t.$color-text;
+  }
 }
 
 // Reads as the way out rather than as a second primary action.
