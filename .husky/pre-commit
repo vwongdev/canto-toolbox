@@ -1,5 +1,5 @@
 if ! command -v pnpm >/dev/null 2>&1; then
-  echo "✗ pnpm not found in PATH — run 'nix develop' and commit from within the dev shell."
+  echo "✗ pnpm not found in PATH — run 'direnv allow' in the repo root, or commit from within 'nix develop'."
   exit 1
 fi
 pnpm lint && pnpm typecheck && pnpm test
