@@ -300,6 +300,12 @@ export class ChineseHoverPopupManager {
    * on a word from one passing over it has nothing left to decide.
    */
   private handleKeyDown(event: KeyboardEvent): void {
+    // The page may use Escape too, so the key is not consumed.
+    if (event.key === 'Escape') {
+      this.hidePopup();
+      return;
+    }
+
     if (event.key !== 'Shift' || event.repeat) return;
     // Shift is also half of every capital letter typed into a field.
     if (isEditable(event.target) || isEditable(this.document.activeElement)) return;

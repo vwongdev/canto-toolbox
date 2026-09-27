@@ -99,4 +99,16 @@ describe('instant lookup', () => {
 
     expect(client.lookupWord).not.toHaveBeenCalled();
   });
+
+  it('closes the popup on Escape, and a pending lookup with it', () => {
+    hoverAt(2, { shiftKey: true });
+    expect(document.getElementById('chinese-hover-popup')).not.toBeNull();
+
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(document.getElementById('chinese-hover-popup')).toBeNull();
+    // The word was dismissed before the dwell, so it was not studied.
+    vi.advanceTimersByTime(10_000);
+    expect(client.trackWord).not.toHaveBeenCalled();
+  });
 });
