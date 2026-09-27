@@ -35,11 +35,25 @@
   color: t.$color-text;
   pointer-events: auto;
   box-sizing: border-box;
+  // Eases in rather than snapping over the text being read. Short, so a reader
+  // moving word to word is never kept waiting on it.
+  animation: canto-popup-in 120ms ease-out;
+
+  @include a.reduced-motion {
+    animation: none;
+  }
 
   // The shadow is the one thing the palette cannot carry: over a dark page it
   // has to be a deeper black rather than a lighter ink.
   @include dark {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@keyframes canto-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
   }
 }
 
