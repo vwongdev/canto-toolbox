@@ -500,11 +500,12 @@ export class ChineseHoverPopupManager {
   ): HTMLElement {
     const followable = new Set(charactersWithEntries ?? []);
     if (followable.size === 0) {
-      return createElement({ className: 'popup-word', textContent: displayWord });
+      return createElement({ className: 'popup-word', textContent: displayWord, attributes: { lang: 'zh' } });
     }
 
     return createElement({
       className: 'popup-word',
+      attributes: { lang: 'zh' },
       children: [...displayWord].map(character => {
         if (!followable.has(character)) {
           return createElement({ tag: 'span', className: 'popup-word-char', textContent: character });

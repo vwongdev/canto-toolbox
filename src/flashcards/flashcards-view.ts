@@ -228,7 +228,7 @@ export function renderFront(
 ): void {
   const question = card.direction === 'production'
     ? createProductionFront(card, definition)
-    : [createElement({ className: 'card-characters', textContent: card.word })];
+    : [createElement({ className: 'card-characters', textContent: card.word, attributes: { lang: 'zh' } })];
 
   showFront(document, card, [createPrompt(card.direction), ...question], { revealable: true });
 }
@@ -294,7 +294,7 @@ export function renderBackError(document: Document, word?: string): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   if (cardBack) {
     cardBack.replaceChildren();
-    if (word) cardBack.appendChild(createElement({ className: 'card-characters', textContent: word }));
+    if (word) cardBack.appendChild(createElement({ className: 'card-characters', textContent: word, attributes: { lang: 'zh' } }));
     cardBack.appendChild(
       createElement({ className: 'flashcard-error', textContent: 'Definition not found' })
     );

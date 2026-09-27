@@ -37,7 +37,7 @@ function createMarker(word: string, blank: boolean): HTMLElement {
 }
 
 function createSentence(word: string, text: string, blank: boolean): HTMLElement {
-  const sentence = createElement({ tag: 'p', className: 'context-sentence' });
+  const sentence = createElement({ tag: 'p', className: 'context-sentence', attributes: { lang: 'zh' } });
 
   text.split(word).forEach((part, index) => {
     if (index > 0) sentence.appendChild(createMarker(word, blank));

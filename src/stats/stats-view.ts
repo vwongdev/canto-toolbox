@@ -563,7 +563,7 @@ function createStatItem(
   const wordRow = createElement({
     className: 'stat-word-row',
     children: [
-      createElement({ className: 'stat-word', textContent: word }),
+      createElement({ className: 'stat-word', textContent: word, attributes: { lang: 'zh' } }),
       createStageBadge(stage),
       ...(stat.suppressed === true ? [createRetiredBadge()] : []),
     ],

@@ -66,7 +66,12 @@ function createComponentChip(
   follow: (() => void) | undefined
 ): HTMLElement {
   const children: HTMLElement[] = [
-    createElement({ tag: 'span', className: 'popup-etymology-component-glyph', textContent: glyph })
+    createElement({
+      tag: 'span',
+      className: 'popup-etymology-component-glyph',
+      textContent: glyph,
+      attributes: { lang: 'zh' },
+    })
   ];
   if (definition) {
     children.push(createElement({
@@ -170,7 +175,11 @@ function createCharacterCard(
   return createElement({
     className: 'popup-etymology-character',
     children: [
-      createElement({ className: 'popup-etymology-char', textContent: etymology.character }),
+      createElement({
+        className: 'popup-etymology-char',
+        textContent: etymology.character,
+        attributes: { lang: 'zh' },
+      }),
       createElement({ className: 'popup-etymology-details', children: detailChildren })
     ]
   });

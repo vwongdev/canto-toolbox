@@ -92,6 +92,7 @@ function createScriptVariantElement(variant: { label: string; form: string }): H
       createElement({
         tag: 'span',
         className: 'definition-variant-form',
+        attributes: { lang: 'zh' },
         textContent: variant.form,
       }),
     ],
@@ -181,7 +182,7 @@ export function createDefinitionElement(
     (showWord ? headwordFor(definition, display.script) : definition.word) || word;
 
   const children: HTMLElement[] = showWord
-    ? [createElement({ className: 'definition-word', textContent: displayWord })]
+    ? [createElement({ className: 'definition-word', textContent: displayWord, attributes: { lang: 'zh' } })]
     : [];
 
   children.push(createDefinitionSections(definition, display, displayWord));
