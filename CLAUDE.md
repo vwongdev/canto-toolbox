@@ -9,6 +9,11 @@ Node.js and pnpm come from the Nix dev shell, which the checked-in `.envrc` (`us
 
 If a command fails with "node: No such file or directory", the shell has not loaded the environment: run `direnv allow` once in the repo root, or fall back to `nix develop --command <cmd>`.
 
+A new git worktree has no `node_modules` or generated assets. Run
+`pnpm worktree:prepare` in it first: it installs dependencies and copies the
+generated dictionaries, strokes and OCR assets from the main checkout, so no
+submodules or network are needed.
+
 ## Package Manager
 Always use `pnpm`. Never use `npm` or `yarn`.
 
@@ -27,7 +32,10 @@ Run `pnpm build` to build the extension.
 This project has automated coverage — do not assume verification is manual.
 
 - `pnpm test` — Vitest unit/integration suite (run after every code change)
-- `pnpm test:e2e` — Playwright end-to-end (build the extension first)
+- `pnpm test:e2e` — Playwright end-to-end against `dist/`, headless (~15s). After
+  changing `src/`, rebuild first with
+  `NODE_OPTIONS=--max-old-space-size=8192 pnpm exec vite build` (~5s).
+  `E2E_HEADED=1` shows the browser
 - The Playwright MCP server (`.mcp.json`) is available to drive the browser
   interactively when debugging UI behaviour
 

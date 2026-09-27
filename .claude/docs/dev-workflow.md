@@ -74,6 +74,23 @@ If you changed `build-tools/` but not dictionaries:
 pnpm build:scripts && NODE_OPTIONS=--max-old-space-size=8192 vite build
 ```
 
+### Git worktrees
+
+A linked worktree shares the repository but not the files git ignores: it has
+no `node_modules`, no initialized submodules and none of the generated assets.
+
+```sh
+pnpm worktree:prepare
+NODE_OPTIONS=--max-old-space-size=8192 pnpm exec vite build
+```
+
+`worktree:prepare` (`build-tools/prepare-worktree.sh`) installs dependencies
+and copies the generated dictionaries, strokes and OCR assets from the main
+checkout, which must have run `pnpm build` once. The copies are the main
+checkout's output, so a branch that changes `build-tools/` must regenerate
+what it changes — `pnpm build:dict` also needs the submodules
+(`git submodule update --init --recursive`).
+
 ### Clean
 
 ```sh

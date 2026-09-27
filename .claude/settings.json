@@ -13,7 +13,9 @@
       "Bash(pnpm build:dict)",
       "Bash(pnpm build:strokes)",
       "Bash(pnpm build:ocr)",
-      "Bash(pnpm bench)"
+      "Bash(pnpm bench)",
+      "Bash(pnpm worktree:prepare)",
+      "Bash(NODE_OPTIONS=--max-old-space-size=8192 pnpm exec vite build)"
     ]
   }
 }

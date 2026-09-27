@@ -120,6 +120,7 @@ canto-toolbox/
 │   ├── build-strokes.ts       # Splits graphics.txt into per-character files
 │   ├── fetch-ocr-assets.ts    # Vendors the OCR models and ONNX runtime
 │   ├── benchmark.ts / generate-screenshots.ts
+│   ├── prepare-worktree.sh    # Readies a git worktree from the main checkout
 │   └── processors/            # cedict-parser, mandarin/cantonese/etymology,
 │                              # frequency, utils (+ __tests__/)
 ├── dictionaries/              # Source data (submodules)

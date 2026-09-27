@@ -20,7 +20,7 @@ with a directive on the first line:
 ```sh
 pnpm test            # vitest run (single pass, no watch)
 pnpm test:coverage   # vitest run --coverage (v8)
-pnpm test:e2e        # playwright test (requires a built extension in dist/)
+pnpm test:e2e        # playwright test, headless (requires a built extension in dist/)
 ```
 
 The unit suite gates every commit through the `pre-commit` hook (see
@@ -140,7 +140,9 @@ happy-dom lacks, and how the tests get around it:
 
 **End-to-end** — the Playwright specs in `e2e/` (popup, stats, flashcards,
 ocr) launch Chromium with the unpacked `dist/` loaded, and cover the content
-script ↔ service worker ↔ pages path. `ocr.spec.ts` draws its test image with
+script ↔ service worker ↔ pages path. They run headless unless `E2E_HEADED=1`,
+through `channel: 'chromium'`: Playwright's default headless shell cannot load
+extensions, while full Chromium in its new headless mode can. `ocr.spec.ts` draws its test image with
 `sharp` rather than checking a PNG in, so the text in the image cannot drift
 from the text asserted, and asserts both the popup and the statistics entry
 for a hovered overlay character. Its video cases record their own source
