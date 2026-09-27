@@ -31,7 +31,7 @@ flowchart TD
     O -->|lines and boxes| N[Transparent text overlay]
     N -.->|becomes ordinary hoverable text| A
     A[Web Page] -->|mousemove / selection| B[Content Script]
-    B -->|sendMessage lookup_word| C[Service Worker]
+    B -->|request lookup_word| C[Service Worker]
     C -->|registerHandlers| H1[popup background-handler]
     H1 -->|dict_lookup| O
     O -->|dictionary.ts| D[Parsed maps]

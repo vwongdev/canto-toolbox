@@ -2,8 +2,9 @@
 
 - **`ChineseHoverPopupManager`** (`src/popup/content.ts`) — popup/selection logic.
 - **`StatsManager`** (`src/stats/stats.ts`) — stats page data loading and wiring.
-- **`sendMessage`** (`src/shared/message-manager.ts`) — typed message-passing
-  helper with `chrome.runtime.lastError` / validation handling.
+- **`request`** (`src/shared/message-manager.ts`) — typed promise
+  message-passing helper; rejects on `chrome.runtime.lastError`, an error
+  response, or a reply of the wrong type.
 - **`registerHandlers`** (`src/shared/message-router.ts`) — typed `onMessage`
   routing; owns the async response channel, the pass-through for messages a
   feature does not handle, and error→`ErrorResponse` conversion.

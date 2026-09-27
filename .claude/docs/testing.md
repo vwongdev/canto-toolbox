@@ -127,7 +127,7 @@ happy-dom lacks, and how the tests get around it:
 **Message handlers**:
 
 - `src/popup/background-handler.ts` stubs `chrome.offscreen` / `getContexts`,
-  the `dict_lookup` and `dict_segment` hops through `sendMessage`, and the
+  the `dict_lookup` and `dict_segment` hops through `request`, and the
   stroke index `fetch` (memoised for the life of the module, so one stub serves
   the file). `popup-storage.js` is mocked, so `mark_known` and the `withStatus`
   read are asserted as calls; the batch itself is tested on

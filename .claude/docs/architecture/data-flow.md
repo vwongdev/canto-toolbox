@@ -5,7 +5,7 @@
    content script lays over the image as transparent text. Every step below
    then applies to it unchanged.
 1. **Hover/selection** — content script extracts the Chinese word and calls
-   `sendMessage({ type: 'lookup_word', word })`.
+   `request({ type: 'lookup_word', word })`.
 2. **Lookup** — popup `background-handler` forwards `dict_lookup` to the
    offscreen document, which awaits `initDictionaries()`, calls `lookupWord`
    (or `lookupWordAt` when a hovered segment is supplied), and replies with a

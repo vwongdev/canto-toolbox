@@ -34,5 +34,6 @@
   today's count in the review log) and
   `set_word_status` (retire or pin a word, keeping its progress).
 - Message passing is plain functions, not a class. The typed send helper is
-  `sendMessage()` in `src/shared/message-manager.ts`; each feature has a thin
-  `*-client.ts` wrapper around it.
+  `request()` in `src/shared/message-manager.ts`, which resolves with the
+  success response or rejects with its error; each feature has a thin
+  `*-client.ts` object over it whose methods resolve with the payload.

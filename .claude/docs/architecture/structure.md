@@ -18,7 +18,7 @@ canto-toolbox/
 │   ├── popup/                 # Hover-popup feature (content script)
 │   │   ├── content.ts         # Injected content script; hover/selection detection
 │   │   ├── background-handler.ts # lookup_word / track_word / mark_known / segment_text
-│   │   ├── popup-client.ts    # Typed client wrapper over sendMessage
+│   │   ├── popup-client.ts    # Typed promise client over request()
 │   │   ├── page-coverage.ts   # Unknown-word marks and the page coverage chip
 │   │   ├── known-words.ts     # Page words joined with the record; known-set cache
 │   │   ├── popup-storage.ts   # Statistics write path (debounced, bounded)
@@ -62,7 +62,7 @@ canto-toolbox/
 │   │   ├── offscreen.html
 │   │   └── offscreen.ts       # register() of dictionary and OCR handlers
 │   ├── shared/                # Cross-feature utilities and UI components
-│   │   ├── message-manager.ts # sendMessage() typed message helper
+│   │   ├── message-manager.ts # request() typed promise message helper
 │   │   ├── message-router.ts  # registerHandlers() onMessage routing
 │   │   ├── offscreen-document.ts # ensureOffscreenDocument(); one host
 │   │   ├── statistics-store.ts# Per-word layout, cap, sync share, migration

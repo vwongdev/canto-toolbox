@@ -9,7 +9,7 @@
   `[一-鿿]+`; take the whole run at the caret
   (`document.caretRangeFromPoint`, with a realm-safe `nodeType` check so
   frames work) and send it with the hovered offset, leaving segmentation to
-  the dictionary; request a lookup via `popup-client` (`sendMessage`); render
+  the dictionary; request a lookup via `popup-client` (`request`); render
   the popup with the shared section components.
 - **Asking, not passing**: a word is looked up only once the cursor has rested
   on it for `HOVER_INTENT_MS`. Hovering is how a reader crosses a page as well
