@@ -111,8 +111,6 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: t.$color-text-subtle;
-
-  @include dark { color: t.$color-text-faint; }
 }
 
 .popup-etymology-hint {

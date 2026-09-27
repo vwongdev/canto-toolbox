@@ -483,17 +483,13 @@ body {
   font-size: t.$text-base;
 }
 
-// What is left once the palette carries the theme: the two places whose role
-// changes on a dark canvas rather than just their value.
+// What is left once the palette carries the theme: the one place whose role
+// changes on a dark canvas rather than just its value.
 @include dark {
   // A rule reads as the track the bar runs in; on the dark canvas a lifted
   // surface does the same job better.
   .progress-bar-container {
     background: t.$color-surface-alt;
-  }
-
-  #loading p {
-    color: t.$color-text-subtle;
   }
 }
 

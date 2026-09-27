@@ -879,10 +879,6 @@ h1 {
   .stat-count {
     color: t.$color-primary;
   }
-
-  .stat-loading {
-    color: t.$color-text-subtle;
-  }
 }
 
 @include a.reduced-motion {
