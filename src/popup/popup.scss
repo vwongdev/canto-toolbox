@@ -226,16 +226,4 @@
     padding-left: 18px;
     hyphens: auto;
   }
-
-  // Senses sit closer together on the dark canvas, where the lighter type
-  // needs less room to separate.
-  @include dark {
-    .definition-item {
-      margin-bottom: 2px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-    }
-  }
 }
