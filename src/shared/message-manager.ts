@@ -20,3 +20,16 @@ export function sendMessage<M extends BackgroundMessage>(
     callback(r as ResponseFor<M>);
   });
 }
+
+/**
+ * Send a message and settle with its success response, or reject with the
+ * error `sendMessage` would have reported.
+ */
+export function request<M extends BackgroundMessage>(message: M): Promise<ResponseFor<M>> {
+  return new Promise((resolve, reject) => {
+    sendMessage(message, (response) => {
+      if (response.success) resolve(response as ResponseFor<M>);
+      else reject(new Error(response.error));
+    });
+  });
+}

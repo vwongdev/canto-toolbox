@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { sendMessage } from '../message-manager.js';
+import { request, sendMessage } from '../message-manager.js';
 import type { BackgroundMessage } from '../types.js';
 
 const MESSAGE: BackgroundMessage = { type: 'lookup_word', word: '好' };
@@ -74,5 +74,24 @@ describe('sendMessage', () => {
     sendMessage(MESSAGE, cb);
 
     expect(cb).toHaveBeenCalledWith({ success: false, error: 'Request failed' });
+  });
+});
+
+describe('request', () => {
+  afterEach(() => {
+    vi.mocked(chrome.runtime.sendMessage).mockReset();
+  });
+
+  it('resolves with a success response', async () => {
+    const valid = { success: true, type: 'lookup_word', definition: null };
+    mockResponse(valid);
+
+    await expect(request(MESSAGE)).resolves.toEqual(valid);
+  });
+
+  it('rejects with the error an error response carries', async () => {
+    mockResponse({ success: false, error: 'word not found' });
+
+    await expect(request(MESSAGE)).rejects.toThrow('word not found');
   });
 });
