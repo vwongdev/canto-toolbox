@@ -189,23 +189,20 @@ function scriptOf(character: string): { script: Script; variants: Set<string> } 
 
 /**
  * The index holds both scripts, so it pairs 請 with its own simplified form
- * 请 and lists 詩 beside 诗. A character's other form is not a lookalike to
- * tell it apart from, a reader of one script is not helped by the other's
- * characters, and of a pair in both scripts only the first is worth showing.
+ * 请 and lists 讠 characters beside 言 ones. A character's other form is not
+ * a lookalike to tell it apart from, and a reader of one script is not helped
+ * by the other's characters. A character common to both scripts cannot say
+ * which one its reader uses, so it keeps both.
  */
 function inReadersScript(character: string, matches: LookalikeMatch[]): LookalikeMatch[] {
   const own = scriptOf(character);
-  const shown = new Set<string>();
 
   return matches.filter(match => {
     if (own.variants.has(match.character)) return false;
+    if (own.script === 'both') return true;
 
-    const other = scriptOf(match.character);
-    if (own.script !== 'both' && other.script !== 'both' && other.script !== own.script) return false;
-    if ([...other.variants].some(variant => shown.has(variant))) return false;
-
-    shown.add(match.character);
-    return true;
+    const other = scriptOf(match.character).script;
+    return other === 'both' || other === own.script;
   });
 }
 

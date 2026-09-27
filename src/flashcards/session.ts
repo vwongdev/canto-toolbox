@@ -1,8 +1,14 @@
 import { dueAt, isDue, isLearning } from '../shared/scheduler.js';
-import { isEnrolled, progressFor } from '../shared/statistics-utils.js';
+import { confusionsOf, isEnrolled, progressFor } from '../shared/statistics-utils.js';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings.js';
 import { contextForReview } from '../shared/word-contexts.js';
-import type { ContextSighting, ReviewDirection, Statistics, WordStatistics } from '../shared/types.js';
+import type {
+  Confusables,
+  ContextSighting,
+  ReviewDirection,
+  Statistics,
+  WordStatistics,
+} from '../shared/types.js';
 
 /** How big a session is and what may enter it, as the reader has set them. */
 export type SessionLimits = Pick<Settings, 'maxCards' | 'maxNewCards' | 'minCount'>;
@@ -29,6 +35,28 @@ export function cardKey(card: ReviewCard): string {
 export interface DeckCapabilities {
   /** A voice for either reading exists, so a listening card can be played. */
   listening?: boolean;
+  /**
+   * The deck's words paired with the ones they look like, from the dictionary
+   * this page does not have. Absent, a contrast card has only the mix-ups the
+   * record holds to draw on.
+   */
+  confusables?: Confusables;
+}
+
+/**
+ * The words `word` could be taken for, in the order a contrast card offers
+ * them: the ones the reader has actually mixed it up with first, then the
+ * lookalikes. Only words still in the deck count — a retired word is one the
+ * reader has said they know.
+ */
+export function partnersOf(
+  word: string,
+  statistics: Statistics,
+  capabilities: DeckCapabilities,
+): string[] {
+  const partners = new Set([...confusionsOf(statistics[word]), ...(capabilities.confusables?.[word] ?? [])]);
+  partners.delete(word);
+  return [...partners].filter(partner => statistics[partner] && !statistics[partner].suppressed);
 }
 
 /**
@@ -38,23 +66,33 @@ export interface DeckCapabilities {
  * recognise. Listening follows production so that a deck gaining it does not
  * hold back the recall card it already had. Writing comes last: it is the only
  * card that asks the reader to produce the character stroke by stroke rather
- * than just name or pick it.
+ * than just name or pick it. Contrast follows the cards that test the word on
+ * its own, since telling it from its lookalikes asks for a surer grasp of it.
  */
 const INTRODUCTION_ORDER: readonly ReviewDirection[] = [
   'recognition',
   'production',
   'listening',
+  'contrast',
   'components',
   'writing',
 ];
 
 /**
  * A card this page cannot play is neither introduced nor owed. Skipping a due
- * one leaves its schedule untouched for a browser that has the voice, rather
- * than letting it hold a slot — or the "next review" line — it can never fill.
+ * one leaves its schedule untouched for a browser that has the voice, or a
+ * deck that has the lookalikes, rather than letting it hold a slot — or the
+ * "next review" line — it can never fill.
  */
-function isOffered(direction: ReviewDirection, capabilities: DeckCapabilities): boolean {
-  return direction !== 'listening' || capabilities.listening === true;
+function isOffered(
+  word: string,
+  direction: ReviewDirection,
+  statistics: Statistics,
+  capabilities: DeckCapabilities,
+): boolean {
+  if (direction === 'listening') return capabilities.listening === true;
+  if (direction === 'contrast') return partnersOf(word, statistics, capabilities).length > 0;
+  return true;
 }
 
 function isUnlocked(stat: WordStatistics, direction: ReviewDirection, minCount: number): boolean {
@@ -68,7 +106,7 @@ function isUnlocked(stat: WordStatistics, direction: ReviewDirection, minCount: 
 
   // Dispatched rather than defaulted: a direction added later must state its
   // own gate instead of silently inheriting the one above it.
-  if (direction === 'production' || direction === 'listening') return true;
+  if (direction === 'production' || direction === 'listening' || direction === 'contrast') return true;
   if (direction === 'components') return stat.decomposable === true;
   return stat.writable === true;
 }
@@ -89,12 +127,15 @@ function toCard(word: string, stat: WordStatistics, direction: ReviewDirection):
  */
 function chooseCard(
   word: string,
-  stat: WordStatistics,
+  statistics: Statistics,
   now: number,
   capabilities: DeckCapabilities,
   minCount: number,
 ): { card: ReviewCard; due: number } | { card: ReviewCard; introduce: true } | null {
-  const directions = INTRODUCTION_ORDER.filter(direction => isOffered(direction, capabilities));
+  const stat = statistics[word]!;
+  const directions = INTRODUCTION_ORDER.filter(direction =>
+    isOffered(word, direction, statistics, capabilities),
+  );
   let owed: { direction: ReviewDirection; due: number } | null = null;
 
   for (const direction of directions) {
@@ -150,7 +191,7 @@ export function selectSession(
   for (const [word, stat] of Object.entries(statistics)) {
     if (stat.suppressed) continue;
 
-    const chosen = chooseCard(word, stat, now, capabilities, minCount);
+    const chosen = chooseCard(word, statistics, now, capabilities, minCount);
     if (!chosen) continue;
 
     if ('due' in chosen) due.push(chosen);
@@ -171,13 +212,13 @@ export function nextReviewAt(
   statistics: Statistics,
   capabilities: DeckCapabilities = {},
 ): number | undefined {
-  const directions = INTRODUCTION_ORDER.filter(direction => isOffered(direction, capabilities));
   let soonest: number | undefined;
 
-  for (const stat of Object.values(statistics)) {
+  for (const [word, stat] of Object.entries(statistics)) {
     if (stat.suppressed) continue;
 
-    for (const direction of directions) {
+    for (const direction of INTRODUCTION_ORDER) {
+      if (!isOffered(word, direction, statistics, capabilities)) continue;
       const due = progressFor(stat, direction)?.srs?.due;
       if (due === undefined) continue;
       if (soonest === undefined || due < soonest) soonest = due;

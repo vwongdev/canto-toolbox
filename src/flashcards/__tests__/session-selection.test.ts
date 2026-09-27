@@ -344,7 +344,48 @@ describe('selectSession listening cards', () => {
   });
 });
 
+describe('selectSession contrast cards', () => {
+  const CONFUSABLES = { confusables: { 清: ['晴'] } };
+  const readied = (extra: Partial<WordStatistics> = {}): WordStatistics => ({
+    ...tracked(5),
+    flashcard: srs(HOUR_MS),
+    production: srs(HOUR_MS),
+    ...extra,
+  });
+
+  it('introduces contrast once the word has a lookalike in the deck', () => {
+    const stats: Statistics = { 清: readied(), 晴: { ...tracked(1) } };
+    expect(selectSession(stats, NOW, CONFUSABLES)).toEqual([{ word: '清', direction: 'contrast' }]);
+  });
+
+  it('draws on a recorded mix-up without the dictionary', () => {
+    const stats: Statistics = { 清: readied({ confusedWith: { 晴: 1 } }), 晴: { ...tracked(1) } };
+    expect(selectSession(stats, NOW)).toEqual([{ word: '清', direction: 'contrast' }]);
+  });
+
+  it('offers no contrast when every lookalike is retired', () => {
+    const stats: Statistics = { 清: readied(), 晴: { ...tracked(1), suppressed: true } };
+    expect(selectSession(stats, NOW, CONFUSABLES)).toEqual([]);
+  });
+
+  it('withholds contrast while recognition is still being learned', () => {
+    const stats: Statistics = {
+      清: { ...tracked(5), flashcard: srs(HOUR_MS, 1) },
+      晴: { ...tracked(1) },
+    };
+    expect(selectSession(stats, NOW, CONFUSABLES).map(card => card.direction)).not.toContain('contrast');
+  });
+});
+
 describe('nextReviewAt', () => {
+  it('leaves out a contrast card with nothing left to contrast with', () => {
+    const stats: Statistics = {
+      清: { ...tracked(5), flashcard: srs(HOUR_MS), contrast: srs(-HOUR_MS) },
+    };
+
+    expect(nextReviewAt(stats)).toBe(NOW + HOUR_MS);
+  });
+
   it('leaves out a listening card this page cannot play', () => {
     // Otherwise the empty screen would promise a review that is already
     // overdue and will never be shown.

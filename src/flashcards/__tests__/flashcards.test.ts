@@ -64,8 +64,10 @@ function createClient(overrides: Partial<FlashcardClient> = {}): FlashcardClient
       你好: { count: 5, firstSeen: 1, lastSeen: 2, context: '你好嗎' },
       再见: { count: 5, firstSeen: 1, lastSeen: 2 }
     })),
+    findConfusables: vi.fn(async () => ({})),
     lookupWord: vi.fn(async () => DEFINITION),
     updateFlashcard: vi.fn(async () => {}),
+    recordConfusion: vi.fn(async () => {}),
     setWordStatus: vi.fn(async () => {}),
     ...overrides
   };
@@ -771,6 +773,140 @@ describe('FlashcardManager components cards', () => {
     const section = document.getElementById('card-back')!.querySelector('.popup-etymology-section');
     expect(section?.classList.contains('is-collapsed')).toBe(false);
     expect(section?.querySelectorAll('.popup-etymology-component-glyph')).toHaveLength(2);
+  });
+});
+
+describe('FlashcardManager contrast cards', () => {
+  let document: Document;
+  let client: FlashcardClient;
+
+  const GRADUATED = {
+    reviews: 3,
+    consecutiveCorrect: 3,
+    lastReviewed: 1,
+    srs: {
+      due: Date.now() + 86_400_000,
+      stability: 10,
+      difficulty: 5,
+      scheduledDays: 10,
+      learningSteps: 0,
+      lapses: 0,
+      state: 2,
+    },
+  };
+
+  /** 清 has passed recognition and production, so telling it apart is next. */
+  const READY: Statistics = {
+    清: { count: 5, firstSeen: 1, lastSeen: 2, flashcard: GRADUATED, production: GRADUATED },
+    晴: { count: 5, firstSeen: 1, lastSeen: 2, suppressed: true },
+    情: { count: 5, firstSeen: 1, lastSeen: 2, suppressed: true },
+  };
+
+  const definitionOf = (word: string): DefinitionResult => ({
+    word,
+    mandarin: { entries: [{ traditional: word, simplified: word, romanisation: 'qing2', definitions: [`meaning of ${word}`] }] },
+    cantonese: { entries: [] },
+  });
+
+  async function start(statistics: Statistics = READY): Promise<void> {
+    client = createClient({
+      getStatistics: vi.fn(async () => statistics),
+      findConfusables: vi.fn(async () => ({ 清: ['晴', '情'] })),
+      lookupWord: vi.fn(async (word: string) => definitionOf(word)),
+    });
+    new FlashcardManager(document, client).init();
+    await flush();
+  }
+
+  function options(): string[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('.card-option')).map(o => o.dataset.option!);
+  }
+
+  async function pick(word: string): Promise<void> {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: String(options().indexOf(word) + 1), bubbles: true }));
+    await vi.waitFor(() => expect(document.getElementById('writing-next')!.style.display).not.toBe('none'));
+  }
+
+  async function next(): Promise<void> {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    await flush();
+  }
+
+  beforeEach(() => {
+    document = new DOMParser().parseFromString(HTML, 'text/html');
+  });
+
+  // The partners are retired, which keeps them out of the session; they must
+  // then count as known, not as options.
+  it('offers nothing to contrast with once every lookalike is retired', async () => {
+    await start();
+    expect(document.getElementById('card')!.dataset.currentDirection).not.toBe('contrast');
+  });
+
+  describe('with lookalikes in the deck', () => {
+    const DECK: Statistics = {
+      ...READY,
+      晴: { count: 1, firstSeen: 1, lastSeen: 2 },
+      情: { count: 1, firstSeen: 1, lastSeen: 2 },
+    };
+
+    it('asks for the word among the ones it looks like', async () => {
+      await start(DECK);
+
+      expect(document.getElementById('card')!.dataset.currentDirection).toBe('contrast');
+      expect(options().sort()).toEqual(['情', '晴', '清'].sort());
+      expect(document.getElementById('card-front')!.textContent).toContain('meaning of 清');
+    });
+
+    it('grades the right pick Good and records no mix-up', async () => {
+      await start(DECK);
+      await pick('清');
+      await next();
+
+      expect(client.updateFlashcard).toHaveBeenCalledWith('清', 'good', 'contrast');
+      expect(client.recordConfusion).not.toHaveBeenCalled();
+    });
+
+    it('grades a wrong pick Again, records it and shows both words', async () => {
+      await start(DECK);
+      await pick('晴');
+
+      const back = document.getElementById('card-back')!;
+      expect(back.querySelector('.card-tally')?.textContent).toBe('Not 晴 · Again');
+      expect(back.textContent).toContain('meaning of 清');
+      expect(back.textContent).toContain('meaning of 晴');
+      expect(client.recordConfusion).toHaveBeenCalledWith('清', '晴');
+
+      await next();
+      expect(client.updateFlashcard).toHaveBeenCalledWith('清', 'again', 'contrast');
+    });
+  });
+});
+
+describe('FlashcardManager mix-ups on the answer', () => {
+  let document: Document;
+
+  beforeEach(() => {
+    document = new DOMParser().parseFromString(HTML, 'text/html');
+  });
+
+  it('records the word it was taken for and rates the card Again', async () => {
+    const client = createClient({ findConfusables: vi.fn(async () => ({ 你好: ['再见'], 再见: ['你好'] })) });
+    new FlashcardManager(document, client).init();
+    await flush();
+
+    const word = document.getElementById('card')!.dataset.currentWord!;
+    const other = word === '你好' ? '再见' : '你好';
+    document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
+
+    const chip = document.querySelector<HTMLButtonElement>('.card-mixup')!;
+    expect(chip.textContent).toBe(other);
+    chip.click();
+    await flush();
+
+    expect(client.recordConfusion).toHaveBeenCalledWith(word, other);
+    expect(client.updateFlashcard).toHaveBeenCalledWith(word, 'again', 'recognition');
   });
 });
 

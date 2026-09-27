@@ -136,6 +136,7 @@ const PROMPTS: Readonly<Record<ReviewDirection, string>> = {
   recognition: 'What does it mean?',
   production: 'Which word is it?',
   listening: 'What did you hear?',
+  contrast: 'Which one is it?',
   components: 'What is it made of?',
   writing: 'In what stroke order?',
 };
@@ -144,6 +145,7 @@ const DIRECTION_LABELS: Readonly<Record<ReviewDirection, string>> = {
   recognition: 'Recognise',
   production: 'Produce',
   listening: 'Listen',
+  contrast: 'Tell apart',
   components: 'Parts',
   writing: 'Write',
 };
@@ -231,6 +233,123 @@ export function renderFront(
     : [createElement({ className: 'card-characters', textContent: card.word, attributes: { lang: 'zh' } })];
 
   showFront(document, card, [createPrompt(card.direction), ...question], { revealable: true });
+}
+
+/**
+ * The contrast front: the production card's question, answered by picking the
+ * word from among the ones it looks like. The options are numbered, and the
+ * number keys pick them, since the rating keys have nothing to rate yet.
+ */
+export function renderContrastFront(
+  document: Document,
+  card: ReviewCard,
+  definition: DefinitionResult | undefined,
+  options: string[],
+  onPick: (word: string) => void,
+): void {
+  const choices = createElement({
+    className: 'card-options',
+    children: options.map((option, i) => {
+      const button = createElement({
+        tag: 'button',
+        className: 'btn card-option',
+        attributes: { type: 'button', 'data-option': option },
+        listeners: { click: () => onPick(option) },
+        children: [createElement({ tag: 'span', textContent: option, attributes: { lang: 'zh' } })],
+      });
+      button.appendChild(createElement({ tag: 'kbd', className: 'key-hint', textContent: String(i + 1) }));
+      return button;
+    }),
+  });
+
+  showFront(
+    document,
+    card,
+    [createPrompt(card.direction), ...createProductionFront(card, definition), choices],
+    { revealable: false },
+  );
+}
+
+/** The options on the contrast front, in the order their keys pick them. */
+export function getContrastOptions(document: Document): string[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('.card-option'))
+    .map(option => option.dataset.option ?? '');
+}
+
+/** True while a contrast card waits for its pick. */
+export function isContrastPending(document: Document): boolean {
+  return getCurrentDirection(document) === 'contrast'
+    && document.querySelector('.card-option:not(:disabled)') !== null;
+}
+
+/**
+ * The contrast back: which option was right, and both words' breakdowns when
+ * the pick was wrong — side by side is where the part that tells them apart
+ * shows. Like the writing card, the pick has already decided the grade.
+ */
+export function renderContrastBack(
+  document: Document,
+  card: ReviewCard,
+  { picked, rating }: { picked: string; rating: FlashcardRating },
+  definition: DefinitionResult | undefined,
+  pickedDefinition: DefinitionResult | undefined,
+  display: DisplaySettings = DEFAULT_SETTINGS,
+): void {
+  document.querySelectorAll<HTMLButtonElement>('.card-option').forEach(option => {
+    option.disabled = true;
+    if (option.dataset.option === card.word) option.classList.add('is-correct');
+    else if (option.dataset.option === picked) option.classList.add('is-wrong');
+  });
+
+  const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
+  if (cardBack) {
+    const right = picked === card.word;
+    cardBack.replaceChildren(
+      createElement({
+        className: `card-tally card-tally--${rating}`,
+        textContent: right ? `Correct · ${RATING_LABELS[rating]}` : `Not ${picked} · ${RATING_LABELS[rating]}`,
+      }),
+    );
+
+    const shown: Array<[string, DefinitionResult | undefined]> = right
+      ? [[card.word, definition]]
+      : [[card.word, definition], [picked, pickedDefinition]];
+
+    for (const [word, found] of shown) {
+      cardBack.appendChild(
+        found
+          ? createDefinitionElement(word, found, true, { expandEtymology: true, display: displayFor(card, display) })
+          : createElement({ className: 'flashcard-error', textContent: `${word}: definition not found` }),
+      );
+    }
+    cardBack.style.display = '';
+  }
+
+  const writingNext = document.getElementById(ELEMENT_IDS.writingNext);
+  if (writingNext) writingNext.style.display = '';
+}
+
+/**
+ * "Mixed it up with…": on an answer the reader got wrong, the words it could
+ * have been taken for. Picking one records the mix-up and rates the card
+ * Again, since a word mistaken for another was not recalled.
+ */
+function createMixups(mixups: { words: string[]; onPick: (word: string) => void }): HTMLElement {
+  return createElement({
+    className: 'card-mixups',
+    children: [
+      createElement({ tag: 'span', className: 'card-mixups-label', textContent: 'Mixed it up with' }),
+      ...mixups.words.map(word =>
+        createElement({
+          tag: 'button',
+          className: 'btn btn-subtle card-mixup',
+          textContent: word,
+          attributes: { type: 'button', lang: 'zh', title: `Took it for ${word}: rates Again` },
+          listeners: { click: () => mixups.onPick(word) },
+        }),
+      ),
+    ],
+  });
 }
 
 /**
@@ -365,6 +484,7 @@ const TESTS_READING: Readonly<Record<ReviewDirection, boolean>> = {
   // The front plays the sound and asks for the meaning; the reading on the
   // answer is information about what was heard, not the thing tested.
   listening: false,
+  contrast: false,
   components: false,
   writing: false,
 };
@@ -428,7 +548,16 @@ export function renderBack(
   document: Document,
   card: ReviewCard,
   definition: DefinitionResult,
-  { heard, display = DEFAULT_SETTINGS }: { heard?: Reading; display?: DisplaySettings } = {},
+  {
+    heard,
+    display = DEFAULT_SETTINGS,
+    mixups,
+  }: {
+    heard?: Reading;
+    display?: DisplaySettings;
+    /** Words the reader can say they took this one for. */
+    mixups?: { words: string[]; onPick: (word: string) => void };
+  } = {},
 ): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   const showAnswerContainer = document.getElementById(ELEMENT_IDS.showAnswerContainer);
@@ -459,6 +588,7 @@ export function renderBack(
         ...(card.context !== undefined && { context: card.context }),
       })
     );
+    if (mixups && mixups.words.length > 0) cardBack.appendChild(createMixups(mixups));
     cardBack.style.display = '';
   }
   if (showAnswerContainer) showAnswerContainer.style.display = 'none';

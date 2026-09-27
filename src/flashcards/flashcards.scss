@@ -329,6 +329,72 @@ body {
   margin-top: 0;
 }
 
+// The contrast card's choices: the word and its lookalikes, large enough that
+// the part telling them apart can be seen.
+.card-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: t.$space-3;
+}
+
+.card-option {
+  min-width: 88px;
+  border-color: t.$color-border;
+  background: t.$color-surface;
+  color: t.$color-text-strong;
+  font-size: 28px;
+
+  &:hover:not(:disabled) {
+    border-color: t.$color-primary;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &.is-correct {
+    border-color: t.$color-rating-good;
+    background: t.$color-rating-good-tint;
+  }
+
+  &.is-wrong {
+    border-color: t.$color-rating-again;
+    color: t.$color-rating-again;
+  }
+}
+
+// A wrong contrast pick shows the word picked under the one asked for.
+.card-back .definition-container + .definition-container {
+  margin-top: t.$space-5;
+  padding-top: t.$space-5;
+  border-top: 1px solid t.$color-border-muted;
+}
+
+.card-kind--contrast {
+  background: t.$color-meaning-tint;
+  color: t.$color-text-strong;
+}
+
+// Under a wrong answer: the words it may have been taken for.
+.card-mixups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: t.$space-2;
+  margin-top: t.$space-4;
+}
+
+.card-mixups-label {
+  color: t.$color-text-subtle;
+  font-size: t.$text-sm;
+}
+
+.card-mixup {
+  padding: t.$space-1 t.$space-3;
+  border-color: t.$color-border;
+}
+
 .card-back {
   flex: 1;
   min-height: 0;

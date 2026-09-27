@@ -1,4 +1,5 @@
 import type {
+  Confusables,
   DefinitionResult,
   FlashcardRating,
   Statistics,
@@ -7,6 +8,7 @@ import { flashcardClient, type FlashcardClient } from './flashcard-client.js';
 import {
   cardKey,
   nextReviewAt,
+  partnersOf,
   selectSession,
   type DeckCapabilities,
   type ReviewCard,
@@ -24,6 +26,10 @@ import {
   renderFrontLoading,
   renderWritingFront,
   renderListeningFront,
+  renderContrastFront,
+  renderContrastBack,
+  getContrastOptions,
+  isContrastPending,
   renderWritingBack,
   renderBack,
   renderBackLoading,
@@ -38,7 +44,7 @@ import {
   STATS_LINK_SELECTOR
 } from './flashcards-view.js';
 import { previewSchedule } from '../shared/scheduler.js';
-import { progressFor } from '../shared/statistics-utils.js';
+import { progressFor, withConfusion } from '../shared/statistics-utils.js';
 import { ratingForMistakes, startQuiz, type WritingQuiz } from './writing.js';
 import { listeningReading } from './listening.js';
 import { speak, whenVoicesReady, type Reading } from '../shared/speech.js';
@@ -59,6 +65,11 @@ const ADVANCE_KEYS = [' ', 'Enter'];
 const DEFAULT_RATING: FlashcardRating = 'good';
 
 const STATS_PAGE = 'src/stats/stats.html';
+
+/** Four options fit the number keys, and more turns telling apart into a search. */
+const MAX_CONTRAST_PARTNERS = 3;
+/** A handful of chips under the answer; the likeliest mix-ups are listed first. */
+const MAX_MIXUPS = 5;
 
 /** Everything a retirement took out of the session, so undoing puts it back. */
 interface RetiredWord {
@@ -109,6 +120,8 @@ export class FlashcardManager {
   private sessionCards: ReviewCard[] = [];
   /** The record the session was built from, so a card can price its own ratings. */
   private statistics: Statistics = {};
+  /** What the session was built around, so a card can find its lookalikes. */
+  private capabilities: DeckCapabilities = {};
   private correctCount = 0;
   private totalCount = 0;
   /** Definitions already fetched this session, keyed by word. */
@@ -122,7 +135,10 @@ export class FlashcardManager {
   private readonly scheduled = new Set<string>();
   /** The quiz on screen, so a card left behind stops listening for strokes. */
   private quiz: WritingQuiz | undefined;
-  /** The grade a finished quiz measured, waiting on the reader to move on. */
+  /**
+   * The grade a finished quiz measured, or a contrast pick decided, waiting on
+   * the reader to move on.
+   */
   private pendingRating: FlashcardRating | undefined;
   /** What the last retirement took out of the session, in case it was a slip. */
   private retired: RetiredWord | undefined;
@@ -154,21 +170,27 @@ export class FlashcardManager {
     this.setupKeyboardShortcuts();
 
     void this.client.getStatistics().then(
-      statistics => {
+      async statistics => {
+        // Lookalikes cannot be found without the dictionary, and a deck that
+        // cannot reach it still has every other card to offer.
+        const confusables = await this.client
+          .findConfusables(Object.keys(statistics).filter(word => !statistics[word]!.suppressed))
+          .catch(() => ({}));
+
         // Whether listening cards can be offered is only known once the voices
         // have loaded, and the session is built around the answer.
         whenVoicesReady(voices => {
           this.listening = listeningReading(voices);
-          this.startSession(statistics);
+          this.startSession(statistics, confusables);
         });
       },
       () => renderEmptyState(this.document, NOTHING_TRACKED),
     );
   }
 
-  private startSession(statistics: Statistics): void {
+  private startSession(statistics: Statistics, confusables: Confusables): void {
     const now = Date.now();
-    const capabilities: DeckCapabilities = { listening: this.listening !== null };
+    const capabilities: DeckCapabilities = { listening: this.listening !== null, confusables };
     const session = selectSession(statistics, now, capabilities, this.settings);
 
     if (session.length === 0) {
@@ -176,6 +198,7 @@ export class FlashcardManager {
       return;
     }
 
+    this.capabilities = capabilities;
     this.statistics = statistics;
     this.sessionCards = session;
     this.reviewQueue = [...session];
@@ -203,6 +226,16 @@ export class FlashcardManager {
     if (card.direction === 'production') {
       renderFrontLoading(this.document, card);
       this.withDefinition(card, definition => renderFront(this.document, card, definition));
+      return;
+    }
+
+    if (card.direction === 'contrast') {
+      renderFrontLoading(this.document, card);
+      this.withDefinition(card, definition => {
+        renderContrastFront(this.document, card, definition, this.contrastOptions(card), picked =>
+          this.pickContrast(card, picked),
+        );
+      });
       return;
     }
 
@@ -256,6 +289,62 @@ export class FlashcardManager {
         renderWritingBack(this.document, card, definition, { mistakes, rating }, this.settings);
       });
     });
+  }
+
+  /** The word and up to three it could be taken for, in a fresh order each time. */
+  private contrastOptions(card: ReviewCard): string[] {
+    const partners = partnersOf(card.word, this.statistics, this.capabilities).slice(0, MAX_CONTRAST_PARTNERS);
+    return fisherYatesShuffle([card.word, ...partners]);
+  }
+
+  /**
+   * The pick is the answer, so it grades the card the way a writing quiz's
+   * mistakes do: the right word is Good, any other is Again and a mix-up the
+   * record keeps.
+   */
+  private pickContrast(card: ReviewCard, picked: string): void {
+    if (!this.isCurrent(card) || this.pendingRating) return;
+
+    const rating: FlashcardRating = picked === card.word ? 'good' : 'again';
+    this.pendingRating = rating;
+    if (rating === 'again') this.recordConfusion(card.word, picked);
+
+    void Promise.all([this.definitionOf(card.word), this.definitionOf(picked)]).then(
+      ([definition, pickedDefinition]) => {
+        if (!this.isCurrent(card)) return;
+        renderContrastBack(
+          this.document,
+          card,
+          { picked, rating },
+          definition,
+          pickedDefinition,
+          this.settings,
+        );
+      },
+    );
+  }
+
+  /** The record keeps the mix-up; this session's copy does, so its cards offer it. */
+  private recordConfusion(word: string, other: string): void {
+    for (const [a, b] of [[word, other], [other, word]] as const) {
+      const stat = this.statistics[a];
+      if (stat) this.statistics[a] = withConfusion(stat, b);
+    }
+    void this.client.recordConfusion(word, other).catch(() => {});
+  }
+
+  /** A word's definition from this session's cache or a lookup, undefined if it fails. */
+  private async definitionOf(word: string): Promise<DefinitionResult | undefined> {
+    const cached = this.definitions.get(word);
+    if (cached) return cached;
+
+    try {
+      const definition = await this.client.lookupWord(word);
+      this.definitions.set(word, definition);
+      return definition;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Stop a quiz whose card is no longer on screen. */
@@ -313,8 +402,17 @@ export class FlashcardManager {
     const listening = card.direction === 'listening';
     const heard = listening && this.listening ? { heard: this.listening } : {};
 
+    const mixups = {
+      words: partnersOf(card.word, this.statistics, this.capabilities).slice(0, MAX_MIXUPS),
+      onPick: (other: string) => {
+        if (!this.isCurrent(card)) return;
+        this.recordConfusion(card.word, other);
+        this.rate('again');
+      },
+    };
+
     this.withDefinition(card, definition => {
-      if (definition) renderBack(this.document, card, definition, { ...heard, display: this.settings });
+      if (definition) renderBack(this.document, card, definition, { ...heard, display: this.settings, mixups });
       else renderBackError(this.document, listening ? card.word : undefined);
       this.priceRatings(card);
     });
@@ -408,6 +506,14 @@ export class FlashcardManager {
       const rating = RATING_KEYS[key] ?? (ADVANCE_KEYS.includes(key) ? DEFAULT_RATING : undefined);
       if (!rating) return false;
       this.rate(rating);
+      return true;
+    }
+
+    if (isContrastPending(this.document)) {
+      const option = RATING_KEYS[key] ? getContrastOptions(this.document)[Number(key) - 1] : undefined;
+      const card = this.currentCard();
+      if (!option || !card) return false;
+      this.pickContrast(card, option);
       return true;
     }
 
