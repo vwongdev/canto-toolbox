@@ -1,5 +1,5 @@
 import { createElement } from '../shared/dom-element.js';
-import { sendMessage } from '../shared/message-manager.js';
+import { request } from '../shared/message-manager.js';
 import type { Settings } from '../shared/settings.js';
 import type { PageWord } from '../shared/types.js';
 import { changesKnown } from './known-words.js';
@@ -106,12 +106,7 @@ export interface SegmentClient {
 }
 
 export const segmentClient: SegmentClient = {
-  segment: (runs) => new Promise((resolve, reject) => {
-    sendMessage({ type: 'segment_text', runs }, (response) => {
-      if (response.success) resolve(response.words);
-      else reject(new Error(response.error));
-    });
-  }),
+  segment: async (runs) => (await request({ type: 'segment_text', runs })).words,
 };
 
 interface MarkedWord {

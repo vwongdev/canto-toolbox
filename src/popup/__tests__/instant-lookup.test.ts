@@ -16,10 +16,10 @@ const DEFINITION: DefinitionResult = {
 
 function createClient(): PopupClient {
   return {
-    lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: DEFINITION })),
-    trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
+    lookupWord: vi.fn(async () => ({ definition: DEFINITION })),
+    trackWord: vi.fn(async () => {}),
+    pinWord: vi.fn(async () => {}),
+    markKnown: vi.fn(async () => {}),
   };
 }
 
@@ -59,13 +59,13 @@ describe('instant lookup', () => {
     vi.useRealTimers();
   });
 
-  it('looks the word up at once when hovered with Shift held', () => {
+  it('looks the word up at once when hovered with Shift held', async () => {
     hoverAt(2, { shiftKey: true });
 
     expect(client.lookupWord).toHaveBeenCalledTimes(1);
   });
 
-  it('looks up the word under a resting cursor when Shift is pressed', () => {
+  it('looks up the word under a resting cursor when Shift is pressed', async () => {
     hoverAt(2);
     expect(client.lookupWord).not.toHaveBeenCalled();
 
@@ -73,11 +73,11 @@ describe('instant lookup', () => {
 
     expect(client.lookupWord).toHaveBeenCalledTimes(1);
     // The pause it skipped does not fire a second lookup afterwards.
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(client.lookupWord).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves Shift alone while a field has focus', () => {
+  it('leaves Shift alone while a field has focus', async () => {
     const field = document.querySelector('input')!;
     field.focus();
 
@@ -87,28 +87,29 @@ describe('instant lookup', () => {
     expect(client.lookupWord).not.toHaveBeenCalled();
   });
 
-  it('does not rush a Shift-held move made with a button down', () => {
+  it('does not rush a Shift-held move made with a button down', async () => {
     // Shift with a drag is extending a selection.
     hoverAt(2, { shiftKey: true, buttons: 1 });
 
     expect(client.lookupWord).not.toHaveBeenCalled();
   });
 
-  it('does nothing when no word is waiting', () => {
+  it('does nothing when no word is waiting', async () => {
     pressShift();
 
     expect(client.lookupWord).not.toHaveBeenCalled();
   });
 
-  it('closes the popup on Escape, and a pending lookup with it', () => {
+  it('closes the popup on Escape, and a pending lookup with it', async () => {
     hoverAt(2, { shiftKey: true });
+    await vi.advanceTimersByTimeAsync(0);
     expect(document.getElementById('chinese-hover-popup')).not.toBeNull();
 
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     expect(document.getElementById('chinese-hover-popup')).toBeNull();
     // The word was dismissed before the dwell, so it was not studied.
-    vi.advanceTimersByTime(10_000);
+    await vi.advanceTimersByTimeAsync(10_000);
     expect(client.trackWord).not.toHaveBeenCalled();
   });
 });

@@ -19,10 +19,10 @@ const DEFINITION: DefinitionResult = {
 
 function createClient(): PopupClient {
   return {
-    lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: DEFINITION })),
-    trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
+    lookupWord: vi.fn(async () => ({ definition: DEFINITION })),
+    trackWord: vi.fn(async () => {}),
+    pinWord: vi.fn(async () => {}),
+    markKnown: vi.fn(async () => {}),
   };
 }
 
@@ -47,9 +47,9 @@ describe('dwell tracking', () => {
   }
 
   /** Hover `offset` and rest there long enough for the lookup to fire. */
-  function dwellAt(offset: number): void {
+  async function dwellAt(offset: number): Promise<void> {
     hoverAt(offset);
-    vi.advanceTimersByTime(HOVER_INTENT_MS);
+    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS);
   }
 
   beforeEach(() => {
@@ -65,25 +65,25 @@ describe('dwell tracking', () => {
     vi.useRealTimers();
   });
 
-  it('shows the popup without recording a study', () => {
-    dwellAt(2);
+  it('shows the popup without recording a study', async () => {
+    await dwellAt(2);
 
     expect(client.lookupWord).toHaveBeenCalled();
     expect(client.trackWord).not.toHaveBeenCalled();
   });
 
-  it('records the study once the popup has been held', () => {
-    dwellAt(2);
-    vi.advanceTimersByTime(400);
+  it('records the study once the popup has been held', async () => {
+    await dwellAt(2);
+    await vi.advanceTimersByTimeAsync(400);
 
-    expect(client.trackWord).toHaveBeenCalledWith('好字', expect.any(Function), expect.any(String));
+    expect(client.trackWord).toHaveBeenCalledWith('好字', expect.any(String));
   });
 
-  it('does not look up a word the cursor passed straight over', () => {
+  it('does not look up a word the cursor passed straight over', async () => {
     hoverAt(2);
-    vi.advanceTimersByTime(HOVER_INTENT_MS - 50);
+    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS - 50);
     manager.destroy();
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
 
     expect(client.lookupWord).not.toHaveBeenCalled();
     expect(client.trackWord).not.toHaveBeenCalled();
@@ -95,44 +95,44 @@ describe('dwell tracking', () => {
    * the dwell still stands - and the popup's grace period is shorter than it,
    * so treating this as leaving would cancel the study before it is recorded.
    */
-  it('records the study when the page loses the pointer', () => {
-    dwellAt(2);
+  it('records the study when the page loses the pointer', async () => {
+    await dwellAt(2);
     document.getElementById('chinese-hover-popup')!
       .dispatchEvent(new MouseEvent('mouseleave', { relatedTarget: null }));
-    vi.advanceTimersByTime(400);
+    await vi.advanceTimersByTimeAsync(400);
 
-    expect(client.trackWord).toHaveBeenCalledWith('好字', expect.any(Function), expect.any(String));
+    expect(client.trackWord).toHaveBeenCalledWith('好字', expect.any(String));
   });
 
-  it('counts moving across one word as a single study', () => {
-    dwellAt(2);
-    vi.advanceTimersByTime(400);
-    dwellAt(3);
-    vi.advanceTimersByTime(400);
+  it('counts moving across one word as a single study', async () => {
+    await dwellAt(2);
+    await vi.advanceTimersByTimeAsync(400);
+    await dwellAt(3);
+    await vi.advanceTimersByTimeAsync(400);
 
     expect(client.trackWord).toHaveBeenCalledTimes(1);
   });
 
-  it('sends the sentence the word was met in', () => {
-    dwellAt(2);
-    vi.advanceTimersByTime(400);
+  it('sends the sentence the word was met in', async () => {
+    await dwellAt(2);
+    await vi.advanceTimersByTimeAsync(400);
 
-    const context = vi.mocked(client.trackWord).mock.calls[0]![2];
+    const context = vi.mocked(client.trackWord).mock.calls[0]![1];
     expect(context).toBe('我寫好字');
   });
 
-  it('sends the hovered run and offset so the lookup can segment', () => {
-    dwellAt(3);
+  it('sends the hovered run and offset so the lookup can segment', async () => {
+    await dwellAt(3);
 
-    expect(vi.mocked(client.lookupWord).mock.calls[0]![2]).toEqual({ run: '我寫好字', offset: 3 });
+    expect(vi.mocked(client.lookupWord).mock.calls[0]![1]).toEqual({ run: '我寫好字', offset: 3 });
   });
 
   it('does not show a lookup that the cursor has already left', async () => {
     vi.useRealTimers();
-    const pending: Array<(r: { success: true; type: 'lookup_word'; definition: DefinitionResult }) => void> = [];
-    vi.mocked(client.lookupWord).mockImplementation((_word, cb) => {
-      pending.push(cb);
-    });
+    const pending: Array<(r: { definition: DefinitionResult }) => void> = [];
+    vi.mocked(client.lookupWord).mockImplementation(() => new Promise(resolve => {
+      pending.push(resolve);
+    }));
 
     const first: DefinitionResult = { ...DEFINITION, word: '我寫' };
     const second: DefinitionResult = { ...DEFINITION, word: '好字' };
@@ -145,13 +145,15 @@ describe('dwell tracking', () => {
     await rest();
 
     expect(pending).toHaveLength(2);
-    pending[1]!({ success: true, type: 'lookup_word', definition: second });
-    pending[0]!({ success: true, type: 'lookup_word', definition: first });
+    pending[1]!({ definition: second });
+    await Promise.resolve();
+    pending[0]!({ definition: first });
+    await Promise.resolve();
 
     expect(document.getElementById('chinese-hover-popup')?.dataset.word).toBe('好字');
   });
 
-  it('does not hit-test images', () => {
+  it('does not hit-test images', async () => {
     const caret = vi.fn();
     document.caretRangeFromPoint = caret as unknown as Document['caretRangeFromPoint'];
 

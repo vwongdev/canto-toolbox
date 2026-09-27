@@ -1,73 +1,44 @@
-import { sendMessage } from '../shared/message-manager.js';
+import { request } from '../shared/message-manager.js';
 import type {
   ContextSource,
+  DefinitionResult,
   HoverSegment,
-  LookupResponse,
-  MarkKnownResponse,
-  TrackWordResponse,
-  ErrorResponse,
+  WordStatus,
 } from '../shared/types.js';
 
 export interface PopupClient {
+  /** The matched word's definition, and the reader's decisions about it. */
   lookupWord(
     word: string,
-    callback: (r: LookupResponse | ErrorResponse) => void,
     segment?: HoverSegment,
-  ): void;
-  trackWord(
-    word: string,
-    callback: (r: TrackWordResponse | ErrorResponse) => void,
-    context?: string,
-  ): void;
+  ): Promise<{ definition: DefinitionResult; status?: WordStatus }>;
+  trackWord(word: string, context?: string): Promise<void>;
   /** Track the word and add it to the deck outright, skipping the exposure gate. */
-  pinWord(
-    word: string,
-    callback: (r: TrackWordResponse | ErrorResponse) => void,
-    context?: string,
-  ): void;
+  pinWord(word: string, context?: string): Promise<void>;
   /** Retire the word, or put it back, without counting it as a sighting. */
-  markKnown(
-    word: string,
-    known: boolean,
-    callback: (r: MarkKnownResponse | ErrorResponse) => void,
-    context?: string,
-  ): void;
+  markKnown(word: string, known: boolean, context?: string): Promise<void>;
 }
 
-class PopupMessageClient implements PopupClient {
-  lookupWord(
-    word: string,
-    callback: (r: LookupResponse | ErrorResponse) => void,
-    segment?: HoverSegment,
-  ): void {
-    sendMessage({ type: 'lookup_word', word, withStatus: true, ...(segment && { segment }) }, callback);
-  }
-
-  trackWord(
-    word: string,
-    callback: (r: TrackWordResponse | ErrorResponse) => void,
-    context?: string,
-  ): void {
-    sendMessage({ type: 'track_word', word, ...sentence(context) }, callback);
-  }
-
-  pinWord(
-    word: string,
-    callback: (r: TrackWordResponse | ErrorResponse) => void,
-    context?: string,
-  ): void {
-    sendMessage({ type: 'track_word', word, pin: true, ...sentence(context) }, callback);
-  }
-
-  markKnown(
-    word: string,
-    known: boolean,
-    callback: (r: MarkKnownResponse | ErrorResponse) => void,
-    context?: string,
-  ): void {
-    sendMessage({ type: 'mark_known', word, known, ...sentence(context) }, callback);
-  }
-}
+export const popupClient: PopupClient = {
+  lookupWord: async (word, segment) => {
+    const { definition, status } = await request({
+      type: 'lookup_word',
+      word,
+      withStatus: true,
+      ...(segment && { segment }),
+    });
+    return { definition, ...(status && { status }) };
+  },
+  trackWord: async (word, context) => {
+    await request({ type: 'track_word', word, ...sentence(context) });
+  },
+  pinWord: async (word, context) => {
+    await request({ type: 'track_word', word, pin: true, ...sentence(context) });
+  },
+  markKnown: async (word, known, context) => {
+    await request({ type: 'mark_known', word, known, ...sentence(context) });
+  },
+};
 
 /**
  * A sentence travels with the page it was read on. The address is sent whole
@@ -77,5 +48,3 @@ function sentence(context: string | undefined): { context?: string; source?: Con
   if (!context) return {};
   return { context, source: { url: location.href, title: document.title } };
 }
-
-export const popupClient = new PopupMessageClient();

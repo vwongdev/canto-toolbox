@@ -22,17 +22,17 @@ const WORD: DefinitionResult = {
 
 function createClient(): PopupClient {
   return {
-    lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: WORD })),
-    trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
+    lookupWord: vi.fn(async () => ({ definition: WORD })),
+    trackWord: vi.fn(async () => {}),
+    pinWord: vi.fn(async () => {}),
+    markKnown: vi.fn(async () => {}),
   };
 }
 
 describe('the popup drawn with the reader\'s settings', () => {
   let manager: ChineseHoverPopupManager;
 
-  function showWith(settings: Partial<Settings>): void {
+  async function showWith(settings: Partial<Settings>): Promise<void> {
     manager.applySettings({ ...DEFAULT_SETTINGS, ...settings });
 
     const textNode = document.body.firstChild as Text;
@@ -41,7 +41,7 @@ describe('the popup drawn with the reader\'s settings', () => {
       startOffset: 0,
     })) as unknown as Document['caretRangeFromPoint'];
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 10, bubbles: true }));
-    vi.advanceTimersByTime(250);
+    await vi.advanceTimersByTimeAsync(250);
   }
 
   const labels = () =>
@@ -59,32 +59,32 @@ describe('the popup drawn with the reader\'s settings', () => {
     vi.useRealTimers();
   });
 
-  it('leads with Mandarin by default', () => {
-    showWith({});
+  it('leads with Mandarin by default', async () => {
+    await showWith({});
     expect(labels()).toEqual(['Mandarin', 'Cantonese']);
   });
 
-  it('leads with Cantonese when the reader asks for it', () => {
-    showWith({ primaryLanguage: 'cantonese' });
+  it('leads with Cantonese when the reader asks for it', async () => {
+    await showWith({ primaryLanguage: 'cantonese' });
     expect(labels()).toEqual(['Cantonese', 'Mandarin']);
   });
 
-  it('heads the popup in the reader\'s script, naming the page\'s form beside it', () => {
-    showWith({ script: 'traditional' });
+  it('heads the popup in the reader\'s script, naming the page\'s form beside it', async () => {
+    await showWith({ script: 'traditional' });
 
     expect(document.querySelector('.popup-word')!.textContent).toBe('學習');
     expect(document.querySelector('.definition-variant')!.textContent).toBe('Simplified学习');
   });
 
-  it('keeps the characters that have entries followable in the other script', () => {
-    showWith({ script: 'traditional' });
+  it('keeps the characters that have entries followable in the other script', async () => {
+    await showWith({ script: 'traditional' });
 
     const characters = Array.from(document.querySelectorAll('.popup-word-char'));
     expect(characters.map(node => node.tagName)).toEqual(['BUTTON', 'SPAN']);
   });
 
-  it('withholds the readings until asked for', () => {
-    showWith({ hideRomanisation: true });
+  it('withholds the readings until asked for', async () => {
+    await showWith({ hideRomanisation: true });
 
     expect(document.querySelector('.definition-pinyin')).toBeNull();
     expect(document.querySelectorAll('.romanisation-reveal')).toHaveLength(2);

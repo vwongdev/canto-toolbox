@@ -1,8 +1,6 @@
 import type {
   DefinitionResult,
   HoverSegment,
-  LookupResponse,
-  ErrorResponse,
   WordStatus,
 } from '../shared/types.js';
 import { createElement } from '../shared/dom-element.js';
@@ -354,16 +352,11 @@ export class ChineseHoverPopupManager {
     } = {},
   ): void {
     const generation = ++this.lookupGeneration;
-    this.client.lookupWord(
-      word,
-      (response: LookupResponse | ErrorResponse) => {
+    this.client.lookupWord(word, segment).then(
+      ({ definition, status }) => {
         if (generation !== this.lookupGeneration) return;
-        if (!response.success || !('definition' in response)) {
-          console.error('[Content] Lookup failed:', response.error);
-          return;
-        }
 
-        const matched = response.definition.word || word;
+        const matched = definition.word || word;
         if (this.currentPopup?.dataset.word === matched) {
           // Same word, new cursor position: reposition without restarting the
           // dwell, so moving across one word still counts as a single study.
@@ -378,13 +371,16 @@ export class ChineseHoverPopupManager {
         else this.trail = [];
         this.showPopup({
           word: matched,
-          definition: response.definition,
+          definition,
           ...(context && { context }),
-          status: response.status ?? {},
+          status: status ?? {},
         }, x, y);
         this.scheduleTracking(matched, context);
       },
-      segment,
+      (error: unknown) => {
+        if (generation !== this.lookupGeneration) return;
+        console.error('[Content] Lookup failed:', error);
+      },
     );
   }
 
@@ -395,15 +391,9 @@ export class ChineseHoverPopupManager {
    */
   private scheduleTracking(word: string, context?: string): void {
     this.setTimer('track', () => {
-      this.client.trackWord(
-        word,
-        (response) => {
-          if (!response.success) {
-            console.error('[Content] Track word failed:', response.error);
-          }
-        },
-        context,
-      );
+      this.client.trackWord(word, context).catch((error: unknown) => {
+        console.error('[Content] Track word failed:', error);
+      });
     }, DWELL_MS);
   }
 
@@ -422,8 +412,8 @@ export class ChineseHoverPopupManager {
    */
   private createActions(shown: ShownWord): HTMLElement {
     const { word, context } = shown;
-    const report = (label: string) => (response: { success: boolean; error?: string }) => {
-      if (!response.success) console.error(`[Content] ${label} failed:`, response.error);
+    const report = (label: string) => (error: unknown) => {
+      console.error(`[Content] ${label} failed:`, error);
     };
 
     const study = createElement<HTMLButtonElement>({
@@ -436,7 +426,7 @@ export class ChineseHoverPopupManager {
           this.clearTimer('track');
           shown.status = { pinned: true };
           render();
-          this.client.pinWord(word, report('Study word'), context);
+          this.client.pinWord(word, context).catch(report('Study word'));
         },
       },
     });
@@ -453,7 +443,7 @@ export class ChineseHoverPopupManager {
           const retire = !shown.status.suppressed;
           shown.status = retire ? { suppressed: true } : {};
           render();
-          this.client.markKnown(word, retire, report('Mark known'), context);
+          this.client.markKnown(word, retire, context).catch(report('Mark known'));
         },
       },
     });

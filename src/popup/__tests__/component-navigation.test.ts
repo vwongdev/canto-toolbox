@@ -51,12 +51,10 @@ const DEFINITIONS: Record<string, DefinitionResult> = {
 
 function createClient(): PopupClient {
   return {
-    lookupWord: vi.fn((word, cb) => {
-      cb({ success: true, type: 'lookup_word', definition: DEFINITIONS[word] ?? WORD });
-    }),
-    trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
+    lookupWord: vi.fn(async (word) => ({ definition: DEFINITIONS[word] ?? WORD })),
+    trackWord: vi.fn(async () => {}),
+    pinWord: vi.fn(async () => {}),
+    markKnown: vi.fn(async () => {}),
   };
 }
 
@@ -83,7 +81,7 @@ describe('following a component from the popup', () => {
   const componentChip = () =>
     document.querySelector('.popup-etymology-component--link') as HTMLButtonElement | null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     document.body.replaceChildren(document.createTextNode('我寫好字。'));
     client = createClient();
@@ -91,7 +89,7 @@ describe('following a component from the popup', () => {
     manager.init();
     hoverAt(2);
     // The lookup waits for the cursor to rest on the word.
-    vi.advanceTimersByTime(250);
+    await vi.advanceTimersByTimeAsync(250);
   });
 
   afterEach(() => {
@@ -99,28 +97,32 @@ describe('following a component from the popup', () => {
     vi.useRealTimers();
   });
 
-  it('shows the component in place of the word it was reached from', () => {
+  it('shows the component in place of the word it was reached from', async () => {
     componentChip()!.click();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(vi.mocked(client.lookupWord).mock.calls.at(-1)![0]).toBe('女');
     expect(popupWord()).toBe('女');
   });
 
-  it('records the component as studied once the popup has been held', () => {
+  it('records the component as studied once the popup has been held', async () => {
     componentChip()!.click();
-    vi.advanceTimersByTime(400);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(400);
 
     expect(vi.mocked(client.trackWord).mock.calls.at(-1)![0]).toBe('女');
   });
 
-  it('offers the way back to the word the component came from', () => {
+  it('offers the way back to the word the component came from', async () => {
     componentChip()!.click();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(backButton()?.textContent).toContain('好字');
   });
 
-  it('returns to that word without looking it up again', () => {
+  it('returns to that word without looking it up again', async () => {
     componentChip()!.click();
+    await vi.advanceTimersByTimeAsync(0);
     const lookups = vi.mocked(client.lookupWord).mock.calls.length;
 
     backButton()!.click();
@@ -130,12 +132,13 @@ describe('following a component from the popup', () => {
     expect(backButton()).toBeNull();
   });
 
-  it('offers no way back before a component has been followed', () => {
+  it('offers no way back before a component has been followed', async () => {
     expect(backButton()).toBeNull();
   });
 
   it('starts a fresh trail when the cursor moves to another word', async () => {
     componentChip()!.click();
+    await vi.advanceTimersByTimeAsync(0);
     // Moves are coalesced onto the animation frame, which no fake timer drives,
     // so the hover that opened the popup has to clear before another is seen.
     vi.useRealTimers();
@@ -157,14 +160,14 @@ describe('following a character of the headword', () => {
   const headwordLink = () =>
     document.querySelector('.popup-word-char--link') as HTMLButtonElement | null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     document.body.replaceChildren(document.createTextNode('我寫好字。'));
     client = createClient();
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
     hoverAt(2);
-    vi.advanceTimersByTime(250);
+    await vi.advanceTimersByTimeAsync(250);
   });
 
   afterEach(() => {
@@ -172,37 +175,41 @@ describe('following a character of the headword', () => {
     vi.useRealTimers();
   });
 
-  it('offers only the characters the dictionaries hold an entry for', () => {
+  it('offers only the characters the dictionaries hold an entry for', async () => {
     const characters = Array.from(document.querySelectorAll('.popup-word-char'));
 
     expect(characters.map(node => node.textContent)).toEqual(['好', '字']);
     expect(characters.map(node => node.tagName)).toEqual(['BUTTON', 'SPAN']);
   });
 
-  it('shows the character in place of the compound it was part of', () => {
+  it('shows the character in place of the compound it was part of', async () => {
     headwordLink()!.click();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(vi.mocked(client.lookupWord).mock.calls.at(-1)![0]).toBe('好');
     expect(popupWord()).toBe('好');
   });
 
-  it('offers the way back to the compound it was reached from', () => {
+  it('offers the way back to the compound it was reached from', async () => {
     headwordLink()!.click();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(backButton()?.textContent).toContain('好字');
     backButton()!.click();
     expect(popupWord()).toBe('好字');
   });
 
-  it('records the character as studied once the popup has been held', () => {
+  it('records the character as studied once the popup has been held', async () => {
     headwordLink()!.click();
-    vi.advanceTimersByTime(400);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(400);
 
     expect(vi.mocked(client.trackWord).mock.calls.at(-1)![0]).toBe('好');
   });
 
-  it('leaves a single-character word a plain heading', () => {
+  it('leaves a single-character word a plain heading', async () => {
     headwordLink()!.click();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(document.querySelector('.popup-word-char')).toBeNull();
     expect(popupWord()).toBe('好');

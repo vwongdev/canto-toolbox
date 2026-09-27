@@ -1,9 +1,9 @@
 import { popupStorage, type WordDetails } from './popup-storage.js';
 import { registerHandlers } from '../shared/message-router.js';
-import { sendMessage } from '../shared/message-manager.js';
+import { request } from '../shared/message-manager.js';
 import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
 import { hasStrokes } from '../shared/strokes.js';
-import type { DefinitionResult, HoverSegment, SegmentedWord } from '../shared/types.js';
+import type { DefinitionResult, HoverSegment } from '../shared/types.js';
 import { KnownWordsCache, classifyWords } from './known-words.js';
 
 /**
@@ -29,39 +29,17 @@ function isWritable(word: string): Promise<boolean> {
   return hasStrokes(word);
 }
 
-function lookupInOffscreen(
+async function lookupInOffscreen(
   word: string,
   options: { segment?: HoverSegment; allowMissing?: boolean } = {},
 ): Promise<DefinitionResult> {
-  return new Promise((resolve, reject) => {
-    sendMessage(
-      {
-        type: 'dict_lookup',
-        word,
-        ...(options.segment && { segment: options.segment }),
-        ...(options.allowMissing && { allowMissing: true }),
-      },
-      (response) => {
-        if (!response.success) {
-          reject(new Error(response.error));
-          return;
-        }
-        resolve(response.definition);
-      },
-    );
+  const { definition } = await request({
+    type: 'dict_lookup',
+    word,
+    ...(options.segment && { segment: options.segment }),
+    ...(options.allowMissing && { allowMissing: true }),
   });
-}
-
-function segmentInOffscreen(runs: string[]): Promise<SegmentedWord[][]> {
-  return new Promise((resolve, reject) => {
-    sendMessage({ type: 'dict_segment', runs }, (response) => {
-      if (!response.success) {
-        reject(new Error(response.error));
-        return;
-      }
-      resolve(response.words);
-    });
-  });
+  return definition;
 }
 
 export function register(): void {
@@ -152,7 +130,7 @@ export function register(): void {
     segment_text: async (msg) => {
       const known = knownWords.get();
       await ensureOffscreenDocument();
-      const segmented = await segmentInOffscreen(msg.runs);
+      const { words: segmented } = await request({ type: 'dict_segment', runs: msg.runs });
 
       return { success: true, type: 'segment_text', words: classifyWords(msg.runs, segmented, await known) };
     },

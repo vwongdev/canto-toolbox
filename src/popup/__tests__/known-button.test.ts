@@ -20,15 +20,10 @@ const DEFINITION: DefinitionResult = {
 
 function createClient(status?: WordStatus): PopupClient {
   return {
-    lookupWord: vi.fn((_word, cb) => cb({
-      success: true,
-      type: 'lookup_word',
-      definition: DEFINITION,
-      ...(status && { status }),
-    })),
-    trackWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    pinWord: vi.fn((_word, cb) => cb({ success: true, type: 'track_word' })),
-    markKnown: vi.fn((_word, _known, cb) => cb({ success: true, type: 'mark_known' })),
+    lookupWord: vi.fn(async () => ({ definition: DEFINITION, ...(status && { status }) })),
+    trackWord: vi.fn(async () => {}),
+    pinWord: vi.fn(async () => {}),
+    markKnown: vi.fn(async () => {}),
   };
 }
 
@@ -36,7 +31,7 @@ describe('the Known button', () => {
   let client: PopupClient;
   let manager: ChineseHoverPopupManager;
 
-  function open(status?: WordStatus): void {
+  async function open(status?: WordStatus): Promise<void> {
     client = createClient(status);
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
@@ -47,7 +42,7 @@ describe('the Known button', () => {
       startOffset: 2,
     })) as unknown as Document['caretRangeFromPoint'];
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 12, clientY: 10, bubbles: true }));
-    vi.advanceTimersByTime(HOVER_INTENT_MS);
+    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS);
   }
 
   const known = () => document.querySelector<HTMLButtonElement>('.popup-known')!;
@@ -63,35 +58,35 @@ describe('the Known button', () => {
     vi.useRealTimers();
   });
 
-  it('shows a word already retired as pressed', () => {
-    open({ suppressed: true });
+  it('shows a word already retired as pressed', async () => {
+    await open({ suppressed: true });
 
     expect(known().getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('retires the word without counting it as studied', () => {
-    open();
+  it('retires the word without counting it as studied', async () => {
+    await open();
     expect(known().getAttribute('aria-pressed')).toBe('false');
 
     known().click();
-    vi.advanceTimersByTime(DWELL_MS);
+    await vi.advanceTimersByTimeAsync(DWELL_MS);
 
-    expect(client.markKnown).toHaveBeenCalledWith('好字', true, expect.any(Function), expect.any(String));
+    expect(client.markKnown).toHaveBeenCalledWith('好字', true, expect.any(String));
     expect(known().getAttribute('aria-pressed')).toBe('true');
     expect(client.trackWord).not.toHaveBeenCalled();
   });
 
-  it('puts a retired word back when pressed again', () => {
-    open({ suppressed: true });
+  it('puts a retired word back when pressed again', async () => {
+    await open({ suppressed: true });
 
     known().click();
 
-    expect(client.markKnown).toHaveBeenCalledWith('好字', false, expect.any(Function), expect.any(String));
+    expect(client.markKnown).toHaveBeenCalledWith('好字', false, expect.any(String));
     expect(known().getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('gives up the Study it overrides, and the reverse', () => {
-    open({ pinned: true });
+  it('gives up the Study it overrides, and the reverse', async () => {
+    await open({ pinned: true });
     expect(study().disabled).toBe(true);
 
     known().click();
