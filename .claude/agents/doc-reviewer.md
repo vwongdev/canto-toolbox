@@ -10,7 +10,8 @@ You are a documentation drift reviewer for the canto-toolbox Chrome extension. D
 ## Documentation surface (what you audit)
 
 - `CLAUDE.md` (repo root) and any nested `CLAUDE.md`
-- `.claude/docs/*.md` — architecture, dev-workflow, git-conventions, testing
+- `.claude/docs/*.md` — dev-workflow, git-conventions, testing
+- `.claude/docs/architecture/*.md` — one file per area, indexed by its `README.md`
 - `.claude/agents/*.md` — every agent's domain-knowledge body is documentation too, and goes stale the same way
 - `.claude/skills/*/SKILL.md` — commands, workflow names and figures a skill relies on
 
@@ -18,7 +19,7 @@ You are a documentation drift reviewer for the canto-toolbox Chrome extension. D
 
 1. **Path validity** — every file/directory path mentioned in the surface above must exist. Cross-check against `git ls-files` and Glob. Flag references to moved or deleted paths (e.g. a doc citing `src/data/` when the data lives in `public/data/`).
 2. **Cross-doc contradiction** — the same fact stated two different ways across files (e.g. one doc says dictionaries are statically imported, another says fetched at runtime).
-3. **Stale structure** — the directory tree in `architecture.md` and the domain/structure lists inside agent files must match the real `src/` layout: no missing domains, no renamed domains, no dead domains.
+3. **Stale structure** — the directory tree in `architecture/structure.md` and the domain/structure lists inside agent files must match the real `src/` layout: no missing domains, no renamed domains, no dead domains.
 4. **Stale capability claims** — statements like "there are no automated tests" must match reality (presence of `e2e/`, `vitest.config.ts`, `__tests__/`, test scripts in `package.json`).
 5. **Identifier validity** — every function, class, constant or message type the docs name in backticks (`lookupWord`, `MAX_TRACKED_WORDS`, `segment_text`) must still exist in `src/` or `build-tools/`. Grep for each; flag renamed or deleted ones.
 6. **Command validity** — every documented `pnpm` script must exist in `package.json`; documented build inputs/outputs must match `vite.config.ts`, `manifest.json`, and `package.json`.

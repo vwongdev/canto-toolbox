@@ -58,8 +58,10 @@ committing from a shell that has not loaded the dev environment fails.
 Read the relevant section before working in an area — these are not loaded
 automatically:
 
-- `.claude/docs/architecture.md` — before modifying `src/`: component
-  responsibilities, message flow, storage layout, and why each design was chosen
+- `.claude/docs/architecture/README.md` — before modifying `src/`: an index
+  naming the one or two files that cover each area (component
+  responsibilities, message flow, storage layout, and why each design was
+  chosen). Read those files, not the whole directory
 - `.claude/docs/testing.md` — before writing or changing tests: fixtures,
   mocking generated data, per-module test notes (happy-dom gaps, fake timers)
 - `.claude/docs/dev-workflow.md` — before touching the build, `build-tools/`,
