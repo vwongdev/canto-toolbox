@@ -9,17 +9,17 @@
 @include theme.theme('.canto-coverage-chip');
 
 // The words are marked by the page's own text, not by an element of ours, so
-// the palette cannot be planted on them. These are `--ct-ocr-underline` in
-// each theme — the same hairline marks text the popup will answer for in a
-// picture. Dotted and translucent so a page full of new words is still
-// readable; a decoration takes no space, so nothing on the page moves.
+// the palette cannot be planted on them. The colour is the OCR hairline's —
+// the same line marks text the popup will answer for in a picture. Dotted and
+// translucent so a page full of new words is still readable; a decoration
+// takes no space, so nothing on the page moves.
 ::highlight(canto-unknown) {
-  text-decoration: underline dotted rgba(0, 102, 204, 0.55);
+  text-decoration: underline dotted theme.$ocr-underline;
 }
 
 @include dark {
   ::highlight(canto-unknown) {
-    text-decoration-color: rgba(108, 179, 255, 0.55);
+    text-decoration-color: theme.$ocr-underline-dark;
   }
 }
 
