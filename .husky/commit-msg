@@ -34,3 +34,35 @@ if ! echo "$commit_msg" | grep -Eq "$pattern"; then
   echo ""
   exit 1
 fi
+
+# Keep in step with the Domain list in .claude/docs/git-conventions.md
+valid_domains="agents api background build content dict flashcard git global icons manifest ocr popup settings stats"
+
+reject_domains() {
+  echo ""
+  echo "✗ $1"
+  echo ""
+  echo "  Got:            $(printf '%s' "$commit_msg" | head -n 1)"
+  echo "  Valid domains:  $valid_domains"
+  echo ""
+  echo "  See .claude/docs/git-conventions.md for the full spec."
+  echo ""
+  exit 1
+}
+
+domains=$(printf '%s' "$commit_msg" | head -n 1 | sed -E 's/^[a-z]+\(([^)]*)\):.*/\1/' | tr ',' '\n' | sed 's/^ *//; s/ *$//')
+
+for domain in $domains; do
+  case " $valid_domains " in
+    *" $domain "*) ;;
+    *) reject_domains "Unknown domain '$domain'." ;;
+  esac
+done
+
+if [ "$(printf '%s\n' "$domains" | wc -l)" -gt 3 ]; then
+  reject_domains "More than three domains — use 'global' instead."
+fi
+
+if [ "$domains" != "$(printf '%s\n' "$domains" | LC_ALL=C sort)" ]; then
+  reject_domains "Domains must be in alphabetical order."
+fi
