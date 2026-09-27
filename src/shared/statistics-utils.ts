@@ -41,8 +41,13 @@ export function isEnrolled(stat: WordStatistics, minCount: number = MIN_COUNT): 
  * it as studied, and the eviction tiers keep it as wanted. Every path that
  * sets either flag goes through here, so the rule is stated once.
  */
-export function applyWordStatus(stat: WordStatistics, status: WordStatus): WordStatistics {
+export function applyWordStatus(
+  stat: WordStatistics,
+  status: WordStatus,
+  now: number = Date.now(),
+): WordStatistics {
   const next = { ...stat };
+  if (status.suppressed !== undefined || status.pinned !== undefined) next.statusAt = now;
 
   if (status.suppressed !== undefined) {
     if (status.suppressed) {
@@ -208,20 +213,27 @@ function mergeWord(sync: WordStatistics, local: WordStatistics): WordStatistics 
   if (contexts.length > 0) merged.contexts = contexts;
   else delete merged.contexts;
 
-  // Retiring or choosing a word is a decision, and local is where every
-  // decision lands: sync only carries it on to other devices and is skipped
-  // whenever the record has outgrown its 8 KB item quota. So local's answer
-  // stands, including when that answer is the absence of one — ORing the two
-  // made a retirement impossible to undo, since the fossil in sync kept
-  // putting it back.
-  if (local.suppressed) merged.suppressed = true;
+  // Retiring or choosing a word is a decision, so the side that made the later
+  // one decides — including when that decision was to undo one. Letting local
+  // decide regardless meant a retirement made on one device never reached
+  // another that already held the word: that device kept its own flags and
+  // wrote them back to sync, undoing the decision everywhere. A decision
+  // recorded before decisions were timed has no stamp, and ties and unstamped
+  // pairs go to local as they always did — ORing the two sides instead made a
+  // retirement impossible to undo.
+  const decider = (sync.statusAt ?? -1) > (local.statusAt ?? -1) ? sync : local;
+
+  if (decider.suppressed) merged.suppressed = true;
   else delete merged.suppressed;
 
   // Retiring wins over choosing, which heals a record written before the two
   // were made exclusive: the deck already skipped such a word, so keeping the
   // pin would only have the list disagree with it.
-  if (local.pinned && !merged.suppressed) merged.pinned = true;
+  if (decider.pinned && !merged.suppressed) merged.pinned = true;
   else delete merged.pinned;
+
+  if (decider.statusAt !== undefined) merged.statusAt = decider.statusAt;
+  else delete merged.statusAt;
 
   return merged;
 }

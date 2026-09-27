@@ -190,7 +190,7 @@ describe('PopupStorageClient', () => {
         client => client.setStatus('謝謝', { suppressed: false }),
       );
 
-      expect(stats['謝謝']).toEqual({ count: 3, firstSeen: 1, lastSeen: 2 });
+      expect(stats['謝謝']).toEqual({ count: 3, firstSeen: 1, lastSeen: 2, statusAt: expect.any(Number) });
     });
 
     it('records nothing for a Known taken back before the word was ever tracked', async () => {

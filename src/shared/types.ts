@@ -157,6 +157,12 @@ export interface WordStatistics {
   suppressed?: boolean;
   /** Added deliberately, so it skips the exposure gate new words wait behind. */
   pinned?: boolean;
+  /**
+   * Epoch ms of the last retire or study decision, undoing one included. Two
+   * devices can each hold a decision about the same word, and only the time
+   * says which the reader made last.
+   */
+  statusAt?: number;
 }
 
 export interface Statistics {

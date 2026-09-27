@@ -127,6 +127,7 @@ function badWordField(stat: unknown): string | undefined {
       writable: isBoolean,
       suppressed: isBoolean,
       pinned: isBoolean,
+      statusAt: isNumber,
     },
   );
   if (bad !== undefined) return bad;

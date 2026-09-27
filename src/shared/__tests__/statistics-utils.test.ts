@@ -56,6 +56,33 @@ describe('mergeStatistics', () => {
     expect(result['好']!.suppressed).toBe(true);
   });
 
+  // Another device retired the word after this one last decided anything
+  // about it; letting local decide regardless undid that retirement on sync.
+  it('takes the later decision whichever area holds it', () => {
+    const retiredElsewhere = mergeStatistics(
+      { 好: { count: 1, firstSeen: 50, lastSeen: 150, suppressed: true, statusAt: 300 } },
+      { 好: { count: 2, firstSeen: 50, lastSeen: 150, pinned: true, statusAt: 200 } }
+    );
+    expect(retiredElsewhere['好']).toMatchObject({ suppressed: true, statusAt: 300 });
+    expect(retiredElsewhere['好']!.pinned).toBeUndefined();
+
+    const undoneHere = mergeStatistics(
+      { 好: { count: 1, firstSeen: 50, lastSeen: 150, suppressed: true, statusAt: 300 } },
+      { 好: { count: 2, firstSeen: 50, lastSeen: 150, statusAt: 400 } }
+    );
+    expect(undoneHere['好']!.suppressed).toBeUndefined();
+    expect(undoneHere['好']!.statusAt).toBe(400);
+  });
+
+  it('prefers a timed decision over a flag recorded before decisions were timed', () => {
+    const result = mergeStatistics(
+      { 好: { count: 1, firstSeen: 50, lastSeen: 150, pinned: true, statusAt: 300 } },
+      { 好: { count: 2, firstSeen: 50, lastSeen: 150, suppressed: true } }
+    );
+    expect(result['好']!.pinned).toBe(true);
+    expect(result['好']!.suppressed).toBeUndefined();
+  });
+
   // Records written before the two flags were made exclusive can carry both.
   it('drops a pin from a record that was also retired', () => {
     const result = mergeStatistics(
@@ -342,5 +369,10 @@ describe('applyWordStatus', () => {
   it('leaves the other flag alone when a decision is withdrawn', () => {
     const result = applyWordStatus({ ...SEEN, pinned: true }, { suppressed: false });
     expect(result.pinned).toBe(true);
+  });
+
+  it('times every decision so a merge can order them', () => {
+    expect(applyWordStatus(SEEN, { suppressed: false }, 500).statusAt).toBe(500);
+    expect(applyWordStatus(SEEN, {}, 500).statusAt).toBeUndefined();
   });
 });
