@@ -1,4 +1,5 @@
 @use 'tokens' as t;
+@use 'a11y' as a;
 
 // The sentence a word was met in. Shared by the stats list and the review
 // cards, so the snippet looks the same wherever the word is studied.
@@ -39,6 +40,8 @@
   font-size: t.$text-xs;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  @include a.focus-ring;
 
   &:hover {
     color: t.$color-primary;
