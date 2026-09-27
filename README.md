@@ -6,26 +6,34 @@ Read Chinese on the web without leaving the page. Hover any word for Mandarin an
 
 ## Features
 
-- **Hover to look up**: rest the cursor on any Chinese text; hold Shift to skip the pause
-- **Mandarin and Cantonese side by side**: tone-coloured readings, audio, definitions and word frequency
-- **Break words down**: click a character or component to open its own entry
-- **Spot unknown words**: optionally underline what you haven't learned, with a page score like "82% known"
-- **Review what you read**: words you keep meeting become flashcards, with the sentences you met them in
-- **Read images and video**: turn the Chinese in a picture or paused frame into hoverable text
-- **Offline and private**: no accounts or API calls; progress syncs across Chrome and exports to Anki or Pleco
-
-## Screenshots
-
 <table>
   <tr>
-    <td width="50%"><img src="screenshots/hover-popup.png" alt="Hover popup showing word definition"><br><em>Hover popup</em></td>
-    <td width="50%"><img src="screenshots/statistics.png" alt="Statistics page"><br><em>Word statistics</em></td>
+    <td width="50%" valign="top">
+      <img src="screenshots/hover-popup.png" alt="Hover popup showing word definition"><br>
+      <strong>Hover to look up</strong>: Mandarin and Cantonese side by side, with audio, frequency and a breakdown of each character
+    </td>
+    <td width="50%" valign="top">
+      <img src="screenshots/statistics.png" alt="Statistics page"><br>
+      <strong>Track what you read</strong>: every word you've met, with its sentences, what's due and your progress
+    </td>
   </tr>
   <tr>
-    <td width="50%"><img src="screenshots/flashcard-review.png" alt="Flashcard review page"><br><em>Flashcard review</em></td>
-    <td width="50%"><img src="screenshots/dark-mode.png" alt="Dark mode"><br><em>Dark mode</em></td>
+    <td width="50%" valign="top">
+      <img src="screenshots/flashcard-review.png" alt="Flashcard review page"><br>
+      <strong>Review with flashcards</strong>: words you keep meeting come back on a spaced-repetition schedule
+    </td>
+    <td width="50%" valign="top">
+      <img src="screenshots/dark-mode.png" alt="Dark mode"><br>
+      <strong>Dark mode</strong>: follows your system theme
+    </td>
   </tr>
 </table>
+
+Also:
+
+- **Read images and video**: turn the Chinese in a picture or paused frame into hoverable text
+- **Spot unknown words**: optionally underline what you haven't learned, with a page score like "82% known"
+- **Offline and private**: no accounts or API calls; progress syncs across Chrome and exports to Anki or Pleco
 
 ## Installation
 
