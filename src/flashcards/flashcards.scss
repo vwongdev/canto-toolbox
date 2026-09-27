@@ -349,14 +349,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: t.$space-2;
+
+  @include a.focus-ring;
 }
 
 .btn:active {
   transform: scale(0.99);
-}
-
-.btn {
-  @include a.focus-ring;
 }
 
 .key-hint {
