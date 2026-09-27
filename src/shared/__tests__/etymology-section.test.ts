@@ -293,3 +293,48 @@ describe('createEtymologySection disclosure', () => {
     expect(onRowClick).not.toHaveBeenCalled();
   });
 });
+
+describe('lookalikes', () => {
+  const qing = makeEtymology({
+    character: '清',
+    decomposition: '⿰氵青',
+    lookalikes: [
+      { character: '晴', definition: 'clear weather, fine weather', ownPart: '氵', ownPartDefinition: 'water', otherPart: '日', otherPartDefinition: 'sun; day; daytime' },
+      { character: '情', ownPart: '氵', otherPart: '忄' },
+      { character: '请', ownPart: '氵', otherPart: '讠' },
+      { character: '精', ownPart: '氵', otherPart: '米' },
+      { character: '猜', ownPart: '氵', otherPart: '犭' },
+    ],
+  });
+
+  const glyphs = (el: HTMLElement) =>
+    Array.from(el.querySelectorAll('.popup-etymology-lookalike-glyph')).map(glyph => glyph.textContent);
+
+  it('names the part that tells each lookalike apart', () => {
+    const el = createEtymologySection([qing]);
+    const first = el.querySelector('.popup-etymology-lookalike')!;
+
+    expect(first.querySelector('.popup-etymology-lookalike-diff')?.textContent).toBe('日sunnot氵water');
+  });
+
+  it('shows only the likeliest few', () => {
+    expect(glyphs(createEtymologySection([qing]))).toEqual(['晴', '情', '请', '精']);
+  });
+
+  it('shows no row for a character with none', () => {
+    expect(createEtymologySection([makeEtymology()]).querySelector('.popup-etymology-lookalikes')).toBeNull();
+  });
+
+  it('follows a lookalike where the surface can show another word', () => {
+    const onFollowComponent = vi.fn();
+    const el = createEtymologySection([qing], { onFollowComponent });
+
+    el.querySelector<HTMLButtonElement>('.popup-etymology-lookalike--link')!.click();
+
+    expect(onFollowComponent).toHaveBeenCalledWith('晴');
+  });
+
+  it('leaves lookalikes as labels elsewhere', () => {
+    expect(createEtymologySection([qing]).querySelector('button.popup-etymology-lookalike')).toBeNull();
+  });
+});

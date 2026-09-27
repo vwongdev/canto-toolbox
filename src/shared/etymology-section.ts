@@ -1,4 +1,4 @@
-import type { CharacterEtymology } from './types.js';
+import type { CharacterEtymology, Lookalike } from './types.js';
 import { createElement } from './dom-element.js';
 import { CHEVRON_SVG, createIcon } from './icons.js';
 import { parseComponents } from './decomposition.js';
@@ -144,6 +144,92 @@ function createComponentsRow(
   });
 }
 
+/** A breakdown is the answer to a hover, so it names only the likeliest mix-ups. */
+const MAX_SHOWN_LOOKALIKES = 4;
+
+/** A part and its first sense, which is all the room a lookalike's line has for it. */
+function partLabel(part: string, definition: string | undefined): HTMLElement[] {
+  const sense = definition?.split(';')[0]?.trim();
+  return [
+    createElement({ tag: 'span', className: 'popup-etymology-lookalike-part', textContent: part, attributes: { lang: 'zh' } }),
+    ...(sense
+      ? [createElement({ tag: 'span', className: 'popup-etymology-lookalike-gloss', textContent: firstGloss(sense) })]
+      : []),
+  ];
+}
+
+/**
+ * One character easily mistaken for this one, and the single part that tells
+ * them apart: its part, then this character's in the same place.
+ */
+function createLookalike(
+  character: string,
+  lookalike: Lookalike,
+  follow: (() => void) | undefined,
+): HTMLElement {
+  const title = [
+    lookalike.definition ? `${lookalike.character}: ${lookalike.definition}` : lookalike.character,
+    `${lookalike.otherPart} where ${character} has ${lookalike.ownPart}`,
+  ].join('\n');
+
+  const children = [
+    createElement({
+      tag: 'span',
+      className: 'popup-etymology-lookalike-glyph',
+      textContent: lookalike.character,
+      attributes: { lang: 'zh' },
+    }),
+    createElement({
+      tag: 'span',
+      className: 'popup-etymology-lookalike-diff',
+      children: [
+        ...partLabel(lookalike.otherPart, lookalike.otherPartDefinition),
+        createElement({ tag: 'span', className: 'popup-etymology-lookalike-not', textContent: 'not' }),
+        ...partLabel(lookalike.ownPart, lookalike.ownPartDefinition),
+      ],
+    }),
+  ];
+
+  if (!follow) {
+    return createElement({ className: 'popup-etymology-lookalike', children, attributes: { title } });
+  }
+
+  return createElement({
+    tag: 'button',
+    className: 'popup-etymology-lookalike popup-etymology-lookalike--link',
+    children,
+    attributes: { type: 'button', title },
+    listeners: {
+      click: (event: Event) => {
+        event.stopPropagation();
+        follow();
+      },
+    },
+  });
+}
+
+function createLookalikesRow(
+  etymology: CharacterEtymology,
+  onFollowComponent?: (character: string) => void,
+): HTMLElement | null {
+  const lookalikes = (etymology.lookalikes ?? []).slice(0, MAX_SHOWN_LOOKALIKES);
+  if (lookalikes.length === 0) return null;
+
+  return createElement({
+    className: 'popup-etymology-lookalikes',
+    children: [
+      createElement({ className: 'popup-etymology-lookalikes-label', textContent: 'Looks like' }),
+      ...lookalikes.map(lookalike =>
+        createLookalike(
+          etymology.character,
+          lookalike,
+          onFollowComponent ? () => onFollowComponent(lookalike.character) : undefined,
+        ),
+      ),
+    ],
+  });
+}
+
 const TYPE_LABELS: Record<string, string> = {
   pictophonetic: 'Phonosemantic',
   ideographic: 'Ideographic',
@@ -172,6 +258,11 @@ function createCharacterCard(
     detailChildren.push(components);
   }
 
+  const lookalikes = createLookalikesRow(etymology, onFollowComponent);
+  if (lookalikes) {
+    detailChildren.push(lookalikes);
+  }
+
   return createElement({
     className: 'popup-etymology-character',
     children: [
@@ -195,6 +286,7 @@ export interface EtymologySectionOptions {
    * Show a component's own dictionary entry. Only the components the lookup
    * marked as having an entry are offered, and only where a surface can put
    * another word in front of the reader — elsewhere the chips stay labels.
+   * Lookalikes are offered the same way; every one is a common character.
    */
   onFollowComponent?: (character: string) => void;
 }

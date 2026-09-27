@@ -191,3 +191,77 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
+
+// Lookalikes: each a character and the one part that tells it apart from the
+// character above. Stacked rather than wrapped as chips, since the part pair
+// needs the width.
+.popup-etymology-lookalikes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: t.$space-1;
+}
+
+.popup-etymology-lookalikes-label {
+  font-size: t.$text-2xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: t.$color-text-subtle;
+}
+
+.popup-etymology-lookalike {
+  display: flex;
+  align-items: baseline;
+  gap: t.$space-2;
+  padding: 2px t.$space-2;
+  border-radius: t.$radius-sm;
+  min-width: 0;
+}
+
+.popup-etymology-lookalike--link {
+  @include a.focus-ring(1px);
+
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: t.$color-primary-tint;
+  }
+
+  &:hover .popup-etymology-lookalike-glyph {
+    color: t.$color-primary;
+  }
+}
+
+.popup-etymology-lookalike-glyph {
+  font-size: t.$text-md;
+  font-weight: 500;
+  color: t.$color-text-strong;
+}
+
+.popup-etymology-lookalike-diff {
+  display: flex;
+  align-items: baseline;
+  gap: t.$space-1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: t.$text-xs;
+  color: t.$color-text-muted;
+}
+
+.popup-etymology-lookalike-part {
+  font-size: t.$text-sm;
+  font-weight: 600;
+  color: t.$color-text-strong;
+}
+
+.popup-etymology-lookalike-not {
+  color: t.$color-text-subtle;
+}
