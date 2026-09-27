@@ -43,7 +43,7 @@ To install a specific release instead, download its zip from [Releases](https://
 
 ## Usage
 
-1. **Read**: hover a word, or drag-select a phrase. For images and paused video, click the badge in the corner.
+1. **Read**: hover a word, or drag-select a phrase. Hold Shift to keep the popup while you move onto it. For images and paused video, click the badge in the corner.
 2. **Track**: press **+ Study** to add a word to your deck, or **Known** to skip it. The extension icon opens your word list.
 3. **Review**: rate each flashcard Again, Hard, Good or Easy; [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) schedules the next review.
 4. **Adjust**: the gear on the word list opens settings for scripts, readings, session size and unknown-word marks.
