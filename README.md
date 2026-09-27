@@ -38,10 +38,9 @@ Read Chinese on the web without leaving the page. Hover any word for Mandarin an
 
 ## Installation
 
-1. Download the latest `canto-toolbox-<version>.zip` from [Releases](https://github.com/VWongDev/canto-toolbox/releases) and unzip it
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable **Developer mode** (top right)
-4. Click **Load unpacked** and select the unzipped `dist/` folder
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/canto-toolbox/dcbnbinfginkcchbgnbfcdjflimlgkjd).
+
+To install a specific release instead, download its zip from [Releases](https://github.com/VWongDev/canto-toolbox/releases), unzip it, then load the `dist/` folder with **Load unpacked** at `chrome://extensions/` (with **Developer mode** on).
 
 ## Usage
 
