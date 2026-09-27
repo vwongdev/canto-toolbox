@@ -1,11 +1,10 @@
 import type {
   ContextSighting,
+  DefinitionResult,
   FlashcardStage,
   FrequencyBand,
   ReviewLog,
   WordStatistics,
-  LookupResponse,
-  ErrorResponse,
   Statistics,
   WordStatus,
 } from '../shared/types.js';
@@ -387,7 +386,7 @@ export function renderDefinitionLoading(container: HTMLElement): void {
 
 export function renderDefinition(
   container: HTMLElement,
-  response: LookupResponse | ErrorResponse | undefined,
+  definition: DefinitionResult | undefined,
   word: string,
   contexts: readonly ContextSighting[] = [],
   display: DisplaySettings = DEFAULT_SETTINGS,
@@ -395,7 +394,7 @@ export function renderDefinition(
   container.replaceChildren();
   if (contexts.length > 0) container.appendChild(createContextList(word, contexts));
 
-  if (!response || !response.success || !response.definition) {
+  if (!definition) {
     container.appendChild(createElement({
       className: 'stat-error',
       textContent: 'Something went wrong'
@@ -403,7 +402,7 @@ export function renderDefinition(
     return;
   }
 
-  container.appendChild(createDefinitionElement(word, response.definition, false, { display }));
+  container.appendChild(createDefinitionElement(word, definition, false, { display }));
   container.dataset.loaded = 'true';
 }
 

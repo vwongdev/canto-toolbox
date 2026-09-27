@@ -1,11 +1,4 @@
-import type {
-  StatisticsResponse,
-  LookupResponse,
-  ErrorResponse,
-  ReviewLogResponse,
-  Statistics,
-  WordStatus,
-} from '../shared/types.js';
+import type { Statistics, WordStatus } from '../shared/types.js';
 import { statsClient, type StatsClient } from './stats-client.js';
 import { statsStorage, type StatsStorage } from './stats-storage.js';
 import {
@@ -91,33 +84,20 @@ export class StatsManager {
     const elements = getRequiredElements(this.document);
     if (!elements) return;
 
-    this.client.getStatistics((response: StatisticsResponse | ErrorResponse) => {
-      this.handleStatisticsResponse(response, elements);
-    });
+    this.client.getStatistics().then(
+      statistics => this.showStatistics(statistics, elements),
+      (error: unknown) => {
+        console.error('[Stats] Failed to load statistics:', error);
+        showError(elements.loadingEl, 'Failed to load statistics: ' + (error as Error).message);
+      },
+    );
   }
 
-  private handleStatisticsResponse(
-    response: StatisticsResponse | ErrorResponse | undefined,
-    elements: StatsElements
-  ): void {
-    const { loadingEl } = elements;
-
-    if (!response) {
-      console.error('[Stats] No response received');
-      showError(loadingEl, 'No response from background script. Please try again.');
-      return;
-    }
-
-    if (!response.success) {
-      console.error('[Stats] Failed to load statistics:', response);
-      showError(loadingEl, 'Failed to load statistics: ' + response.error);
-      return;
-    }
-
-    this.cachedStatistics = response.statistics;
-    updateFilterCounts(elements, response.statistics, this.view);
+  private showStatistics(statistics: Statistics, elements: StatsElements): void {
+    this.cachedStatistics = statistics;
+    updateFilterCounts(elements, statistics, this.view);
     this.setupListControls(elements);
-    this.render(elements, response.statistics);
+    this.render(elements, statistics);
   }
 
   private render(elements: StatsElements, statistics: Statistics): void {
@@ -149,9 +129,10 @@ export class StatsManager {
    * whose log fails to load still shows everything the statistics can say.
    */
   private loadReviewLog(): void {
-    this.client.getReviewLog((response: ReviewLogResponse | ErrorResponse | undefined) => {
-      renderActivity(this.document, response?.success ? response.log : undefined);
-    });
+    this.client.getReviewLog().then(
+      log => renderActivity(this.document, log),
+      () => renderActivity(this.document, undefined),
+    );
   }
 
   /** The way out is offered as "Show all words", so it has to mean all of them. */
@@ -176,7 +157,7 @@ export class StatsManager {
     const updated = applyWordStatus(stat, status);
 
     this.cachedStatistics = { ...this.cachedStatistics, [word]: updated };
-    this.client.setWordStatus(word, status, () => {});
+    void this.client.setWordStatus(word, status).catch(() => {});
 
     renderOverview(this.document, summarise(this.cachedStatistics));
     this.renderInsights(this.cachedStatistics);
@@ -246,9 +227,10 @@ export class StatsManager {
   private loadDefinition(word: string, container: HTMLElement): void {
     renderDefinitionLoading(container);
     const contexts = contextsOf(this.cachedStatistics?.[word]);
-    this.client.lookupWord(word, (response: LookupResponse | ErrorResponse) => {
-      renderDefinition(container, response, word, contexts, this.settings);
-    });
+    this.client.lookupWord(word).then(
+      definition => renderDefinition(container, definition, word, contexts, this.settings),
+      () => renderDefinition(container, undefined, word, contexts, this.settings),
+    );
   }
 
   private async clearStatistics(): Promise<void> {

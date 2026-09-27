@@ -1,4 +1,4 @@
-import type { DefinitionResult, Statistics } from '../shared/types.js';
+import type { DefinitionResult } from '../shared/types.js';
 import { MAX_TRACKED_WORDS } from '../shared/statistics-store.js';
 import type { StatsClient } from './stats-client.js';
 import type { StatsStorage } from './stats-storage.js';
@@ -81,21 +81,8 @@ export class TransferControls {
     }
   }
 
-  private getStatistics(): Promise<Statistics> {
-    return new Promise((resolve, reject) => {
-      this.client.getStatistics(response => {
-        if (response?.success) resolve(response.statistics);
-        else reject(new Error(response?.error ?? 'No response from background script'));
-      });
-    });
-  }
-
   private lookup(word: string): Promise<DefinitionResult | undefined> {
-    return new Promise(resolve => {
-      this.client.lookupWord(word, response => {
-        resolve(response?.success ? response.definition : undefined);
-      });
-    });
+    return this.client.lookupWord(word).catch(() => undefined);
   }
 
   /**
@@ -119,7 +106,7 @@ export class TransferControls {
     if (this.busy) return;
     this.setBusy(true);
     try {
-      const statistics = await this.getStatistics();
+      const statistics = await this.client.getStatistics();
       const now = new Date();
       this.download(backupFilename(now), serialiseBackup(statistics, now), 'application/json');
       this.setStatus(`Backed up ${plural(Object.keys(statistics).length, 'word')}.`);
@@ -185,7 +172,7 @@ export class TransferControls {
       const scope: ExportScope =
         scopeEl instanceof HTMLSelectElement && scopeEl.value === 'all' ? 'all' : 'deck';
 
-      const statistics = await this.getStatistics();
+      const statistics = await this.client.getStatistics();
       const words = wordsToExport(statistics, scope, this.minCount());
       if (words.length === 0) {
         this.setStatus(scope === 'deck'

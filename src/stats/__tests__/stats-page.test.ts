@@ -5,8 +5,11 @@ import { StatsManager } from '../stats.js';
 import type { StatsClient } from '../stats-client.js';
 import type { StatsStorage } from '../stats-storage.js';
 import { SORT_LABELS } from '../ordering.js';
-import type { Statistics } from '../../shared/types.js';
+import type { DefinitionResult, Statistics } from '../../shared/types.js';
 import { DEFAULT_SETTINGS } from '../../shared/settings.js';
+
+/** Let the client's promises settle and the page draw what they returned. */
+const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
 
 // The real page markup, minus the asset references happy-dom would try to fetch.
 const HTML = readFileSync('src/stats/stats.html', 'utf-8')
@@ -44,12 +47,10 @@ const STATISTICS: Statistics = {
 
 function createClient(): StatsClient {
   return {
-    getStatistics: vi.fn(cb =>
-      cb({ success: true, type: 'get_statistics', statistics: STATISTICS })
-    ),
-    getReviewLog: vi.fn(cb => cb({ success: true, type: 'get_review_log', log: {} })),
-    lookupWord: vi.fn(),
-    setWordStatus: vi.fn((_word, _status, cb) => cb({ success: true, type: 'set_word_status' })),
+    getStatistics: vi.fn(async () => STATISTICS),
+    getReviewLog: vi.fn(async () => ({})),
+    lookupWord: vi.fn(() => new Promise<DefinitionResult>(() => {})),
+    setWordStatus: vi.fn(async () => {}),
   };
 }
 
@@ -82,10 +83,11 @@ describe('StatsManager overview', () => {
     retiredTab().dispatchEvent(new Event('click', { bubbles: true }));
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     client = createClient();
     new StatsManager(document, client, storage).init();
+    await settle();
   });
 
   it('reports what the scheduler already owes', () => {
@@ -177,9 +179,10 @@ describe('StatsManager keyboard reachability', () => {
     return document.getElementById('stats-list')!.querySelector('.stat-header') as HTMLButtonElement;
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     new StatsManager(document, createClient(), storage).init();
+    await settle();
   });
 
   // The row is the page's main control; as a div it answered neither Tab nor
@@ -217,10 +220,11 @@ describe('StatsManager clearing', () => {
   let document: Document;
   let clearBtn: HTMLButtonElement;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     document = new DOMParser().parseFromString(HTML, 'text/html');
     new StatsManager(document, createClient(), storage).init();
+    await settle();
     clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
   });
 
@@ -265,9 +269,10 @@ describe('StatsManager empty list', () => {
     document.querySelector(selector)!.dispatchEvent(new Event('click', { bubbles: true }));
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     new StatsManager(document, createClient(), storage).init();
+    await settle();
   });
 
   // The two rows narrow the list together, so naming them with one "or"
@@ -317,10 +322,11 @@ describe('StatsManager empty list', () => {
     expect(words).toEqual(['少見']);
   });
 
-  it('counts candidates against the reader\'s threshold, redrawing when it changes', () => {
+  it('counts candidates against the reader\'s threshold, redrawing when it changes', async () => {
     const page = new DOMParser().parseFromString(HTML, 'text/html');
     const manager = new StatsManager(page, createClient(), storage);
     manager.init();
+    await settle();
     expect(page.getElementById('count-candidate')!.textContent).toBe('1');
 
     manager.applySettings({ ...DEFAULT_SETTINGS, minCount: 10 });
@@ -349,19 +355,16 @@ describe('StatsManager empty list', () => {
 
   // Without this the page reports "No statistics yet" over a record full of
   // words, and the only filter hiding them is the one that is on by default.
-  it('names the retired filter when it is what emptied the list', () => {
+  it('names the retired filter when it is what emptied the list', async () => {
     const retiredOnly = new DOMParser().parseFromString(HTML, 'text/html');
     const client: StatsClient = {
       ...createClient(),
-      getStatistics: vi.fn(cb =>
-        cb({
-          success: true,
-          type: 'get_statistics',
-          statistics: { 退休: { count: 5, firstSeen: 1, lastSeen: 200, suppressed: true } },
-        })
-      ),
+      getStatistics: vi.fn(async () => ({
+        退休: { count: 5, firstSeen: 1, lastSeen: 200, suppressed: true },
+      })),
     };
     new StatsManager(retiredOnly, client, storage).init();
+    await settle();
 
     const emptyState = retiredOnly.getElementById('empty-state')!;
     expect(emptyState.querySelector('p')!.textContent).toBe('Every word tracked so far is retired.');
@@ -381,11 +384,12 @@ describe('StatsManager empty list', () => {
 
   // Statistics are loaded again after a clear; a second listener on each row
   // would toggle a filter on and straight back off.
-  it('wires each row of pills once however often the record is loaded', () => {
+  it('wires each row of pills once however often the record is loaded', async () => {
     const reloaded = new DOMParser().parseFromString(HTML, 'text/html');
     const manager = new StatsManager(reloaded, createClient(), storage);
     manager.init();
     manager.init();
+    await settle();
 
     reloaded
       .querySelector('[data-band="core"]')!
@@ -423,10 +427,11 @@ describe('StatsManager row status', () => {
       .dispatchEvent(new Event('click', { bubbles: true }));
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     client = createClient();
     new StatsManager(document, client, storage).init();
+    await settle();
   });
 
   // The buttons live inside the row's own panel, so rebuilding the list took
@@ -508,7 +513,7 @@ describe('StatsManager row status', () => {
 });
 
 describe('StatsManager met-in sentences', () => {
-  it('lists every sentence a word was met in, each linked to its page', () => {
+  it('lists every sentence a word was met in, each linked to its page', async () => {
     const statistics: Statistics = {
       常見: {
         ...STATISTICS['常見']!,
@@ -520,19 +525,17 @@ describe('StatsManager met-in sentences', () => {
     };
     const client: StatsClient = {
       ...createClient(),
-      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics })),
-      lookupWord: vi.fn((word, cb) => cb({
-        success: true,
-        type: 'lookup_word',
-        definition: { word, mandarin: { entries: [] }, cantonese: { entries: [] } },
-      })),
+      getStatistics: vi.fn(async () => statistics),
+      lookupWord: vi.fn(async word => ({ word, mandarin: { entries: [] }, cantonese: { entries: [] } })),
     };
     const page = new DOMParser().parseFromString(HTML, 'text/html');
     new StatsManager(page, client, storage).init();
+    await settle();
 
     const item = page.querySelector('.stat-item[data-word="常見"]') as HTMLElement;
     (item.querySelector('.stat-header') as HTMLButtonElement)
       .dispatchEvent(new Event('click', { bubbles: true }));
+    await settle();
 
     const sentences = Array.from(item.querySelectorAll('.context-sentence'), el => el.textContent);
     expect(sentences).toEqual(['這個字很常見', '常見問題']);
@@ -545,18 +548,19 @@ describe('StatsManager met-in sentences', () => {
 });
 
 describe('StatsManager insights', () => {
-  function load(client: StatsClient = createClient()): Document {
+  async function load(client: StatsClient = createClient()): Promise<Document> {
     const page = new DOMParser().parseFromString(HTML, 'text/html');
     new StatsManager(page, client, storage).init();
+    await settle();
     return page;
   }
 
-  function withLog(response: Parameters<Parameters<StatsClient['getReviewLog']>[0]>[0]): StatsClient {
-    return { ...createClient(), getReviewLog: vi.fn(cb => cb(response)) };
+  function withLog(getReviewLog: StatsClient['getReviewLog']): StatsClient {
+    return { ...createClient(), getReviewLog: vi.fn(getReviewLog) };
   }
 
-  it('counts an overdue card in the forecast', () => {
-    const page = load();
+  it('counts an overdue card in the forecast', async () => {
+    const page = await load();
 
     expect(page.getElementById('forecast-headline')!.textContent).toBe('1 card in 14 days');
     expect(page.querySelectorAll('.forecast-day')).toHaveLength(14);
@@ -564,35 +568,35 @@ describe('StatsManager insights', () => {
 
   // Nobody's log goes back before this feature; months of blank squares would
   // claim they did not study.
-  it('says the log is empty rather than drawing an empty calendar', () => {
-    const page = load();
+  it('says the log is empty rather than drawing an empty calendar', async () => {
+    const page = await load();
 
     expect(page.getElementById('activity-headline')!.textContent).toBe('No reviews logged yet');
     expect(page.querySelector('.activity-grid')).toBeNull();
   });
 
-  it('shows the streak and a calendar once reviews are logged', () => {
+  it('shows the streak and a calendar once reviews are logged', async () => {
     const today = new Date();
     const key = [
       today.getFullYear(),
       String(today.getMonth() + 1).padStart(2, '0'),
       String(today.getDate()).padStart(2, '0'),
     ].join('-');
-    const page = load(withLog({ success: true, type: 'get_review_log', log: { [key]: 3 } }));
+    const page = await load(withLog(async () => ({ [key]: 3 })));
 
     expect(page.getElementById('activity-headline')!.textContent).toBe('1-day streak');
     expect(page.querySelectorAll('.activity-grid .activity-cell--4')).toHaveLength(1);
   });
 
-  it('keeps the rest of the page when the log fails to load', () => {
-    const page = load(withLog({ success: false, error: 'boom' }));
+  it('keeps the rest of the page when the log fails to load', async () => {
+    const page = await load(withLog(async () => { throw new Error('boom'); }));
 
     expect(page.getElementById('activity-body')!.textContent).toContain('could not be loaded');
     expect(page.getElementById('forecast-headline')!.textContent).toBe('1 card in 14 days');
   });
 
-  it('lists every review direction with its accuracy', () => {
-    const page = load();
+  it('lists every review direction with its accuracy', async () => {
+    const page = await load();
     const rows = Array.from(
       page.querySelectorAll('#retention-body .meter-row'),
       el => [el.querySelector('.meter-label')!.textContent, el.querySelector('.meter-value')!.textContent],
@@ -608,8 +612,8 @@ describe('StatsManager insights', () => {
   });
 
   // 退休 is retired and 到期 has a graduated recognition card.
-  it('counts a retired word as known in its band', () => {
-    const page = load();
+  it('counts a retired word as known in its band', async () => {
+    const page = await load();
     const core = page.querySelector('#coverage-body .meter-row')!;
 
     expect(core.querySelector('.meter-label')!.textContent).toBe('Core 1000');
@@ -617,8 +621,8 @@ describe('StatsManager insights', () => {
     expect(page.getElementById('coverage-headline')!.textContent).toBe('2 words known');
   });
 
-  it('updates coverage when a word is retired from the list', () => {
-    const page = load();
+  it('updates coverage when a word is retired from the list', async () => {
+    const page = await load();
     const item = page.querySelector('.stat-item[data-word="常見"]')!;
     (item.querySelector('.stat-header') as HTMLButtonElement)
       .dispatchEvent(new Event('click', { bubbles: true }));

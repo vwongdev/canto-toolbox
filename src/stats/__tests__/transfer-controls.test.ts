@@ -46,10 +46,10 @@ describe('TransferControls', () => {
   beforeEach(() => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     client = {
-      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics: STATISTICS })),
-      lookupWord: vi.fn((_word, cb) => cb({ success: true, type: 'lookup_word', definition: GOOD })),
+      getStatistics: vi.fn(async () => STATISTICS),
+      lookupWord: vi.fn(async () => GOOD),
       setWordStatus: vi.fn(),
-      getReviewLog: vi.fn(cb => cb({ success: true, type: 'get_review_log', log: {} })),
+      getReviewLog: vi.fn(async () => ({})),
     };
     storage = {
       getStatistics: vi.fn(),
