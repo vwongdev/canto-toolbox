@@ -36,16 +36,21 @@ The domain specifies the area of the codebase affected:
 - `background`: Service worker, feature background handlers, the offscreen
   composition root (`src/offscreen/`), and `src/shared/offscreen-document.ts`
 - `build`: Build system and tooling (`build-tools/`, Vite, Nix, husky)
-- `content`: Content script
+- `content`: What the content script does on the page — hover detection,
+  selection, unknown-word marks and the coverage chip (`src/popup/content.ts`,
+  `src/popup/page-coverage.ts`)
 - `flashcard`: Flashcard review page
-- `popup`: Popup UI components
+- `popup`: The hover popup's UI and its write path (`src/popup/popup.scss`,
+  `popup-storage.ts`, the popup background handler)
 - `stats`: Statistics page
 - `settings`: Options page and the reader's preferences (`src/settings/`,
   `src/shared/settings.ts`)
 - `dict`: Dictionary-related functionality
 - `ocr`: Reading Chinese out of images (`src/ocr/`, its engine, overlay, and the
   offscreen cache/queue)
-- `api`: API integration
+- `api`: Message passing between extension contexts (`message-manager.ts`,
+  `message-router.ts`, the `*-client.ts` wrappers). The extension calls no
+  external API
 - `agents`: Subagent definitions in `.claude/agents/`
 - `git`: Git configuration and conventions
 - `global`: Repository-wide changes
@@ -67,7 +72,7 @@ Multiple domains can be specified when a change affects multiple areas (e.g., `r
 feat(manifest): Add extension manifest configuration
 fix(icons): Add blank placeholder icons for extension loading
 feat(background): Implement dictionary API and statistics tracking
-fix(api): Improve error handling and logging for API failures
+fix(api): Report a closed message channel as an error response
 refactor(background, dict): Replace runtime fetching with static imports
 refactor(content, stats): Extract shared pronunciation section utilities
 fix(build): Fix build path resolution and memory limit
@@ -91,6 +96,5 @@ ai(agents): Add doc-reviewer subagent
 4. Keep commits focused on one domain when possible
 5. Use multiple domains when a change affects multiple areas (e.g., `refactor(content, stats)`)
 6. Use `global` domain if more than 3 domains would be specified
-7. Commit from a shell with the Nix dev environment loaded — direnv does this
-   automatically inside the repo, and the `pre-commit` hook runs `pnpm lint &&
-   pnpm typecheck && pnpm test` and aborts if `pnpm` is not on `PATH`
+7. Commit from a shell with the Nix dev environment loaded, since the
+   `pre-commit` hook needs `pnpm` (see `dev-workflow.md`)
