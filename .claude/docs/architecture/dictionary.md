@@ -14,8 +14,9 @@
   imported/bundled) and parses it **once**. Mandarin and Cantonese arrive as a
   compact `rows`+`index` form so each unique entry is stored once; both script
   forms share a row. Etymology and frequency stay keyed maps.
-- **Lookup**: after the one-time async load, `lookupWord` is synchronous —
-  longest-match over up to `MAX_WORD_LENGTH`, Cantonese-marker filtering, and
+- **Lookup**: after the one-time async load, `lookupWordAt` is synchronous —
+  the longest word covering the given offset (0 by default), over up to
+  `MAX_WORD_LENGTH`, Cantonese-marker filtering, and
   `lookupEtymology` for character breakdown.
 - **Enrichment**: the longest-match scan tries a candidate per length and start
   offset and throws away all but one, so the parts not needed to judge a
@@ -27,7 +28,7 @@
   worth following. `charactersWithEntries` says the same of a compound's own
   characters, for the same reason.
 - **Segmentation**: `segmentRun` walks a run left to right taking the longest
-  word from each point — `lookupWord`'s scan, repeated — and steps over a
+  word from each point — `lookupWordAt`'s scan from offset 0, repeated — and steps over a
   character no entry starts with. It checks the index before decoding a row and
   enriches nothing, so it leaves the hover path untouched. Each word carries
   its other script forms and whether it is an unranked proper noun.

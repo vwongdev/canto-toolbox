@@ -7,8 +7,8 @@
 1. **Hover/selection** — content script extracts the Chinese word and calls
    `request({ type: 'lookup_word', word })`.
 2. **Lookup** — popup `background-handler` forwards `dict_lookup` to the
-   offscreen document, which awaits `initDictionaries()`, calls `lookupWord`
-   (or `lookupWordAt` when a hovered segment is supplied), and replies with a
+   offscreen document, which awaits `initDictionaries()`, calls `lookupWordAt`
+   (at the hovered offset when a segment is supplied), and replies with a
    `DefinitionResult`. The worker maps that back onto `lookup_word`, adding the
    word's retired/chosen `status` when the popup asked `withStatus`.
 3. **Display** — content script renders the popup near the cursor.

@@ -73,7 +73,7 @@
   out of a tab screenshot where it is not.
 - **`recognise`** (`src/ocr/engine.ts`) — image URL → text with boxes, over the
   packaged PP-OCRv6 model.
-- **`dictionary.ts`** — `initDictionaries`, `lookupWord`, `lookupWordAt`,
+- **`dictionary.ts`** — `initDictionaries`, `lookupWordAt`,
   `lookupEtymology`, `lookupFrequency`, `segmentRun`.
 - **`bandForRank` / `BAND_LABELS`** (`src/shared/frequency.ts`) — a corpus rank
   banded into something a learner can act on (Core 1000 → Rare);
