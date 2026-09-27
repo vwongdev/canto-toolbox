@@ -115,7 +115,7 @@ This runs `tsc --noEmit` against all source files in `src/` and `build-tools/`. 
 
 ## Testing
 
-The extension has automated coverage. See @.claude/docs/testing.md for the full
+The extension has automated coverage. See `.claude/docs/testing.md` for the full
 guide.
 
 ```sh
@@ -137,7 +137,7 @@ Husky installs two hooks (via the `prepare` script):
   loaded the dev environment fails with a pointer to `nix develop` rather than a
   confusing error.
 - **`commit-msg`** — validates the message against `type(domain): Description`.
-  See @.claude/docs/git-conventions.md.
+  See `.claude/docs/git-conventions.md`.
 
 ## Dependency Updates
 

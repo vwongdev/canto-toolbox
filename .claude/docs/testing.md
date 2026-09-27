@@ -216,4 +216,4 @@ sanity check for UI-heavy changes:
    should lay dotted underlines over the text, which then hovers like any other
 6. Open the Stats page via the extension popup to verify statistics tracking
 
-See @.claude/docs/dev-workflow.md for full build and loading instructions.
+See `.claude/docs/dev-workflow.md` for full build and loading instructions.
