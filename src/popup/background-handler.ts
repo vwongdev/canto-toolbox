@@ -3,7 +3,8 @@ import { registerHandlers } from '../shared/message-router.js';
 import { request } from '../shared/message-manager.js';
 import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
 import { hasStrokes } from '../shared/strokes.js';
-import type { DefinitionResult, HoverSegment } from '../shared/types.js';
+import { confusionsOf } from '../shared/statistics-utils.js';
+import type { DefinitionResult, HoverSegment, Statistics } from '../shared/types.js';
 import { KnownWordsCache, classifyWords } from './known-words.js';
 
 /**
@@ -27,6 +28,25 @@ function isDecomposable(word: string, definition: DefinitionResult): boolean {
 function isWritable(word: string): Promise<boolean> {
   if ([...word].length !== 1) return Promise.resolve(false);
   return hasStrokes(word);
+}
+
+/**
+ * The popup has room for a few lookalikes, and the ones the reader has met
+ * are the ones they could have mistaken this word for. The dictionary cannot
+ * see the record, so the order is settled here.
+ */
+function withStudiedLookalikesFirst(definition: DefinitionResult, statistics: Statistics): DefinitionResult {
+  if (!definition.etymology?.some(entry => entry.lookalikes)) return definition;
+
+  const studied = (character: string): number => (statistics[character] ? 0 : 1);
+  return {
+    ...definition,
+    etymology: definition.etymology.map(entry =>
+      entry.lookalikes
+        ? { ...entry, lookalikes: [...entry.lookalikes].sort((a, b) => studied(a.character) - studied(b.character)) }
+        : entry,
+    ),
+  };
 }
 
 async function lookupInOffscreen(
@@ -84,7 +104,7 @@ export function register(): void {
       // whichever is slower instead of the two in turn. A record that cannot be
       // read costs the popup its Known state, not its definition.
       const statistics = msg.withStatus
-        ? popupStorage.read().catch((error: unknown) => {
+        ? popupStorage.read().catch((error: unknown): Statistics => {
             console.error('[Background] Could not read word status:', error);
             return {};
           })
@@ -97,8 +117,18 @@ export function register(): void {
 
       if (!statistics) return { success: true, type: 'lookup_word', definition };
 
-      const status = popupStorage.statusOf(definition.word || msg.word, await statistics);
-      return { success: true, type: 'lookup_word', definition, status };
+      const record = await statistics;
+      const matched = definition.word || msg.word;
+      const status = popupStorage.statusOf(matched, record);
+      const confusedWith = confusionsOf(record[matched]);
+
+      return {
+        success: true,
+        type: 'lookup_word',
+        definition: withStudiedLookalikesFirst(definition, record),
+        status,
+        ...(confusedWith.length > 0 && { confusedWith }),
+      };
     },
     track_word: async (msg) => {
       popupStorage.updateStatistics(msg.word, {

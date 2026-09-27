@@ -47,6 +47,8 @@ interface ShownWord {
    * are pressed so that stepping back to it shows what was last chosen.
    */
   status: WordStatus;
+  /** Words the reader has mistaken this one for in review, most often first. */
+  confusedWith?: string[];
 }
 
 interface CursorResult {
@@ -295,7 +297,7 @@ export class ChineseHoverPopupManager {
   ): void {
     const generation = ++this.lookupGeneration;
     this.client.lookupWord(word, segment).then(
-      ({ definition, status }) => {
+      ({ definition, status, confusedWith }) => {
         if (generation !== this.lookupGeneration) return;
 
         const matched = definition.word || word;
@@ -316,6 +318,7 @@ export class ChineseHoverPopupManager {
           definition,
           ...(context && { context }),
           status: status ?? {},
+          ...(confusedWith && { confusedWith }),
         }, x, y);
         this.scheduleTracking(matched, context);
       },
@@ -529,6 +532,10 @@ export class ChineseHoverPopupManager {
     // readings come first and the breakdown follows, closed.
     popup.appendChild(createDefinitionSections(definition, this.display, headword));
 
+    if (shown.confusedWith?.length) {
+      popup.appendChild(this.createMixups(shown.confusedWith, follow));
+    }
+
     if (definition.etymology?.length) {
       popup.appendChild(createEtymologySection(definition.etymology, {
         onFollowComponent: follow,
@@ -538,6 +545,29 @@ export class ChineseHoverPopupManager {
     this.document.body.appendChild(popup);
     this.currentPopup = popup;
     this.placePopup(popup, x, y);
+  }
+
+  /**
+   * The words the reader has taken this one for in review. Meeting the word
+   * again is the moment the warning is worth having, and each can be looked
+   * up to compare.
+   */
+  private createMixups(words: string[], follow: (word: string) => void): HTMLElement {
+    return createElement({
+      className: 'popup-mixups',
+      children: [
+        createElement({ tag: 'span', className: 'popup-mixups-label', textContent: 'Mixed up with' }),
+        ...words.map(word =>
+          createElement({
+            tag: 'button',
+            className: 'popup-mixup',
+            textContent: word,
+            attributes: { type: 'button', lang: 'zh', title: `Look up ${word}` },
+            listeners: { click: () => follow(word) },
+          }),
+        ),
+      ],
+    });
   }
 
   /** Place the popup and remember where that is on the page, not the screen. */

@@ -458,6 +458,8 @@ export interface LookupResponse {
   definition: DefinitionResult;
   /** The reader's decisions about the matched word, when `withStatus` asked. */
   status?: WordStatus;
+  /** Words the reader has mistaken this one for, most often first, when `withStatus` asked. */
+  confusedWith?: string[];
 }
 
 export interface ErrorResponse {

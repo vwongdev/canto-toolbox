@@ -643,6 +643,24 @@ h1 {
   color: t.$color-danger;
 }
 
+.stat-mixups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: t.$space-2;
+  margin-bottom: t.$space-3;
+  font-size: t.$text-sm;
+}
+
+.stat-mixups-label {
+  color: t.$color-rating-again;
+  font-weight: 600;
+}
+
+.stat-mixup {
+  color: t.$color-text-strong;
+}
+
 // What the overview's figures cannot say alone. Each section is a native
 // disclosure, closed by default, with its headline in the summary line — so the
 // popup spends one line per section on them until the reader asks for more.

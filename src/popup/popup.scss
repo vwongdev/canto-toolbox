@@ -183,6 +183,39 @@
   cursor: default;
 }
 
+// The words this one was mistaken for in review, as a warning under the
+// senses. The rating colour says it is a mistake worth remembering.
+.popup-mixups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: t.$space-1;
+  margin-top: t.$space-3;
+  font-size: t.$text-xs;
+  color: t.$color-rating-again;
+}
+
+.popup-mixups-label {
+  font-weight: 600;
+}
+
+.popup-mixup {
+  padding: 0 t.$space-1;
+  border: none;
+  border-radius: t.$radius-sm;
+  background: transparent;
+  color: t.$color-text-strong;
+  font: inherit;
+  font-size: t.$text-md;
+  cursor: pointer;
+
+  @include a.focus-ring;
+
+  &:hover {
+    color: t.$color-primary;
+  }
+}
+
 // The popup floats over arbitrary host pages at a constrained width, so the
 // shared definition styles need wrapping and overflow containment that the
 // full-width stats and flashcard pages do not.

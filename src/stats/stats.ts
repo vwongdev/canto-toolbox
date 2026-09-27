@@ -226,10 +226,12 @@ export class StatsManager {
 
   private loadDefinition(word: string, container: HTMLElement): void {
     renderDefinitionLoading(container);
-    const contexts = contextsOf(this.cachedStatistics?.[word]);
+    const stat = this.cachedStatistics?.[word];
+    const contexts = contextsOf(stat);
+    const confusedWith = stat?.confusedWith;
     this.client.lookupWord(word).then(
-      definition => renderDefinition(container, definition, word, contexts, this.settings),
-      () => renderDefinition(container, undefined, word, contexts, this.settings),
+      definition => renderDefinition(container, definition, word, contexts, this.settings, confusedWith),
+      () => renderDefinition(container, undefined, word, contexts, this.settings, confusedWith),
     );
   }
 

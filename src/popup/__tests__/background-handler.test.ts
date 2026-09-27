@@ -226,6 +226,36 @@ describe('popup background-handler register()', () => {
     expect(sendResponse.mock.calls[0]![0]).toMatchObject({ success: true, status: { suppressed: true } });
   });
 
+  it('reports the mix-ups and puts the lookalikes the reader has met first', async () => {
+    dictDefinition = {
+      ...DEFINITION,
+      word: '清',
+      etymology: [{
+        character: '清',
+        decomposition: '⿰氵青',
+        radical: '氵',
+        lookalikes: [
+          { character: '情', ownPart: '氵', otherPart: '忄' },
+          { character: '晴', ownPart: '氵', otherPart: '日' },
+        ],
+      }],
+    };
+    vi.mocked(popupStorage.read).mockResolvedValue({
+      清: { count: 3, firstSeen: 1, lastSeen: 2, confusedWith: { 晴: 2 } },
+      晴: { count: 1, firstSeen: 1, lastSeen: 2 },
+    });
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'lookup_word', word: '清', withStatus: true }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    const response = sendResponse.mock.calls[0]![0];
+    expect(response.confusedWith).toEqual(['晴']);
+    expect(response.definition.etymology[0].lookalikes.map((l: { character: string }) => l.character))
+      .toEqual(['晴', '情']);
+  });
+
   it('leaves the record unread for a lookup that did not ask for status', async () => {
     const listener = registerAndGetListener();
     const sendResponse = vi.fn();

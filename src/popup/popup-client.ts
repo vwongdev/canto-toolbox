@@ -7,11 +7,11 @@ import type {
 } from '../shared/types.js';
 
 export interface PopupClient {
-  /** The matched word's definition, and the reader's decisions about it. */
+  /** The matched word's definition, the reader's decisions about it, and their mix-ups. */
   lookupWord(
     word: string,
     segment?: HoverSegment,
-  ): Promise<{ definition: DefinitionResult; status?: WordStatus }>;
+  ): Promise<{ definition: DefinitionResult; status?: WordStatus; confusedWith?: string[] }>;
   trackWord(word: string, context?: string): Promise<void>;
   /** Track the word and add it to the deck outright, skipping the exposure gate. */
   pinWord(word: string, context?: string): Promise<void>;
@@ -21,13 +21,13 @@ export interface PopupClient {
 
 export const popupClient: PopupClient = {
   lookupWord: async (word, segment) => {
-    const { definition, status } = await request({
+    const { definition, status, confusedWith } = await request({
       type: 'lookup_word',
       word,
       withStatus: true,
       ...(segment && { segment }),
     });
-    return { definition, ...(status && { status }) };
+    return { definition, ...(status && { status }), ...(confusedWith && { confusedWith }) };
   },
   trackWord: async (word, context) => {
     await request({ type: 'track_word', word, ...sentence(context) });

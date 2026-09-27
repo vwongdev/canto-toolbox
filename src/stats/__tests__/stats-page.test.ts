@@ -547,6 +547,29 @@ describe('StatsManager met-in sentences', () => {
   });
 });
 
+describe('StatsManager mix-ups', () => {
+  it('lists the words a word was mistaken for, most often first', async () => {
+    const statistics: Statistics = {
+      常見: { ...STATISTICS['常見']!, confusedWith: { 當見: 1, 常現: 3 } },
+    };
+    const client: StatsClient = {
+      ...createClient(),
+      getStatistics: vi.fn(async () => statistics),
+      lookupWord: vi.fn(async word => ({ word, mandarin: { entries: [] }, cantonese: { entries: [] } })),
+    };
+    const page = new DOMParser().parseFromString(HTML, 'text/html');
+    new StatsManager(page, client, storage).init();
+    await settle();
+
+    const item = page.querySelector('.stat-item[data-word="常見"]') as HTMLElement;
+    (item.querySelector('.stat-header') as HTMLButtonElement)
+      .dispatchEvent(new Event('click', { bubbles: true }));
+    await settle();
+
+    expect(Array.from(item.querySelectorAll('.stat-mixup'), el => el.textContent)).toEqual(['常現 ×3', '當見']);
+  });
+});
+
 describe('StatsManager insights', () => {
   async function load(client: StatsClient = createClient()): Promise<Document> {
     const page = new DOMParser().parseFromString(HTML, 'text/html');

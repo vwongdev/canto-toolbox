@@ -374,6 +374,25 @@ export function renderStatistics(
   });
 }
 
+/** The words this one was mistaken for in review, most often first, with how often. */
+function createMixups(confusedWith: Readonly<Record<string, number>>): HTMLElement {
+  const words = Object.entries(confusedWith)
+    .sort(([, a], [, b]) => b - a)
+    .map(([other, times]) =>
+      createElement({
+        tag: 'span',
+        className: 'stat-mixup',
+        attributes: { lang: 'zh' },
+        textContent: times > 1 ? `${other} ×${times}` : other,
+      }),
+    );
+
+  return createElement({
+    className: 'stat-mixups',
+    children: [createElement({ tag: 'span', className: 'stat-mixups-label', textContent: 'Mixed up with' }), ...words],
+  });
+}
+
 /** Loading placeholder shown while a definition request is in flight. */
 export function renderDefinitionLoading(container: HTMLElement): void {
   container.replaceChildren();
@@ -390,9 +409,11 @@ export function renderDefinition(
   word: string,
   contexts: readonly ContextSighting[] = [],
   display: DisplaySettings = DEFAULT_SETTINGS,
+  confusedWith: Readonly<Record<string, number>> = {},
 ): void {
   container.replaceChildren();
   if (contexts.length > 0) container.appendChild(createContextList(word, contexts));
+  if (Object.keys(confusedWith).length > 0) container.appendChild(createMixups(confusedWith));
 
   if (!definition) {
     container.appendChild(createElement({

@@ -214,3 +214,37 @@ describe('following a character of the headword', () => {
     expect(popupWord()).toBe('好');
   });
 });
+
+describe('mix-ups in the popup', () => {
+  let client: PopupClient;
+  let manager: ChineseHoverPopupManager;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    document.body.replaceChildren(document.createTextNode('我寫好字。'));
+    client = createClient();
+    vi.mocked(client.lookupWord).mockImplementation(async (word) =>
+      DEFINITIONS[word] ? { definition: DEFINITIONS[word] } : { definition: WORD, confusedWith: ['好'] },
+    );
+    manager = new ChineseHoverPopupManager(document, client);
+    manager.init();
+    hoverAt(2);
+    await vi.advanceTimersByTimeAsync(250);
+  });
+
+  afterEach(() => {
+    manager.destroy();
+    vi.useRealTimers();
+  });
+
+  it('names the words this one was mistaken for and looks one up', async () => {
+    const mixup = document.querySelector<HTMLButtonElement>('.popup-mixup')!;
+    expect(mixup.textContent).toBe('好');
+
+    mixup.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(popupWord()).toBe('好');
+    expect(backButton()).not.toBeNull();
+  });
+});
