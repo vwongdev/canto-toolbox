@@ -11,21 +11,20 @@
   frames work) and send it with the hovered offset, leaving segmentation to
   the dictionary; request a lookup via `popup-client` (`request`); render
   the popup with the shared section components.
-- **Asking, not passing**: a word is looked up only once the cursor has rested
-  on it for `HOVER_INTENT_MS`. Hovering is how a reader crosses a page as well
-  as how they ask about a word, and without the pause every word passed over
-  opened a popup. Leaving the word then starts a short grace period rather than
-  hiding at once — the popup is offset from the cursor, so reaching its audio or
-  **+ Study** button means crossing text that is not the word. Hovering the
-  popup cancels both the pending hide *and* any pending lookup, so words crossed
-  on the way to it neither dismiss the popup nor replace the word it shows.
+- **Instant show and hide**: a word is looked up the moment the cursor lands
+  on it, and the popup goes the moment the cursor leaves the word's text
+  block — the nearest ancestor whose `display` is not `inline`, never the
+  body. Gaps inside the block (between lines, over punctuation or other
+  script) keep the popup, so reading down a paragraph does not flicker it.
   The popup is positioned against the viewport, so its place on the *page* is
   kept and a document scroll moves it by hand — otherwise it would hang over
   whatever scrolled into the word's place.
-- **Shift skips the pause**: a move made with Shift held, or Shift pressed
-  while a lookup is pending, runs it at once. Shift is a deliberate ask, so the
-  pause has nothing left to decide. It is ignored while a mouse button is down
-  (Shift-click and Shift-drag extend a selection) and while a text field or
+- **Shift holds the popup**: while Shift is held, moves neither replace nor
+  hide a popup on screen, so the cursor can cross other words to reach its
+  audio or **+ Study** button. Once inside, the popup stays until the cursor
+  leaves it. Shift is read from each move's `shiftKey`, so a keyup lost to a
+  window switch cannot leave the popup stuck. It is ignored while a mouse
+  button is down (Shift-drag extends a selection) and while a text field or
   `contenteditable` has focus, where Shift is typing.
 - **Escape closes it**, cancelling any pending lookup and the dwell with it —
   a word dismissed was not studied. The key is not consumed, since the page
