@@ -27,6 +27,19 @@
   because only the document holding the maps can say which components are
   worth following. `charactersWithEntries` says the same of a compound's own
   characters, for the same reason.
+- **Lookalikes** (`lookalikes.ts`): the breakdown also carries `lookalikes` —
+  common characters laid out the same way that differ in exactly one part,
+  each with the two parts that tell them apart. The index is built on first
+  use (~20 ms) by blanking each part of every ranked character's decomposition
+  in turn: characters sharing the blanked key are one family. A family of more
+  than `MAX_FAMILY_SIZE` shares little beyond a radical (氵 heads hundreds) and
+  is dropped; smaller families lead. A character's own other-script form is
+  never its lookalike, and a script-specific character keeps only lookalikes
+  in its own script. Characters the decomposition cannot tell apart (己 已 巳,
+  whose parts are unknown) have none.
+- **Confusables**: `findConfusables` pairs a list of words through their
+  characters' lookalikes, for the flashcards page's contrast cards
+  (`dict_confusables`).
 - **Segmentation**: `segmentRun` walks a run left to right taking the longest
   word from each point — `lookupWordAt`'s scan from offset 0, repeated — and steps over a
   character no entry starts with. It checks the index before decoding a row and

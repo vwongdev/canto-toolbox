@@ -53,6 +53,10 @@
   are the ones already fetched, so stepping back costs no lookup. Only the
   popup passes `onFollowComponent`; the stats and flashcard surfaces render the
   same breakdown with its chips as labels.
+- **Lookalikes and mix-ups**: each character of the breakdown lists up to four
+  lookalikes with the part that differs ("日 sun not 氵 water"), and each
+  follows like a component. Under the senses, the words the reader mixed this
+  one up with in review are listed and follow the same way.
 - **Following a character**: the headword itself splits the same way. Each
   character of a compound the dictionaries hold an entry for
   (`charactersWithEntries`, added by the lookup) is a button in the popup's

@@ -17,7 +17,9 @@
   that write new statistics). Lookups are forwarded as `dict_lookup` to the
   offscreen document that holds the parsed maps. A lookup sent `withStatus` —
   only the popup's — also reads the record, in parallel with the dictionary
-  hop, and replies with the matched word's `status`; the stats and flashcard
+  hop, and replies with the matched word's `status` and the words it was
+  mixed up with (`confusedWith`), with lookalikes the reader has met moved to
+  the front — the dictionary cannot see the record; the stats and flashcard
   pages already hold the record, so theirs skip the read. A failed read costs
   the reply its status, not its definition. A tracked word also records what the
   dictionary knows about it — its corpus rank, whether it is a single character
@@ -31,7 +33,10 @@
   and `get_review_log` (reads the per-day review log).
 - **flashcards**: handles `update_flashcard` (advances one direction's FSRS
   state, buries a word once its lapses reach `LEECH_LAPSES`, and adds one to
-  today's count in the review log) and
+  today's count in the review log),
+  `record_confusion` (tallies a mix-up on both words, where the record holds
+  them), `find_confusables` (forwarded as `dict_confusables`: pairs the deck's
+  lookalike words, which the page cannot do without the dictionary) and
   `set_word_status` (retire or pin a word, keeping its progress).
 - Message passing is plain functions, not a class. The typed send helper is
   `request()` in `src/shared/message-manager.ts`, which resolves with the

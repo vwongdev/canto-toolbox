@@ -3,11 +3,23 @@
 - Spaced review driven by `src/shared/scheduler.ts` (FSRS). Each word carries a
   schedule per **review direction**: `recognition` (word → meaning, stored under
   the original `flashcard` key), `production` (meaning + cloze sentence → word),
-  `listening` (the word spoken → meaning), `components` (character → its parts)
-  and `writing` (character → its stroke order). Production and listening unlock
-  once recognition leaves its learning steps; components additionally needs
-  `decomposable` and writing needs `writable`, both recorded at track time
-  because this page has no dictionary.
+  `listening` (the word spoken → meaning), `contrast` (meaning → the word,
+  picked from words it looks like), `components` (character → its parts)
+  and `writing` (character → its stroke order). Production, listening and
+  contrast unlock once recognition leaves its learning steps; components
+  additionally needs `decomposable` and writing needs `writable`, both recorded
+  at track time because this page has no dictionary.
+- The **contrast card** is offered only while the word has a partner in the
+  deck (`partnersOf`): a word it was mixed up with, or a lookalike from
+  `find_confusables`, which the page asks for once per session over every
+  unretired word. Retired partners do not count. Like listening, a due one
+  with no partner neither takes the word's slot nor counts toward the next
+  review. The front is the production card's question with the word and up
+  to three partners as numbered options (keys 1–4). The pick grades itself,
+  like writing: right is Good, wrong is Again, records the mix-up, and the
+  back shows both words with their breakdowns open.
+- **Mix-ups on the answer**: the other cards' backs list up to five partners
+  under "Mixed it up with". Pressing one records the mix-up and rates Again.
 - The **listening card** depends on the browser rather than the word: it is
   offered only when a voice can say it, in Cantonese when a Cantonese voice
   exists and Mandarin otherwise (`listening.ts`), and the answer says which was

@@ -41,7 +41,7 @@ canto-toolbox/
 │   │   ├── session.ts         # Card selection across the review directions
 │   │   ├── writing.ts         # Stroke-order quiz and the grade it measures
 │   │   ├── listening.ts       # Which reading the listening card plays in
-│   │   ├── background-handler.ts # update_flashcard / set_word_status
+│   │   ├── background-handler.ts # update_flashcard / record_confusion / find_confusables / set_word_status
 │   │   └── flashcard-client.ts
 │   ├── settings/              # Options page (manifest `options_ui`)
 │   │   ├── settings.ts / settings.html / settings.scss
@@ -57,6 +57,7 @@ canto-toolbox/
 │   │   └── ocr.scss
 │   ├── dictionary/
 │   │   ├── dictionary.ts      # Runtime dictionary load + lookup
+│   │   ├── lookalikes.ts      # Characters that differ from one another by one part
 │   │   └── offscreen-handler.ts # dict_lookup; the maps live in this document
 │   ├── offscreen/             # Offscreen composition root (dicts + OCR)
 │   │   ├── offscreen.html

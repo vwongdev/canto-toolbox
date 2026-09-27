@@ -83,6 +83,10 @@
   first sentence, and it is folded into `contexts` when the word next gains a
   sentence or is merged. `mergeStatistics` pools both sides' sentences in the
   order they were met, so areas and backups never lose one to the other.
+- **Mix-ups**: `confusedWith` on a word maps each word it was mistaken for in
+  review to how many times, written on both words of a pair the record holds.
+  A merge takes the higher tally per word, as `count` does, since each side is
+  a snapshot. Backups check it is a word → number map.
 - **Review log**: `REVIEW_LOG_KEY` in `chrome.storage.local` only
   (`src/shared/review-log.ts`) — local calendar day → cards answered, pruned
   to `REVIEW_LOG_DAYS`. Kept apart from the statistics record because the

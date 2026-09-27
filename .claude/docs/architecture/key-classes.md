@@ -74,7 +74,13 @@
 - **`recognise`** (`src/ocr/engine.ts`) — image URL → text with boxes, over the
   packaged PP-OCRv6 model.
 - **`dictionary.ts`** — `initDictionaries`, `lookupWordAt`,
-  `lookupEtymology`, `lookupFrequency`, `segmentRun`.
+  `lookupEtymology`, `lookupFrequency`, `segmentRun`, `findConfusables`.
+- **`buildLookalikeIndex`** (`src/dictionary/lookalikes.ts`) — common
+  characters laid out the same way that differ in one part, smallest family
+  first.
+- **`partnersOf`** (`src/flashcards/session.ts`) — the deck words a word could
+  be taken for: recorded mix-ups first, then lookalikes. **`withConfusion` /
+  `confusionsOf`** (`src/shared/statistics-utils.ts`) tally and read them.
 - **`bandForRank` / `BAND_LABELS`** (`src/shared/frequency.ts`) — a corpus rank
   banded into something a learner can act on (Core 1000 → Rare);
   `frequency-badge.ts` draws it on the definition.
