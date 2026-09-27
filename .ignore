@@ -1,0 +1,3 @@
+# Read by ripgrep, which backs agent Grep and Glob. The dictionary submodules
+# are source data for `pnpm build:dict`; their long lines flood search results.
+dictionaries/
