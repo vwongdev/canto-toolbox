@@ -1,5 +1,22 @@
 # Architecture Overview
 
+Read the section for the area you are changing; each component section says
+why it works the way it does, which is what a change is most likely to break.
+
+| Working on | Read |
+| --- | --- |
+| Hover popup, Shift/Escape, Study/Known | Components → Content Script |
+| Unknown-word marks, coverage chip | Components → Unknown Words on the Page |
+| A message type or handler | Components → Background Handlers; Data Flow |
+| Lookup, segmentation, enrichment | Components → Dictionary |
+| Image or video OCR | Components → Media OCR; OCR Model |
+| Stats list, insights, backup, export | Components → Statistics Page |
+| Card directions, sessions, grading | Components → Flashcards Page |
+| A new setting | Components → Settings |
+| Anything written to `chrome.storage` | Storage |
+| A permission or the manifest | Extension Permissions |
+| Finding where a function lives | Key Classes and Utilities |
+
 ## Project Structure
 
 The source is organised by feature domain, not by file type.

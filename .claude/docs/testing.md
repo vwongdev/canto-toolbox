@@ -23,8 +23,8 @@ pnpm test:coverage   # vitest run --coverage (v8)
 pnpm test:e2e        # playwright test (requires a built extension in dist/)
 ```
 
-The husky `pre-commit` hook runs `pnpm lint && pnpm typecheck && pnpm test`, so
-the unit suite gates every commit. CI runs three jobs:
+The unit suite gates every commit through the `pre-commit` hook (see
+`dev-workflow.md`). CI runs three jobs:
 
 - `check` — `lint → typecheck → test`, plus non-blocking `test:coverage`
 - `e2e` — builds the extension and runs `test:e2e` under `xvfb`
@@ -69,137 +69,83 @@ romanisation, definitions or ranks.
 
 ## What to Test
 
-**Pure logic** — no browser/Chrome dependency, straightforward to unit test:
-- `src/dictionary/dictionary.ts` — lookup, longest-match, offset-aware
-  segmentation, Cantonese filtering, frequency and etymology enrichment.
-  `segmentRun` (whole runs split into words: script variants, unranked proper
-  nouns, UTF-16 offsets past a non-BMP character) has its own file,
+A module's tests are in `__tests__/<module>.test.ts` beside it. Views are
+tested through their page controllers (`stats-page.test.ts`,
+`flashcards.test.ts`), and thin `*-client.ts` wrappers and composition roots
+through the handlers and e2e. This section records how the hard-to-test parts
+are driven, not what each file covers.
+
+**Pure logic** — no browser dependency. Most modules need nothing beyond the
+global Chrome mock. The exceptions:
+
+- `src/shared/statistics-store.ts` runs over `src/__tests__/fake-storage.ts`,
+  an in-memory storage area that round-trips values through JSON and can
+  enforce sync's quotas. `asItems` turns a record into the `word:<word>` items
+  it is stored as, which is how tests seed storage
+- `src/shared/settings.ts` — `watchSettings` is driven through the
+  `chrome.storage.onChanged` mock in `setup.ts`
+- `src/shared/review-log.ts` runs against the `chrome.storage.local` mock
+- `src/dictionary/dictionary.ts` — `segmentRun` has its own file,
   `segmentation.test.ts`, with its own fixture
-- `src/popup/known-words.ts` — the known set, the join with segmented words
-  (either script, names dropped), which storage changes move a verdict, and
-  that the worker's cache reads the record once until one does
-- `src/shared/bounded-map.ts` — map operations, pruning, batch insert
-- `src/shared/debounce.ts` — debounce / batched-debounce timing
-- `src/shared/scheduler.ts` — FSRS review transitions, due/leech/mastery
-- `src/shared/statistics-utils.ts` — merging, stage derivation, the "known"
-  rule, the per-direction schedule walk
-- `src/shared/frequency.ts` — rank → band boundaries
-- `src/shared/pinyin.ts` — syllable splitting and tone tagging
-- `src/shared/gloss.ts`, `message-manager.ts`, `speech.ts`
-- `src/shared/word-contexts.ts` — near-duplicate sentences, the full-list
-  eviction, merging in met order, and which page addresses are kept or dropped
-- `src/shared/statistics-store.ts` — per-word writes, the sync share and its
-  quotas, and migrating the legacy item (including an interrupted migration
-  and concurrent first calls), and a clear reaching a second store that shares
-  the sync area. Driven over `src/__tests__/fake-storage.ts`, an
-  in-memory storage area that round-trips values through JSON and can enforce
-  sync's quotas; `asItems` turns a record into the `word:<word>` items it is
-  stored as, which is how tests seed storage
-- `src/shared/settings.ts` — defaults, clamping and fallback of stored values,
-  and `watchSettings` delivering the stored value then each change, driven
-  through the `chrome.storage.onChanged` mock in `setup.ts`
-- `src/stats/ordering.ts` / `overview.ts` — sorting, band filtering, the summary
-- `src/stats/backup.ts` — the backup round trip, which files are refused and
-  why, and the restore merge (nothing already recorded is lost)
-- `src/stats/card-export.ts` — the export set, headword and reading choice,
-  Anki quoting and Pleco's unquoted line format
-- `src/stats/insights.ts` — forecast day boundaries, streak, heatmap layout,
-  per-direction accuracy and band sizes (checked against
-  `bandForRank`)
-- `src/shared/review-log.ts` — local day keys, pruning, and that overlapping
-  writes all count (against the `chrome.storage.local` mock)
-- `src/flashcards/session.ts` — which card a word offers and in what order,
-  including the gate each direction gets — `components` on `decomposable`,
-  `writing` on `writable`, and neither before recognition graduates — and
-  `listening` only when the page reports a voice to play it with
-- `src/flashcards/listening.ts` — which reading the voices on offer allow
-- `src/flashcards/writing.ts` — mistakes → the grade the writing card submits.
-  The quiz itself is not under test there; `hanzi-writer` is mocked away
-- `src/ocr/capture.ts` — the capture-size cap, and which failure falls back to
-  a tab screenshot. happy-dom has no canvas, so the tests stub it and assert
-  the sizes asked for — including that the crop scales by the ratio the
-  screenshot was actually taken at
-- `src/ocr/overlay.ts` — recognised box → placed span: axis scaling, and the
-  character-per-slot spacing the caret depends on
-- `build-tools/processors/cedict-parser.ts` — the CC-CEDICT/CC-Canto line format
-- `build-tools/build-strokes.ts` — one `graphics.txt` line, including the pairs
-  it rejects (a stroke with no median cannot be graded). The script guards its
-  own entry point, so importing it does not rewrite 30 MB of output
-- `build-tools/fetch-ocr-assets.ts` — which HTTP statuses are retried and which
-  are not, driven through a stubbed `fetch` under fake timers. The script guards
-  its own entry point so importing it does not start a download.
+- `src/flashcards/writing.ts` — `hanzi-writer` is mocked away; only the
+  mistakes → grade mapping is under test
+- `src/ocr/capture.ts` — happy-dom has no canvas, so the tests stub it and
+  assert the sizes asked for
+- `build-tools/build-strokes.ts` and `build-tools/fetch-ocr-assets.ts` guard
+  their own entry points, so importing them neither rewrites 30 MB of output
+  nor starts a download. The fetch retries run under fake timers with a
+  stubbed `fetch`
 
-**DOM components** — tested under `// @vitest-environment happy-dom`:
-- `src/shared/dom-element.ts`
-- `src/shared/pronunciation-section.ts`, `etymology-section.ts`,
-  `definition-section.ts`, `context-sentence.ts`
-- tone colouring across the shared sections
-- `src/popup/content.ts` — hover detection, the dwell study signal,
-  following a breakdown component — or a character of the headword — to its
-  own entry and back, the Shift shortcut past the hover pause (and the
-  editable-field and drag cases it leaves alone), Escape closing the popup
-  before the dwell, and the Known button's
-  pressed state and how it and Study redraw each other
-- `src/shared/availability-badge.ts` — which dictionary alone holds a word,
-  including the bare Cantonese reading that does not count
-- `src/ocr/media-controller.ts` — when the badge is offered, and how an overlay
-  follows playback: cleared on `play`, re-read on `seeked`, and the same frame
-  never read twice. `capture.js` is mocked, so these are about the lifecycle
-  rather than pixels
-- `src/popup/page-coverage.ts` — which text is read and which is skipped, the
-  slices, the marks and the chip, re-reading only what a mutation added, and
-  re-asking only when a word's known state moves. The segment client is a
-  fake and the idle scheduler runs its callback at once. happy-dom has no
-  Custom Highlight API, so the tests plant a `Set`-backed `Highlight` and a
-  `CSS.highlights` map on `globalThis` and remove them after (not
-  `vi.unstubAllGlobals()`, which would take the `chrome` mock with them).
-  happy-dom delivers mutation records on a timer fake timers do not reach, so a
-  test that changes the page waits a few real milliseconds for them
-- the popup, stats and flashcard surfaces drawn with non-default settings:
-  column order, headword script, hidden romanisation, session limits and the
-  enrolment threshold. Each controller takes settings through `applySettings`,
-  so tests set them directly rather than through storage
-- `src/settings/settings.ts` — the options page offers a control for every
-  setting, saves typed values, and draws back what the store clamped
-- `src/stats/stats-view.ts` and `src/flashcards/flashcards-view.ts`, driven
-  through their page controllers. The writing card's lifecycle is covered there
-  with `hanzi-writer` mocked — happy-dom neither renders SVG nor grades pointer
-  paths, so the fake records what it was asked to quiz and hands the test the
-  completion callback. The listening card stubs `speechSynthesis` per test,
-  including a voice list that starts empty and loads on `voiceschanged`
-- `src/stats/transfer-controls.ts` — downloads captured by stubbing
-  `URL.createObjectURL` and the anchor's `click`; restore driven by a `File`
-  set on the input, and the action-popup hand-off to a tab by giving
-  `chrome.tabs.getCurrent` no tab to return
+**DOM components** — opt in with `// @vitest-environment happy-dom`. What
+happy-dom lacks, and how the tests get around it:
 
-**Message handlers** — `src/popup/background-handler.ts` is tested by stubbing
-`chrome.offscreen` / `getContexts`, the `dict_lookup` hop through
-`sendMessage`, and the stroke index `fetch` behind the writing-card gate (the
-index is memoised for the life of the module, so one stub serves the file),
-with `popup-storage.js` mocked so `mark_known` and the `withStatus` read are
-asserted as calls, and `segment_text` answered through a `dict_segment` stub; the batch itself — decisions against sightings, latest
-decision wins — is tested on `PopupStorageClient` directly; `src/dictionary/offscreen-handler.ts` is tested with the
-dictionary module mocked via `vi.mock('../dictionary.js', …)`;
-`src/flashcards/background-handler.ts` is tested against the statistics store.
-`src/ocr/background-handler.ts` stubs `chrome.offscreen` and
-`chrome.runtime.getContexts` per test — the global mock in `setup.ts` covers
-only the module-level side effects, not these. `src/ocr/offscreen.ts` mocks the
-engine and calls `vi.resetModules()` per case, because the module holds a
-cache and queue for the life of the document; each test calls `register()`
-on a fresh instance.
+- `src/popup/page-coverage.ts` — no Custom Highlight API, so the tests plant a
+  `Set`-backed `Highlight` and a `CSS.highlights` map on `globalThis` and
+  remove them after (not `vi.unstubAllGlobals()`, which would take the
+  `chrome` mock with them). Mutation records arrive on a timer fake timers do
+  not reach, so a test that changes the page waits a few real milliseconds.
+  The segment client is a fake and the idle scheduler runs its callback at once
+- `src/ocr/media-controller.ts` — `capture.js` is mocked, so these cover the
+  overlay lifecycle rather than pixels
+- `src/stats/stats-view.ts` and `src/flashcards/flashcards-view.ts` are driven
+  through their page controllers. happy-dom neither renders SVG nor grades
+  pointer paths, so the writing card's `hanzi-writer` fake records what it was
+  asked to quiz and hands the test the completion callback. The listening card
+  stubs `speechSynthesis` per test, including a voice list that starts empty
+  and loads on `voiceschanged`
+- `src/stats/transfer-controls.ts` — downloads are captured by stubbing
+  `URL.createObjectURL` and the anchor's `click`; restore sets a `File` on the
+  input; the action-popup hand-off is forced by giving `chrome.tabs.getCurrent`
+  no tab to return
+- Surfaces drawn with non-default settings take them through each controller's
+  `applySettings`, not through storage
 
-**End-to-end** — content script ↔ service worker ↔ pages are exercised by the
-Playwright specs in `e2e/` (popup, stats, flashcards, ocr), which launch
-Chromium with the unpacked `dist/` loaded. `ocr.spec.ts` draws its own test
-image with `sharp` rather than checking a PNG in, so the text the image holds
-cannot drift from the text asserted; it reads the image through the badge, then
-hovers a character of the overlay and asserts the popup *and* the statistics
-entry — the claim the whole OCR design rests on. Its video cases have the page
-record their own source through `MediaRecorder`, so there is no video file
-checked in and no dependency on ffmpeg being installed; keep that recording
-short, since four tests doing it in parallel workers is real wall-clock load.
-The Playwright MCP server (`.mcp.json`) is available to drive the browser
-interactively while debugging.
+**Message handlers**:
+
+- `src/popup/background-handler.ts` stubs `chrome.offscreen` / `getContexts`,
+  the `dict_lookup` and `dict_segment` hops through `sendMessage`, and the
+  stroke index `fetch` (memoised for the life of the module, so one stub serves
+  the file). `popup-storage.js` is mocked, so `mark_known` and the `withStatus`
+  read are asserted as calls; the batch itself is tested on
+  `PopupStorageClient` directly
+- `src/dictionary/offscreen-handler.ts` mocks the dictionary via
+  `vi.mock('../dictionary.js', …)`
+- `src/flashcards/background-handler.ts` runs against the statistics store
+- `src/ocr/background-handler.ts` stubs `chrome.offscreen` and
+  `chrome.runtime.getContexts` per test — the global mock in `setup.ts` covers
+  only module-level side effects
+- `src/ocr/offscreen.ts` mocks the engine and calls `vi.resetModules()` per
+  case, since the module holds a cache and queue for the life of the document;
+  each test calls `register()` on a fresh instance
+
+**End-to-end** — the Playwright specs in `e2e/` (popup, stats, flashcards,
+ocr) launch Chromium with the unpacked `dist/` loaded, and cover the content
+script ↔ service worker ↔ pages path. `ocr.spec.ts` draws its test image with
+`sharp` rather than checking a PNG in, so the text in the image cannot drift
+from the text asserted, and asserts both the popup and the statistics entry
+for a hovered overlay character. Its video cases record their own source
+through `MediaRecorder`, so no video file or ffmpeg is needed; keep that
+recording short, since four parallel workers doing it is real wall-clock load.
 
 ## Manual Verification
 
