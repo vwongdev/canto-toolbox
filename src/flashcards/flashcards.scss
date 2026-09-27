@@ -8,10 +8,10 @@
 
 // The fill and its hover. Each token already carries both themes, so a filled
 // button no longer states its dark half.
-@mixin filled-btn($fill, $hover) {
+@mixin filled-btn($fill, $hover, $ink: #fff) {
   background: $fill;
   border-color: $fill;
-  color: #fff;
+  color: $ink;
 
   &:hover {
     background: $hover;
@@ -380,6 +380,11 @@ body {
   @include dark { background: rgb(255 255 255 / 20%); }
 }
 
+// The dark rating fills are light and carry dark labels, so the hint darkens.
+.rating-btns .key-hint {
+  @include dark { background: rgb(0 0 0 / 14%); }
+}
+
 @media (max-width: 520px) {
   .key-hint {
     display: none;
@@ -437,19 +442,19 @@ body {
 
 // Anki-style rating row: Again red, Hard orange, Good green, Easy blue.
 .btn-again {
-  @include filled-btn(t.$color-rating-again, t.$color-rating-again-hover);
+  @include filled-btn(t.$color-rating-again, t.$color-rating-again-hover, t.$color-on-rating);
 }
 
 .btn-hard {
-  @include filled-btn(t.$color-rating-hard, t.$color-rating-hard-hover);
+  @include filled-btn(t.$color-rating-hard, t.$color-rating-hard-hover, t.$color-on-rating);
 }
 
 .btn-good {
-  @include filled-btn(t.$color-rating-good, t.$color-rating-good-hover);
+  @include filled-btn(t.$color-rating-good, t.$color-rating-good-hover, t.$color-on-rating);
 }
 
 .btn-easy {
-  @include filled-btn(t.$color-rating-easy, t.$color-rating-easy-hover);
+  @include filled-btn(t.$color-rating-easy, t.$color-rating-easy-hover, t.$color-on-rating);
 }
 
 .finished-icon {

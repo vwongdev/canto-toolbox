@@ -77,16 +77,18 @@
   --ct-control-border: #d4d4d4;
   --ct-control-text: #333;
 
-  // Anki-style Again / Hard / Good / Easy fills.
-  --ct-rating-again: #e53935;
-  --ct-rating-again-hover: #c62828;
-  --ct-rating-hard: #fb8c00;
-  --ct-rating-hard-hover: #ef6c00;
-  --ct-rating-good: #43a047;
-  --ct-rating-good-hover: #2e7d32;
-  --ct-rating-good-tint: rgba(67, 160, 71, 0.14);
-  --ct-rating-easy: #1e88e5;
-  --ct-rating-easy-hover: #1565c0;
+  // Anki-style Again / Hard / Good / Easy fills. Each is also the ink of the
+  // writing card's tally, so all four clear 4.5:1 against white either way.
+  --ct-on-rating: #fff;
+  --ct-rating-again: #c62828;
+  --ct-rating-again-hover: #b71c1c;
+  --ct-rating-hard: #b45309;
+  --ct-rating-hard-hover: #92400e;
+  --ct-rating-good: #2e7d32;
+  --ct-rating-good-hover: #1b5e20;
+  --ct-rating-good-tint: rgba(46, 125, 50, 0.12);
+  --ct-rating-easy: #1565c0;
+  --ct-rating-easy-hover: #0d47a1;
 
   // How far a word has got. These were the last colours written by hand at
   // their call site, in four pairs that belonged to no palette.
@@ -167,15 +169,18 @@
   --ct-control-border: rgba(255, 255, 255, 0.12);
   --ct-control-text: #e8e8ed;
 
+  // Kept light, since they are read as text on the dark canvas too, so the
+  // label on a filled button turns dark instead — white on these fails 4.5:1.
+  --ct-on-rating: #161618;
   --ct-rating-again: #e0554d;
-  --ct-rating-again-hover: #c94a44;
+  --ct-rating-again-hover: #ea6f68;
   --ct-rating-hard: #e89a3c;
-  --ct-rating-hard-hover: #d48c32;
+  --ct-rating-hard-hover: #f0aa55;
   --ct-rating-good: #4caf63;
-  --ct-rating-good-hover: #3d9a52;
+  --ct-rating-good-hover: #5fc176;
   --ct-rating-good-tint: rgba(76, 175, 99, 0.20);
   --ct-rating-easy: #4d9eef;
-  --ct-rating-easy-hover: #3d8ed9;
+  --ct-rating-easy-hover: #66adf2;
 
   --ct-stage-candidate: #9aa7b4;
   --ct-stage-candidate-bg: rgba(154, 167, 180, 0.18);
