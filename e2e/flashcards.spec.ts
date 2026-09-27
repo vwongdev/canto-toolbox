@@ -74,7 +74,7 @@ async function openFlashcardsPage(): Promise<Page> {
 
 test('flashcard page URL is reachable', async () => {
   const page = await openFlashcardsPage();
-  await expect(page).toHaveTitle('Flashcard Review');
+  await expect(page).toHaveTitle('Flashcard Review – Canto Toolbox');
   await page.close();
 });
 

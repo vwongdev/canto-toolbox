@@ -59,7 +59,7 @@ async function clearStorage(page: Page): Promise<void> {
 
 test('stats page title is reachable', async () => {
   const page = await openStatsPage();
-  await expect(page).toHaveTitle('Chinese Word Statistics');
+  await expect(page).toHaveTitle('Word Statistics – Canto Toolbox');
   await page.close();
 });
 

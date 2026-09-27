@@ -273,7 +273,7 @@ export function renderFrontLoading(document: Document, card: ReviewCard): void {
   showFront(
     document,
     card,
-    [createElement({ className: 'card-gloss', textContent: 'Loading...' })],
+    [createElement({ className: 'card-gloss', textContent: 'Loading…' })],
     { revealable: false },
   );
 }
@@ -282,7 +282,7 @@ export function renderFrontLoading(document: Document, card: ReviewCard): void {
 export function renderBackLoading(document: Document): void {
   const cardBack = document.getElementById(ELEMENT_IDS.cardBack);
   if (cardBack) {
-    cardBack.textContent = 'Loading...';
+    cardBack.textContent = 'Loading…';
     cardBack.style.display = '';
   }
   const showAnswerContainer = document.getElementById(ELEMENT_IDS.showAnswerContainer);

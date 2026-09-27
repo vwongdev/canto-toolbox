@@ -373,7 +373,7 @@ export function renderDefinitionLoading(container: HTMLElement): void {
   container.replaceChildren();
   container.appendChild(createElement({
     className: 'stat-loading',
-    textContent: 'Loading definition...'
+    textContent: 'Loading definition…'
   }));
   container.style.display = 'block';
 }
