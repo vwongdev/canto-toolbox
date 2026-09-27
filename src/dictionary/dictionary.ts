@@ -6,11 +6,13 @@ import type {
   EtymologyDictionary,
   FrequencyRanks,
   CharacterEtymology,
+  Lookalike,
   SegmentedWord,
   WordFrequency,
 } from '../shared/types.js';
 import { parseComponents } from '../shared/decomposition.js';
 import { bandForRank } from '../shared/frequency.js';
+import { buildLookalikeIndex, type LookalikeMatch } from './lookalikes.js';
 
 const CANTONESE_MARKER = '(cantonese)';
 const MAX_WORD_LENGTH = 4;
@@ -140,6 +142,93 @@ function componentsWithEntries(entry: CharacterEtymology): string[] {
   return [...shown].filter(comp => hasValidDefinition(lookupEntries(comp)));
 }
 
+/**
+ * More than the popup shows, so the worker can put the ones the reader is
+ * studying first and still have a few to fill in with.
+ */
+const MAX_LOOKALIKES = 8;
+
+let lookalikeIndex: ((character: string) => LookalikeMatch[]) | null = null;
+
+/**
+ * A character the corpus ranks, through its simplified form when it has one:
+ * the corpus is keyed by simplified forms, and a traditional reader's
+ * lookalikes should be traditional characters.
+ */
+function isCommonCharacter(character: string): boolean {
+  const { mandarin, cantonese } = lookupEntries(character);
+  return lookupFrequency(character, [...mandarin.entries, ...cantonese.entries]) !== undefined;
+}
+
+/** Built on first use, since most hovers never reach a single character's breakdown. */
+function lookalikeMatches(character: string): LookalikeMatch[] {
+  lookalikeIndex ??= buildLookalikeIndex(etymologyDict, isCommonCharacter);
+  return lookalikeIndex(character);
+}
+
+type Script = 'traditional' | 'simplified' | 'both';
+
+/** Which script a character belongs to, and its forms in the other one. */
+function scriptOf(character: string): { script: Script; variants: Set<string> } {
+  const variants = new Set<string>();
+  let script: Script = 'both';
+
+  for (const entry of lookupEntries(character).mandarin.entries) {
+    if (entry.traditional === entry.simplified) continue;
+    if (entry.traditional === character) {
+      script = 'traditional';
+      variants.add(entry.simplified);
+    } else if (entry.simplified === character) {
+      script = 'simplified';
+      variants.add(entry.traditional);
+    }
+  }
+
+  return { script, variants };
+}
+
+/**
+ * The index holds both scripts, so it pairs 請 with its own simplified form
+ * 请 and lists 詩 beside 诗. A character's other form is not a lookalike to
+ * tell it apart from, a reader of one script is not helped by the other's
+ * characters, and of a pair in both scripts only the first is worth showing.
+ */
+function inReadersScript(character: string, matches: LookalikeMatch[]): LookalikeMatch[] {
+  const own = scriptOf(character);
+  const shown = new Set<string>();
+
+  return matches.filter(match => {
+    if (own.variants.has(match.character)) return false;
+
+    const other = scriptOf(match.character);
+    if (own.script !== 'both' && other.script !== 'both' && other.script !== own.script) return false;
+    if ([...other.variants].some(variant => shown.has(variant))) return false;
+
+    shown.add(match.character);
+    return true;
+  });
+}
+
+function lookalikesOf(character: string): Lookalike[] {
+  const definitionOf = (glyph: string): string | undefined => etymologyDict[glyph]?.definition;
+
+  return inReadersScript(character, lookalikeMatches(character))
+    .slice(0, MAX_LOOKALIKES)
+    .map(({ character: other, ownPart, otherPart }) => {
+      const definition = definitionOf(other);
+      const ownPartDefinition = definitionOf(ownPart);
+      const otherPartDefinition = definitionOf(otherPart);
+      return {
+        character: other,
+        ownPart,
+        otherPart,
+        ...(definition && { definition }),
+        ...(ownPartDefinition && { ownPartDefinition }),
+        ...(otherPartDefinition && { otherPartDefinition }),
+      };
+    });
+}
+
 export function lookupEtymology(word: string): CharacterEtymology[] {
   const cached = etymologyCache.get(word);
   if (cached) return cached;
@@ -163,11 +252,13 @@ export function lookupEtymology(word: string): CharacterEtymology[] {
       }
 
       const withEntries = componentsWithEntries(entry);
+      const lookalikes = lookalikesOf(char);
 
       return {
         ...entry,
         ...(Object.keys(componentDefinitions).length > 0 && { componentDefinitions }),
         ...(withEntries.length > 0 && { componentsWithEntries: withEntries }),
+        ...(lookalikes.length > 0 && { lookalikes }),
       };
     })
     .filter((entry): entry is CharacterEtymology => entry !== undefined);

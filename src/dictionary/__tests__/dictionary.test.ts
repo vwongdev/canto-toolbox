@@ -20,6 +20,7 @@ const mockMandarin: CompactDictionary = {
     ['女', '女', 'nu:3', ['female', 'woman', 'daughter']],
     ['子', '子', 'zi3', ['son', 'child', 'seed', 'egg']],
     ['東', '东', 'dong1', ['east', 'host']],
+    ['仔', '仔', 'zai3', ['variant of 崽[zai3]', '(dialect) (bound form) young man']],
   ],
   index: {
     '好': [0, 1],
@@ -31,6 +32,7 @@ const mockMandarin: CompactDictionary = {
     '子': 6,
     '東': 7,
     '东': 7,
+    '仔': 8,
   },
 };
 
@@ -49,12 +51,14 @@ const mockEtymology = {
   '好': { character: '好', decomposition: '⿰女子', radical: '女', etymologyType: 'ideographic', hint: 'woman with child' },
   '字': { character: '字', decomposition: '⿱宀子', radical: '宀', etymologyType: 'pictophonetic', semantic: '宀', phonetic: '子' },
   '女': { character: '女', decomposition: '女', radical: '女', etymologyType: 'pictographic', hint: 'a woman with folded hands' },
+  '仔': { character: '仔', decomposition: '⿰亻子', radical: '亻', definition: 'small thing, child; young animal', etymologyType: 'ideographic' },
 };
 
 // Ranks from the real SUBTLEX-CH build; 廣東話 is genuinely outside the cap.
 const mockFrequency = {
   '好': 10,
   '字': 1207,
+  '仔': 3238,
   '广东话': 18450,
 };
 
@@ -221,6 +225,12 @@ describe('lookupEtymology', () => {
 
   it('does not mark a character as a component of itself', () => {
     expect(lookupEtymology('女')[0]!.componentsWithEntries).toBeUndefined();
+  });
+
+  it('names the common characters that differ by one part', () => {
+    expect(lookupEtymology('好')[0]!.lookalikes).toEqual([
+      { character: '仔', definition: 'small thing, child; young animal', ownPart: '女', otherPart: '亻' },
+    ]);
   });
 });
 

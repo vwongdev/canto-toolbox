@@ -17,6 +17,26 @@ export interface CharacterEtymology {
    * are the parts a breakdown can be followed into; the rest are labels.
    */
   componentsWithEntries?: string[];
+  /**
+   * Common characters built the same way but for one part, added at lookup
+   * time — the ones a reader is likeliest to mistake this one for.
+   */
+  lookalikes?: Lookalike[];
+}
+
+/**
+ * A character that differs from another in a single part, with the two parts
+ * that tell them apart and what each means.
+ */
+export interface Lookalike {
+  character: string;
+  definition?: string;
+  /** The looked-up character's part where the two differ. */
+  ownPart: string;
+  ownPartDefinition?: string;
+  /** This character's part in the same place. */
+  otherPart: string;
+  otherPartDefinition?: string;
 }
 
 export type EtymologyDictionary = Record<string, CharacterEtymology>;
