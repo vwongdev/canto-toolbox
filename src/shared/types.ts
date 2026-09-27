@@ -169,6 +169,11 @@ export interface WordStatistics {
   context?: string;
   /** SUBTLEX-CH rank recorded at track time, so study order can follow it. */
   rank?: number;
+  /**
+   * Words the reader took this one for in review, each with how many times.
+   * Kept on both words of a pair when both are tracked.
+   */
+  confusedWith?: Record<string, number>;
   /** True once the character has parts worth drilling, decided at track time. */
   decomposable?: boolean;
   /** True once the character has packaged strokes, decided at track time. */
@@ -320,6 +325,24 @@ export interface DictSegmentMessage {
   runs: string[];
 }
 
+/**
+ * The worker's hop to the offscreen document to pair up the words a reader
+ * could take for one another, as `find_confusables` asks.
+ */
+export interface DictConfusablesMessage {
+  type: 'dict_confusables';
+  words: string[];
+}
+
+/**
+ * The flashcards page asking which of its deck's words look alike. The page
+ * has no dictionary, and the pairing needs every character's parts.
+ */
+export interface FindConfusablesMessage {
+  type: 'find_confusables';
+  words: string[];
+}
+
 /** A word on the page, and whether the reader's record says they know it. */
 export interface PageWord {
   start: number;
@@ -402,8 +425,16 @@ export interface UpdateFlashcardMessage {
   direction?: ReviewDirection;
 }
 
+/** The reader mistook `word` for `other` in review. */
+export interface RecordConfusionMessage {
+  type: 'record_confusion';
+  word: string;
+  other: string;
+}
+
 export type BackgroundMessage =
   | LookupMessage
+  | RecordConfusionMessage
   | TrackWordMessage
   | GetStatisticsMessage
   | GetReviewLogMessage
@@ -415,6 +446,8 @@ export type BackgroundMessage =
   | CaptureTabMessage
   | DictLookupMessage
   | DictSegmentMessage
+  | DictConfusablesMessage
+  | FindConfusablesMessage
   | SegmentTextMessage;
 
 export interface LookupResponse {
@@ -451,6 +484,11 @@ export interface TrackWordResponse {
 export interface UpdateFlashcardResponse {
   success: true;
   type: 'update_flashcard';
+}
+
+export interface RecordConfusionResponse {
+  success: true;
+  type: 'record_confusion';
 }
 
 export interface SetWordStatusResponse {
@@ -495,6 +533,21 @@ export interface DictSegmentResponse {
   words: SegmentedWord[][];
 }
 
+/** Each word that has any, mapped to the words it could be taken for. */
+export type Confusables = Record<string, string[]>;
+
+export interface DictConfusablesResponse {
+  success: true;
+  type: 'dict_confusables';
+  confusables: Confusables;
+}
+
+export interface FindConfusablesResponse {
+  success: true;
+  type: 'find_confusables';
+  confusables: Confusables;
+}
+
 export interface SegmentTextResponse {
   success: true;
   type: 'segment_text';
@@ -512,6 +565,7 @@ export type BackgroundResponse =
   | ReviewLogResponse
   | TrackWordResponse
   | UpdateFlashcardResponse
+  | RecordConfusionResponse
   | SetWordStatusResponse
   | MarkKnownResponse
   | OcrImageResponse
@@ -519,6 +573,8 @@ export type BackgroundResponse =
   | CaptureTabResponse
   | DictLookupResponse
   | DictSegmentResponse
+  | DictConfusablesResponse
+  | FindConfusablesResponse
   | SegmentTextResponse;
 
 // Every non-error response carries a `type` that matches its request, so the

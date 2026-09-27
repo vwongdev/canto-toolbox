@@ -1,4 +1,5 @@
 import {
+  findConfusables,
   lookupWordAt,
   lookupWordInDictionaries,
   initDictionaries,
@@ -41,6 +42,10 @@ export function register(): void {
     dict_segment: async (msg) => {
       await ready();
       return { success: true, type: 'dict_segment', words: msg.runs.map(segmentRun) };
+    },
+    dict_confusables: async (msg) => {
+      await ready();
+      return { success: true, type: 'dict_confusables', confusables: findConfusables(msg.words) };
     },
   });
 }

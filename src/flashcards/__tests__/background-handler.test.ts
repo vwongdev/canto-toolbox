@@ -166,6 +166,32 @@ describe('flashcard background-handler set_word_status', () => {
   });
 });
 
+describe('flashcard background-handler record_confusion', () => {
+  beforeEach(() => {
+    vi.mocked(chrome.runtime.onMessage.addListener).mockClear();
+    vi.mocked(mutateStatistics).mockReset();
+  });
+
+  it('records the mix-up on both words when both are tracked', async () => {
+    const stats = await applied({ type: 'record_confusion', word: '清', other: '晴' }, {
+      清: { count: 5, firstSeen: 1, lastSeen: 2 },
+      晴: { count: 5, firstSeen: 1, lastSeen: 2, confusedWith: { 清: 1 } },
+    });
+
+    expect(stats['清']!.confusedWith).toEqual({ 晴: 1 });
+    expect(stats['晴']!.confusedWith).toEqual({ 清: 2 });
+  });
+
+  it('does not start tracking the other word', async () => {
+    const stats = await applied(
+      { type: 'record_confusion', word: '清', other: '晴' },
+      { 清: { count: 5, firstSeen: 1, lastSeen: 2 } },
+    );
+
+    expect(stats['晴']).toBeUndefined();
+  });
+});
+
 describe('flashcard background-handler review log', () => {
   beforeEach(() => {
     vi.mocked(chrome.runtime.onMessage.addListener).mockClear();

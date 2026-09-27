@@ -229,6 +229,46 @@ function lookalikesOf(character: string): Lookalike[] {
     });
 }
 
+/**
+ * Which of `words` a reader could take for one another: two words are
+ * confusable when a character of one is a lookalike of a character of the
+ * other. Only words with at least one such partner are returned.
+ */
+export function findConfusables(words: string[]): Record<string, string[]> {
+  const byCharacter = new Map<string, string[]>();
+  for (const word of words) {
+    for (const character of new Set(word)) {
+      const holding = byCharacter.get(character);
+      if (holding) holding.push(word);
+      else byCharacter.set(character, [word]);
+    }
+  }
+
+  const lookalikeCharacters = new Map<string, string[]>();
+  const lookalikesFor = (character: string): string[] => {
+    let found = lookalikeCharacters.get(character);
+    if (!found) {
+      found = inReadersScript(character, lookalikeMatches(character)).map(match => match.character);
+      lookalikeCharacters.set(character, found);
+    }
+    return found;
+  };
+
+  const confusables: Record<string, string[]> = {};
+  for (const word of new Set(words)) {
+    const partners = new Set<string>();
+    for (const character of new Set(word)) {
+      for (const lookalike of lookalikesFor(character)) {
+        for (const partner of byCharacter.get(lookalike) ?? []) {
+          if (partner !== word) partners.add(partner);
+        }
+      }
+    }
+    if (partners.size > 0) confusables[word] = [...partners];
+  }
+  return confusables;
+}
+
 export function lookupEtymology(word: string): CharacterEtymology[] {
   const cached = etymologyCache.get(word);
   if (cached) return cached;

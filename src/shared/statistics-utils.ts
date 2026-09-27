@@ -181,6 +181,36 @@ function mergeFlashcardProgress(
   return (sync.lastReviewed ?? 0) >= (local.lastReviewed ?? 0) ? sync : local;
 }
 
+/**
+ * Each area holds a snapshot of the tallies, as with `count`, so the larger
+ * one per word is the later — summing would count a mix-up twice.
+ */
+function mergeConfusions(
+  sync: Record<string, number> | undefined,
+  local: Record<string, number> | undefined,
+): Record<string, number> | undefined {
+  if (!sync || !local) return sync ?? local;
+
+  const merged = { ...sync };
+  for (const [other, times] of Object.entries(local)) {
+    merged[other] = Math.max(merged[other] ?? 0, times);
+  }
+  return merged;
+}
+
+/** One more time the reader took `stat`'s word for `other`. */
+export function withConfusion(stat: WordStatistics, other: string): WordStatistics {
+  const confusedWith = stat.confusedWith ?? {};
+  return { ...stat, confusedWith: { ...confusedWith, [other]: (confusedWith[other] ?? 0) + 1 } };
+}
+
+/** The words the reader has taken this one for, most often first. */
+export function confusionsOf(stat: WordStatistics | undefined): string[] {
+  return Object.entries(stat?.confusedWith ?? {})
+    .sort(([, a], [, b]) => b - a)
+    .map(([other]) => other);
+}
+
 function mergeWord(sync: WordStatistics, local: WordStatistics): WordStatistics {
   // Spreading both areas first carries every field the branches below do not
   // name, so anything recorded per word survives a merge by default instead of
@@ -212,6 +242,10 @@ function mergeWord(sync: WordStatistics, local: WordStatistics): WordStatistics 
   delete merged.context;
   if (contexts.length > 0) merged.contexts = contexts;
   else delete merged.contexts;
+
+  const confusedWith = mergeConfusions(sync.confusedWith, local.confusedWith);
+  if (confusedWith) merged.confusedWith = confusedWith;
+  else delete merged.confusedWith;
 
   // Retiring or choosing a word is a decision, so the side that made the later
   // one decides — including when that decision was to undo one. Letting local

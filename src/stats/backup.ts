@@ -112,6 +112,8 @@ const isSighting: Check = value =>
 
 const isSightingList: Check = value => Array.isArray(value) && value.every(isSighting);
 
+const isTally: Check = value => isRecord(value) && Object.values(value).every(isNumber);
+
 function badWordField(stat: unknown): string | undefined {
   if (!isRecord(stat)) return '';
 
@@ -123,6 +125,7 @@ function badWordField(stat: unknown): string | undefined {
       context: isString,
       contexts: isSightingList,
       rank: isNumber,
+      confusedWith: isTally,
       decomposable: isBoolean,
       writable: isBoolean,
       suppressed: isBoolean,

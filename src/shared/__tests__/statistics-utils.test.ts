@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   MIN_COUNT,
   applyWordStatus,
+  confusionsOf,
   getFlashcardStage,
   isKnown,
   lastReviewedAt,
   mergeStatistics,
   nextDueAt,
+  withConfusion,
 } from '../statistics-utils.js';
 import { LEECH_LAPSES, reviewCard } from '../scheduler.js';
 import type { FlashcardProgress, WordStatistics } from '../types.js';
@@ -183,6 +185,27 @@ describe('mergeStatistics', () => {
     );
 
     expect(result['好']!.listening).toEqual(late);
+  });
+
+  it('keeps the higher tally of each mix-up from either side', () => {
+    const result = mergeStatistics(
+      { 清: { count: 1, firstSeen: 1, lastSeen: 2, confusedWith: { 晴: 3, 情: 1 } } },
+      { 清: { count: 1, firstSeen: 1, lastSeen: 2, confusedWith: { 晴: 2, 请: 1 } } },
+    );
+
+    expect(result['清']!.confusedWith).toEqual({ 晴: 3, 情: 1, 请: 1 });
+  });
+});
+
+describe('withConfusion and confusionsOf', () => {
+  it('counts each mix-up and lists the most frequent first', () => {
+    let stat: WordStatistics = { count: 1, firstSeen: 1, lastSeen: 2 };
+    stat = withConfusion(stat, '情');
+    stat = withConfusion(stat, '晴');
+    stat = withConfusion(stat, '晴');
+
+    expect(stat.confusedWith).toEqual({ 情: 1, 晴: 2 });
+    expect(confusionsOf(stat)).toEqual(['晴', '情']);
   });
 });
 

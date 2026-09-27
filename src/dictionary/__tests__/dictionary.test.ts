@@ -7,6 +7,7 @@ import {
   findWordCoveringOffset,
   lookupWordAt,
   lookupEtymology,
+  findConfusables,
 } from '../dictionary.js';
 import type { CompactDictionary, DictionaryEntry, DefinitionResult } from '../../shared/types.js';
 
@@ -234,6 +235,20 @@ describe('lookupEtymology', () => {
   });
 });
 
+
+describe('findConfusables', () => {
+  it('pairs words through characters that differ by one part', () => {
+    expect(findConfusables(['好', '仔', '字', '好字'])).toEqual({
+      好: ['仔'],
+      仔: ['好', '好字'],
+      好字: ['仔'],
+    });
+  });
+
+  it('leaves out words with no lookalike among the others', () => {
+    expect(findConfusables(['好', '字'])).toEqual({});
+  });
+});
 
 describe('lookupFrequency', () => {
   it('bands a very common word as core vocabulary', () => {

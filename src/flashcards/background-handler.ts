@@ -1,8 +1,10 @@
 import { registerHandlers } from '../shared/message-router.js';
+import { request } from '../shared/message-manager.js';
+import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
 import { mutateStatistics } from '../shared/statistics-store.js';
 import { recordReview } from '../shared/review-log.js';
 import { isLeech, reviewCard } from '../shared/scheduler.js';
-import { DIRECTION_FIELD, applyWordStatus, progressFor } from '../shared/statistics-utils.js';
+import { DIRECTION_FIELD, applyWordStatus, progressFor, withConfusion } from '../shared/statistics-utils.js';
 import type { FlashcardProgress, WordStatistics } from '../shared/types.js';
 
 /**
@@ -45,6 +47,30 @@ export function register(): void {
         });
       }
       return { success: true, type: 'update_flashcard' };
+    },
+
+    /**
+     * A mix-up goes both ways — taking 清 for 晴 says the reader cannot yet
+     * tell the two apart — so it is kept on each word the record holds.
+     */
+    record_confusion: async (msg) => {
+      if (msg.word === msg.other) return { success: true, type: 'record_confusion' };
+
+      await mutateStatistics((existing) => {
+        const stats = { ...existing };
+        for (const [word, other] of [[msg.word, msg.other], [msg.other, msg.word]] as const) {
+          const stat = stats[word];
+          if (stat) stats[word] = withConfusion(stat, other);
+        }
+        return stats;
+      });
+      return { success: true, type: 'record_confusion' };
+    },
+
+    find_confusables: async (msg) => {
+      await ensureOffscreenDocument();
+      const { confusables } = await request({ type: 'dict_confusables', words: msg.words });
+      return { success: true, type: 'find_confusables', confusables };
     },
 
     set_word_status: async (msg) => {
