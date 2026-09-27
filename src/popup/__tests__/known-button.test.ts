@@ -4,8 +4,7 @@ import { ChineseHoverPopupManager } from '../content.js';
 import type { PopupClient } from '../popup-client.js';
 import type { DefinitionResult, WordStatus } from '../../shared/types.js';
 
-/** Matches `HOVER_INTENT_MS` and `DWELL_MS` in the content script. */
-const HOVER_INTENT_MS = 250;
+/** Matches `DWELL_MS` in the content script. */
 const DWELL_MS = 400;
 
 const DEFINITION: DefinitionResult = {
@@ -42,7 +41,7 @@ describe('the Known button', () => {
       startOffset: 2,
     })) as unknown as Document['caretRangeFromPoint'];
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 12, clientY: 10, bubbles: true }));
-    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS);
+    await vi.advanceTimersByTimeAsync(0);
   }
 
   const known = () => document.querySelector<HTMLButtonElement>('.popup-known')!;

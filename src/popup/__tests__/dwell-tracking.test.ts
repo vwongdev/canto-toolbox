@@ -4,9 +4,6 @@ import { ChineseHoverPopupManager } from '../content.js';
 import type { PopupClient } from '../popup-client.js';
 import type { DefinitionResult } from '../../shared/types.js';
 
-/** Matches `HOVER_INTENT_MS` in the content script. */
-const HOVER_INTENT_MS = 250;
-
 const DEFINITION: DefinitionResult = {
   word: '好字',
   mandarin: {
@@ -46,10 +43,10 @@ describe('dwell tracking', () => {
     );
   }
 
-  /** Hover `offset` and rest there long enough for the lookup to fire. */
+  /** Hover `offset` and let its lookup resolve. */
   async function dwellAt(offset: number): Promise<void> {
     hoverAt(offset);
-    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS);
+    await vi.advanceTimersByTimeAsync(0);
   }
 
   beforeEach(() => {
@@ -79,21 +76,11 @@ describe('dwell tracking', () => {
     expect(client.trackWord).toHaveBeenCalledWith('好字', expect.any(String));
   });
 
-  it('does not look up a word the cursor passed straight over', async () => {
-    hoverAt(2);
-    await vi.advanceTimersByTimeAsync(HOVER_INTENT_MS - 50);
-    manager.destroy();
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(client.lookupWord).not.toHaveBeenCalled();
-    expect(client.trackWord).not.toHaveBeenCalled();
-  });
-
   /**
    * Switching tab or window leaves the page with no pointer at all, which
    * reaches the popup as a bare mouseleave. The cursor never left the word, so
-   * the dwell still stands - and the popup's grace period is shorter than it,
-   * so treating this as leaving would cancel the study before it is recorded.
+   * the dwell still stands - treating this as leaving would cancel the study
+   * before it is recorded.
    */
   it('records the study when the page loses the pointer', async () => {
     await dwellAt(2);
@@ -137,7 +124,8 @@ describe('dwell tracking', () => {
     const first: DefinitionResult = { ...DEFINITION, word: '我寫' };
     const second: DefinitionResult = { ...DEFINITION, word: '好字' };
 
-    const rest = () => new Promise<void>(resolve => setTimeout(resolve, HOVER_INTENT_MS + 50));
+    // Past the animation frame that coalesces moves.
+    const rest = () => new Promise<void>(resolve => setTimeout(resolve, 50));
 
     hoverAt(0);
     await rest();

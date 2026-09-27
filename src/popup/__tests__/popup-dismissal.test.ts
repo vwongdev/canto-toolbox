@@ -14,6 +14,11 @@ const DEFINITION: DefinitionResult = {
   cantonese: { entries: [] }
 };
 
+/** The space in the paragraph: text, but no word. */
+const GAP_OFFSET = 4;
+/** Where the paragraph sits; anything below it is outside. */
+const PARAGRAPH_RECT = { left: 0, top: 0, right: 300, bottom: 100 };
+
 function createClient(): PopupClient {
   return {
     lookupWord: vi.fn(async () => ({ definition: DEFINITION })),
@@ -31,49 +36,48 @@ describe('popup dismissal', () => {
     return document.getElementById('chinese-hover-popup');
   }
 
-  /** Put the caret on `offset` of the page's only text node and move there. */
-  function hoverAt(offset: number): void {
-    const textNode = document.body.firstChild as Text;
+  /** Put the caret on `offset` of the paragraph and move to (x, y). */
+  function moveTo(offset: number, x: number, y: number, init: MouseEventInit = {}): void {
+    const textNode = document.querySelector('p')!.firstChild as Text;
     document.caretRangeFromPoint = vi.fn(() => ({
       startContainer: textNode,
       startOffset: offset,
     })) as unknown as Document['caretRangeFromPoint'];
 
     document.dispatchEvent(
-      new MouseEvent('mousemove', { clientX: 10 + offset, clientY: 10, bubbles: true })
+      new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true, ...init })
     );
+  }
+
+  function hoverAt(offset: number, init: MouseEventInit = {}): void {
+    moveTo(offset, 10 + offset, 10, init);
+  }
+
+  function leaveParagraph(init: MouseEventInit = {}): void {
+    moveTo(GAP_OFFSET, 10, 200, init);
   }
 
   function hoverPopup(): void {
     popup()!.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: 40, bubbles: true }));
   }
 
-  /**
-   * Moves are coalesced onto the animation frame, so a second move only counts
-   * once the frame the first scheduled has passed. Real timers throughout: the
-   * grace period is measured against the same clock the frame runs on.
-   */
-  /** Comfortably past `HOVER_INTENT_MS` in the content script. */
-  const REST_MS = 300;
-
+  /** Moves are coalesced onto the animation frame, so each test move waits one. */
   function nextFrame(): Promise<void> {
     return new Promise(resolve => {
       requestAnimationFrame(() => resolve());
     });
   }
 
-  function wait(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /** Rest on the first word until it earns a popup. */
   async function openPopup(): Promise<void> {
     hoverAt(0);
-    await wait(REST_MS);
+    await nextFrame();
   }
 
   beforeEach(() => {
-    document.body.replaceChildren(document.createTextNode('好字上山 abc'));
+    const paragraph = document.createElement('p');
+    paragraph.textContent = '好字上山 abc';
+    paragraph.getBoundingClientRect = () => ({ ...PARAGRAPH_RECT }) as DOMRect;
+    document.body.replaceChildren(paragraph, document.createElement('input'));
     client = createClient();
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
@@ -84,36 +88,26 @@ describe('popup dismissal', () => {
     window.scrollY = 0;
   });
 
-  it('opens no popup for a word the cursor passes over', async () => {
+  it('opens the popup as soon as the cursor lands on a word', async () => {
     hoverAt(0);
-    await wait(120);
+    await Promise.resolve();
+
+    expect(popup()).not.toBeNull();
+  });
+
+  /** Between lines and around punctuation the cursor is off any word. */
+  it('keeps the popup while the cursor crosses a gap in its paragraph', async () => {
+    await openPopup();
+    moveTo(GAP_OFFSET, 12, 30);
+
+    expect(popup()).not.toBeNull();
+  });
+
+  it('hides the popup the moment the cursor leaves the paragraph', async () => {
+    await openPopup();
+    leaveParagraph();
 
     expect(popup()).toBeNull();
-    expect(client.lookupWord).not.toHaveBeenCalled();
-  });
-
-  it('opens the popup once the cursor rests on the word', async () => {
-    await openPopup();
-
-    expect(popup()).not.toBeNull();
-  });
-
-  it('holds the popup while the cursor crosses the gap to it', async () => {
-    await openPopup();
-    hoverAt(6);
-    await wait(100);
-
-    expect(popup()).not.toBeNull();
-  });
-
-  it('keeps the popup once the cursor reaches it', async () => {
-    await openPopup();
-    hoverAt(6);
-    await nextFrame();
-    hoverPopup();
-    await wait(500);
-
-    expect(popup()).not.toBeNull();
   });
 
   /**
@@ -121,17 +115,34 @@ describe('popup dismissal', () => {
    * page has between - often more Chinese. None of it is what the reader
    * asked about.
    */
-  it('keeps its word while the cursor crosses other words to reach it', async () => {
+  it('keeps the popup and its word while Shift is held on the way to it', async () => {
     await openPopup();
     const lookups = vi.mocked(client.lookupWord).mock.calls.length;
 
-    hoverAt(2);
+    hoverAt(2, { shiftKey: true });
+    await nextFrame();
+    leaveParagraph({ shiftKey: true });
     await nextFrame();
     hoverPopup();
-    await wait(400);
 
     expect(popup()).not.toBeNull();
     expect(vi.mocked(client.lookupWord).mock.calls.length).toBe(lookups);
+  });
+
+  it('leaves Shift alone while a field has focus', async () => {
+    document.querySelector('input')!.focus();
+    await openPopup();
+    leaveParagraph({ shiftKey: true });
+
+    expect(popup()).toBeNull();
+  });
+
+  it('does not hold the popup for a Shift-held move made with a button down', async () => {
+    // Shift with a drag is extending a selection.
+    await openPopup();
+    leaveParagraph({ shiftKey: true, buttons: 1 });
+
+    expect(popup()).toBeNull();
   });
 
   /**
@@ -148,11 +159,14 @@ describe('popup dismissal', () => {
     expect(parseFloat(popup()!.style.top)).toBe(parseFloat(before) - 120);
   });
 
-  it('hides the popup when the cursor stays away', async () => {
+  it('closes the popup on Escape, and the dwell with it', async () => {
     await openPopup();
-    hoverAt(6);
-    await wait(500);
+
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     expect(popup()).toBeNull();
+    // The word was dismissed before the dwell, so it was not studied.
+    await new Promise(resolve => setTimeout(resolve, 500));
+    expect(client.trackWord).not.toHaveBeenCalled();
   });
 });

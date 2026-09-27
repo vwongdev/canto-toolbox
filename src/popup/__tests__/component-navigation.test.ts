@@ -88,8 +88,7 @@ describe('following a component from the popup', () => {
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
     hoverAt(2);
-    // The lookup waits for the cursor to rest on the word.
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(0);
   });
 
   afterEach(() => {
@@ -167,7 +166,7 @@ describe('following a character of the headword', () => {
     manager = new ChineseHoverPopupManager(document, client);
     manager.init();
     hoverAt(2);
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(0);
   });
 
   afterEach(() => {

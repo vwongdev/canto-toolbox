@@ -29,26 +29,13 @@ const KNOWN_LABEL = 'Known';
 
 const SENTENCE_BOUNDARY = /[\u3002\uff01\uff1f\uff1b\uff1a\u3001\n.!?;]/;
 const SELECTION_HIDE_DELAY_MS = 200;
-/**
- * How long the popup survives the cursor leaving the word. The popup is offset
- * from the cursor, so reaching it means crossing text that is not the word —
- * hiding on the first such move would put it out of reach.
- */
-const POPUP_HIDE_DELAY_MS = 300;
-/**
- * How long the cursor must rest on a word before it is looked up. Hovering is
- * how a reader crosses a page, not only how they ask about a word, so without
- * this every word passed over on the way somewhere else opened a popup —
- * including the words between the cursor and the popup it was reaching for.
- */
-const HOVER_INTENT_MS = 250;
 const SELECTION_TRACKING_DELAY_MS = 300;
 const POPUP_OFFSET_PX = 15;
 const SELECTION_PADDING_PX = 10;
 const VIEWPORT_MARGIN_PX = 10;
 
 /** What each pending timer is waiting to do. */
-type TimerName = 'selection' | 'track' | 'hide' | 'show';
+type TimerName = 'selection' | 'track';
 
 /** A word the popup has shown, kept so the back control can restore it. */
 interface ShownWord {
@@ -82,8 +69,6 @@ export class ChineseHoverPopupManager {
   private readonly timers: Record<TimerName, ReturnType<typeof setTimeout> | null> = {
     selection: null,
     track: null,
-    hide: null,
-    show: null,
   };
   private lastHoveredWord: string | null = null;
   private lastHoveredOffset = -1;
@@ -102,6 +87,12 @@ export class ChineseHoverPopupManager {
   private popupAnchor: { left: number; top: number } | null = null;
   private isHoveringChinese = false;
   private lastHoveredElement: Node | null = null;
+  /**
+   * The block of text the hovered word sits in. The gaps between its lines and
+   * characters are not a word, but crossing them is not leaving either, so the
+   * popup is kept until the cursor leaves the block itself.
+   */
+  private hoveredBlock: Element | null = null;
   private mousemoveThrottle: number | null = null;
   /** The newest move seen since the frame was scheduled. */
   private pendingMouseMove: MouseEvent | null = null;
@@ -110,8 +101,6 @@ export class ChineseHoverPopupManager {
    * reply for a word the cursor has left cannot paint over the current one.
    */
   private lookupGeneration = 0;
-  /** What the pending `show` timer will do, so Shift can do it early. */
-  private pendingShow: (() => void) | null = null;
   private readonly boundMouseMove: (e: MouseEvent) => void;
   private readonly boundMouseOut: (e: MouseEvent) => void;
   private readonly boundMouseUp: (e: MouseEvent) => void;
@@ -190,10 +179,6 @@ export class ChineseHoverPopupManager {
       return;
     }
 
-    // A selection is deliberate, so it is shown at once and outranks a word the
-    // cursor is resting on.
-    this.clearTimer('show');
-
     const chineseWords = extractChineseWordsFromText(selection.toString().trim());
     if (chineseWords.length === 0 || selection.rangeCount === 0) {
       return;
@@ -219,9 +204,10 @@ export class ChineseHoverPopupManager {
 
     const relatedTarget = event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null;
     if (relatedTarget?.closest('#chinese-hover-popup')) return;
+    if (isHoldingPopup(event, this.document)) return;
 
     if (!this.isHoveringChinese && this.currentPopup && !this.currentPopup.matches(':hover')) {
-      this.scheduleHide();
+      this.leave();
     }
   }
 
@@ -236,34 +222,23 @@ export class ChineseHoverPopupManager {
 
     const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
     if (element?.closest('#chinese-hover-popup')) {
-      this.clearTimer('hide');
-      // The reader is in the popup; a word crossed on the way there must not
-      // replace it a moment later.
-      this.clearTimer('show');
       this.isHoveringChinese = true;
       return;
     }
 
     if (hasActiveSelection()) return;
+    // Held, the popup stays as it is while the cursor crosses the page to it.
+    if (this.currentPopup && isHoldingPopup(event, this.document)) return;
 
-    if (!canHoldText(target)) {
-      if (this.isHoveringChinese || this.currentPopup) {
-        this.scheduleHide();
-      }
-      return;
-    }
-
-    const result = getChineseWordAtCursor(this.document, event);
+    const result = canHoldText(target) ? getChineseWordAtCursor(this.document, event) : null;
     if (!result) {
-      if (this.isHoveringChinese || this.currentPopup) {
-        this.scheduleHide();
-      }
+      if (this.isHoveringChinese || this.currentPopup) this.leaveUnlessInBlock(event);
       return;
     }
 
     const { run, runOffset, textNode, offset } = result;
-    this.clearTimer('hide');
     this.isHoveringChinese = true;
+    if (textNode !== this.lastHoveredElement) this.hoveredBlock = textBlockOf(textNode);
 
     // Caret offsets are whole characters, so any difference at all is a move
     // to another character.
@@ -275,49 +250,16 @@ export class ChineseHoverPopupManager {
     const key = `${run}@${runOffset}`;
     if (key !== this.lastHoveredWord || characterChanged) {
       this.lastHoveredWord = key;
-
-      const { clientX, clientY } = event;
-      const context = extractContext(textNode.textContent ?? '', offset);
-      // Whatever is already on screen stays put until the new word resolves, so
-      // crossing text on the way to the popup neither dismisses it nor replaces
-      // the word it is showing.
-      this.pendingShow = () => {
-        this.lookupAndShowWord(run, clientX, clientY, {
-          segment: { run, offset: runOffset },
-          context,
-        });
-      };
-      this.setTimer('show', this.pendingShow, HOVER_INTENT_MS);
+      this.lookupAndShowWord(run, event.clientX, event.clientY, {
+        segment: { run, offset: runOffset },
+        context: extractContext(textNode.textContent ?? '', offset),
+      });
     }
-
-    if (isInstantLookup(event, this.document)) this.showNow();
   }
 
-  /**
-   * Shift says "this one" outright, so the pause that tells a reader resting
-   * on a word from one passing over it has nothing left to decide.
-   */
   private handleKeyDown(event: KeyboardEvent): void {
     // The page may use Escape too, so the key is not consumed.
-    if (event.key === 'Escape') {
-      this.hidePopup();
-      return;
-    }
-
-    if (event.key !== 'Shift' || event.repeat) return;
-    // Shift is also half of every capital letter typed into a field.
-    if (isEditable(event.target) || isEditable(this.document.activeElement)) return;
-    this.showNow();
-  }
-
-  /** Run the pending lookup at once, if the cursor is resting on a word. */
-  private showNow(): void {
-    const show = this.pendingShow;
-    if (!show || this.timers.show === null) return;
-
-    this.clearTimer('show');
-    this.pendingShow = null;
-    show();
+    if (event.key === 'Escape') this.hidePopup();
   }
 
   private handleSelectionTracking(event: MouseEvent): void {
@@ -546,17 +488,15 @@ export class ChineseHoverPopupManager {
       dataset: { word },
       listeners: {
         mouseenter: () => {
-          this.clearTimer('hide');
-          this.clearTimer('show');
           this.isHoveringChinese = true;
         },
         // Only a move onto something that is not the word dismisses the popup,
-        // and the move handler already schedules that. A bare mouseleave also
+        // and the move handler already does that. A bare mouseleave also
         // arrives when the page loses the pointer entirely - switching tab or
-        // window - which must not count as leaving, since the hide it would
-        // schedule lands before the dwell and cancels the study with it.
+        // window - which must not count as leaving, since the hide would land
+        // before the dwell and cancel the study with it.
         mouseleave: () => {
-          if (!this.isHoveringChinese) this.scheduleHide();
+          if (!this.isHoveringChinese) this.leave();
         }
       }
     });
@@ -621,8 +561,6 @@ export class ChineseHoverPopupManager {
   private hidePopup(): void {
     // A word the reader moved off before the dwell elapsed was never studied.
     this.clearTimer('track');
-    this.clearTimer('hide');
-    this.clearTimer('show');
     this.lookupGeneration++;
 
     if (this.currentPopup) {
@@ -653,18 +591,22 @@ export class ChineseHoverPopupManager {
   private resetHoverState(): void {
     this.isHoveringChinese = false;
     this.lastHoveredElement = null;
+    this.hoveredBlock = null;
     this.lastHoveredOffset = -1;
   }
 
-  /**
-   * The cursor has left the word. Hovering the popup within the grace period
-   * cancels this, so a reader reaching for the audio or Study button keeps it.
-   */
-  private scheduleHide(): void {
+  /** The cursor has left the word, so the popup and any lookup for it go. */
+  private leave(): void {
     this.resetHoverState();
-    // The cursor left before the word earned a popup, so it never gets one.
-    this.clearTimer('show');
-    this.setTimer('hide', () => this.hidePopup(), POPUP_HIDE_DELAY_MS);
+    this.hidePopup();
+  }
+
+  private leaveUnlessInBlock(event: MouseEvent): void {
+    const block = this.currentPopup ? this.hoveredBlock?.getBoundingClientRect() : undefined;
+    const inBlock = block &&
+      event.clientX >= block.left && event.clientX <= block.right &&
+      event.clientY >= block.top && event.clientY <= block.bottom;
+    if (!inBlock) this.leave();
   }
 
   private scheduleSelectionHide(): void {
@@ -810,12 +752,27 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 /**
- * A move made with Shift held skips the hover pause. Not while a button is
- * down — Shift with a drag is extending a selection — and not while a field
- * has focus, where Shift is held for typing.
+ * Shift held keeps the popup in place, so the cursor can cross other words to
+ * reach it. Not while a button is down — Shift with a drag is extending a
+ * selection — and not while a field has focus, where Shift is held for typing.
  */
-function isInstantLookup(event: MouseEvent, document: Document): boolean {
+function isHoldingPopup(event: MouseEvent, document: Document): boolean {
   return event.shiftKey && event.buttons === 0 && !isEditable(document.activeElement);
+}
+
+/**
+ * The nearest element that lays its text out as a block of its own. Inline
+ * elements only wrap part of a line, so the lines of one paragraph can belong
+ * to several of them. The body is no block: it spans the page, so the popup
+ * would never leave.
+ */
+function textBlockOf(node: Node): Element | null {
+  const body = node.ownerDocument?.body;
+  let element = node.parentElement;
+  while (element && element !== body && getComputedStyle(element).display === 'inline') {
+    element = element.parentElement;
+  }
+  return element === body ? null : element;
 }
 
 /**

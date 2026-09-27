@@ -41,7 +41,7 @@ describe('the popup drawn with the reader\'s settings', () => {
       startOffset: 0,
     })) as unknown as Document['caretRangeFromPoint'];
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 10, bubbles: true }));
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(0);
   }
 
   const labels = () =>
