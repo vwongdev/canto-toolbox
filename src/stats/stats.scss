@@ -525,7 +525,6 @@ h1 {
   border: 1px solid t.$color-border-muted;
   transition: border-color 0.15s, background 0.15s;
   overflow: hidden;
-  cursor: pointer;
 }
 
 .stat-item:hover {
@@ -550,7 +549,7 @@ h1 {
   @include a.focus-ring(-2px);
 }
 
-.stat-item:hover .stat-header,
+.stat-header:hover,
 .stat-item.expanded .stat-header {
   background: t.$color-surface-alt;
 }
@@ -867,7 +866,7 @@ h1 {
     background: t.$color-surface-alt;
   }
 
-  .stat-item:hover .stat-header,
+  .stat-header:hover,
   .stat-item.expanded .stat-header {
     background: t.$color-control-hover;
   }
