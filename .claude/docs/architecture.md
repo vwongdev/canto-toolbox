@@ -448,8 +448,8 @@ flowchart TD
   **Back up** downloads the whole record as versioned JSON (`backup.ts`);
   **Restore** validates such a file and merges it through `mutateStatistics`
   with the backup in the sync area's place — counts, dates and schedules
-  resolve as they do between the two areas, and this device keeps its own
-  retire and study decisions for a word both hold. Nothing is replaced, so an
+  resolve as they do between the two areas, including a word's retire and
+  study decisions, where the later one wins. Nothing is replaced, so an
   old file cannot wipe newer progress. A file picker closes the action popup,
   so Restore in the popup opens the page in a tab (`#restore`) instead.
   **Anki** and **Pleco** export the deck (enrolled or scheduled, not retired)
@@ -602,8 +602,14 @@ flowchart TD
   that shards would save. Mutations in one context run one at a time, since each
   reads what the last wrote.
 - **Local is the authority.** `unlimitedStorage` lifts its quota, so it is the
-  area every write reaches — which is why a merge lets it decide a word's
-  retired and chosen flags.
+  area every write reaches.
+- **Decisions are timed.** Retiring or choosing a word, or undoing either,
+  stamps it with `statusAt` (`applyWordStatus`), and a merge takes the flags
+  of whichever side decided last. Letting local decide regardless meant a
+  retirement made on one device never reached another that held the word: that
+  device kept its own flags and wrote them back to sync, undoing the decision
+  everywhere. A flag recorded before decisions were timed has no stamp and
+  loses to one that has; two unstamped sides go to local.
 - **Sync carries a share, deliberately.** Its quotas (8 KB an item, 100 KB and
   512 items in all, and a write rate) cannot hold a reader's record: the old
   single item passed 8 KB at a few dozen studied words, after which sync kept a
@@ -616,10 +622,17 @@ flowchart TD
   removing what fell out of it. Past the budget a device receives the most
   recent reviews, never a months-old snapshot. Reads reconcile both areas with
   `reconcileStatistics`, unchanged: counts take the higher, the later review
-  wins, local decides the flags; a word another device synced is written into
+  wins, the later decision wins; a word another device synced is written into
   local by the next write. A sync write refused by the rate limit is logged and
-  dropped — the next write carries the change. Clearing statistics does not
-  propagate: another device still holding the words carries them back.
+  dropped — the next write carries the change.
+- **Clearing is recorded, not just performed.** `clear` removes every word
+  and writes `CLEARED_AT_KEY` to both areas. Removing the words alone was
+  undone by the reader's other devices, which still held them locally and
+  synced them straight back. Every read now drops words with no sighting,
+  review or decision since the latest clear either area records, and the next
+  write removes them from storage and brings local's own record of the clear
+  up to date. Each device's clock times its own words, so a skewed clock
+  shifts the cut-off by the skew.
 - **Migration**: the first read or write in each context folds the legacy
   `wordStatistics` item — local's and sync's, reconciled as before — into the
   per-word layout, then removes it. Concurrent first calls share that one
@@ -771,14 +784,16 @@ is written in.
   `MAX_TRACKED_WORDS`** (`src/shared/statistics-store.ts`) — the single record
   every feature addresses, one local item per word. `read` reconciles both
   areas, `mutate` writes local's changed words and then sync's share
-  best-effort, `clear` empties both; the first call migrates the legacy item.
+  best-effort, `clear` empties both and records when, so other devices drop
+  their copies too; the first call migrates the legacy item.
 - **`syncSelection` / `evictionRank`** (`src/shared/statistics-store.ts`) — which
   words sync carries, and the order both it and eviction rank words in.
 - **`mergeStatistics` / `reconcileStatistics`**
   (`src/shared/statistics-utils.ts`) — the record as both storage areas hold it.
   Each area's copy of a word is a snapshot of it rather than a share of its
-  count, so counts take the higher of the two and local decides a word's retired and
-  chosen flags; reads and writes reconcile through the same function.
+  count, so counts take the higher of the two, and a word's retired and chosen
+  flags come from whichever side decided last (`statusAt`); reads and writes
+  reconcile through the same function.
 - **`MIN_COUNT` / `isEnrolled`** (`src/shared/statistics-utils.ts`) — whether a
   word is in the deck at all. Tracking a word and drilling it are separate:
   hovering records everything, enrolment needs Study or the reader's threshold

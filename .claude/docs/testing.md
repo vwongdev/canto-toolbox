@@ -90,7 +90,8 @@ romanisation, definitions or ranks.
   eviction, merging in met order, and which page addresses are kept or dropped
 - `src/shared/statistics-store.ts` — per-word writes, the sync share and its
   quotas, and migrating the legacy item (including an interrupted migration
-  and concurrent first calls). Driven over `src/__tests__/fake-storage.ts`, an
+  and concurrent first calls), and a clear reaching a second store that shares
+  the sync area. Driven over `src/__tests__/fake-storage.ts`, an
   in-memory storage area that round-trips values through JSON and can enforce
   sync's quotas; `asItems` turns a record into the `word:<word>` items it is
   stored as, which is how tests seed storage
