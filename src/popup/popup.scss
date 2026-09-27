@@ -14,9 +14,9 @@
   z-index: 999999;
   background: t.$color-surface;
   border: 1px solid t.$color-border;
-  border-radius: 10px;
+  border-radius: t.$radius-lg;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.10);
-  padding: 14px 16px;
+  padding: t.$space-3 t.$space-4;
   // The popup is read *over* the page it covers, so it is sized to hold two
   // readings side by side and no wider. At 500-1200px it took two thirds of a
   // laptop viewport to answer a question about one word.
@@ -223,7 +223,7 @@
 
   .definition-text {
     line-height: 1.5;
-    padding-left: 18px;
+    padding-left: t.$space-4;
     hyphens: auto;
   }
 }
