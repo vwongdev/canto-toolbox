@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  css: {
+    // Tests compile imported SCSS without vite.config.ts, so repeat its opt-in.
+    preprocessorOptions: { scss: { api: 'modern-compiler' } },
+  },
   test: {
     environment: 'node',
     setupFiles: ['./src/__tests__/setup.ts'],
