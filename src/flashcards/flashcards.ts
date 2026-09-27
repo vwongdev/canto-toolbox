@@ -1,7 +1,4 @@
 import type {
-  StatisticsResponse,
-  LookupResponse,
-  ErrorResponse,
   DefinitionResult,
   FlashcardRating,
   Statistics,
@@ -156,19 +153,17 @@ export class FlashcardManager {
     this.setupStatsLinks();
     this.setupKeyboardShortcuts();
 
-    this.client.getStatistics((response: StatisticsResponse | ErrorResponse) => {
-      if (!response.success) {
-        renderEmptyState(this.document, NOTHING_TRACKED);
-        return;
-      }
-
-      // Whether listening cards can be offered is only known once the voices
-      // have loaded, and the session is built around the answer.
-      whenVoicesReady(voices => {
-        this.listening = listeningReading(voices);
-        this.startSession(response.statistics);
-      });
-    });
+    void this.client.getStatistics().then(
+      statistics => {
+        // Whether listening cards can be offered is only known once the voices
+        // have loaded, and the session is built around the answer.
+        whenVoicesReady(voices => {
+          this.listening = listeningReading(voices);
+          this.startSession(statistics);
+        });
+      },
+      () => renderEmptyState(this.document, NOTHING_TRACKED),
+    );
   }
 
   private startSession(statistics: Statistics): void {
@@ -281,17 +276,17 @@ export class FlashcardManager {
       return;
     }
 
-    this.client.lookupWord(card.word, (response: LookupResponse | ErrorResponse) => {
-      if (!this.isCurrent(card)) return;
+    void this.client.lookupWord(card.word).then(
+      definition => {
+        if (!this.isCurrent(card)) return;
 
-      if (!response.success || !response.definition) {
-        render(undefined);
-        return;
-      }
-
-      this.definitions.set(card.word, response.definition);
-      render(response.definition);
-    });
+        this.definitions.set(card.word, definition);
+        render(definition);
+      },
+      () => {
+        if (this.isCurrent(card)) render(undefined);
+      },
+    );
   }
 
   /** A lookup that returns after the reader has moved on must not redraw the card. */
@@ -437,7 +432,7 @@ export class FlashcardManager {
     const key = cardKey(card);
     if (!this.scheduled.has(key)) {
       this.scheduled.add(key);
-      this.client.updateFlashcard(card.word, rating, card.direction, () => {});
+      void this.client.updateFlashcard(card.word, rating, card.direction).catch(() => {});
     }
 
     this.showNextCard();
@@ -466,7 +461,7 @@ export class FlashcardManager {
     if (!card) return;
 
     this.dismissRetired();
-    this.client.setWordStatus(card.word, { suppressed: true }, () => {});
+    void this.client.setWordStatus(card.word, { suppressed: true }).catch(() => {});
 
     // Its other cards are owed no answer either, and a retired word must not
     // come back through the restart the finished screen offers.
@@ -503,7 +498,7 @@ export class FlashcardManager {
 
     this.retired = undefined;
     hideRetiredNotice(this.document);
-    this.client.setWordStatus(retired.word, { suppressed: false }, () => {});
+    void this.client.setWordStatus(retired.word, { suppressed: false }).catch(() => {});
 
     // Retiring moved the session on, so whatever it moved on to is owed its
     // turn back once the retired card has had the one it lost.

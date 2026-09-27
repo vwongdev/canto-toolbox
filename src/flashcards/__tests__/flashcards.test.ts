@@ -60,38 +60,35 @@ const DEFINITION: DefinitionResult = {
 
 function createClient(overrides: Partial<FlashcardClient> = {}): FlashcardClient {
   return {
-    getStatistics: vi.fn(cb =>
-      cb({
-        success: true,
-        type: 'get_statistics',
-        statistics: {
-          你好: { count: 5, firstSeen: 1, lastSeen: 2, context: '你好嗎' },
-          再见: { count: 5, firstSeen: 1, lastSeen: 2 }
-        }
-      })
-    ),
-    lookupWord: vi.fn((_word, cb) =>
-      cb({ success: true, type: 'lookup_word', definition: DEFINITION })
-    ),
-    updateFlashcard: vi.fn((_word, _rating, _direction, cb) =>
-      cb({ success: true, type: 'update_flashcard' })
-    ),
-    setWordStatus: vi.fn((_word, _status, cb) => cb({ success: true, type: 'set_word_status' })),
+    getStatistics: vi.fn(async () => ({
+      你好: { count: 5, firstSeen: 1, lastSeen: 2, context: '你好嗎' },
+      再见: { count: 5, firstSeen: 1, lastSeen: 2 }
+    })),
+    lookupWord: vi.fn(async () => DEFINITION),
+    updateFlashcard: vi.fn(async () => {}),
+    setWordStatus: vi.fn(async () => {}),
     ...overrides
   };
+}
+
+/** Let the client's replies land before the test looks at the page. */
+function flush(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 describe('FlashcardManager keyboard shortcuts', () => {
   let document: Document;
   let client: FlashcardClient;
 
-  function start(overrides: Partial<FlashcardClient> = {}): void {
+  async function start(overrides: Partial<FlashcardClient> = {}): Promise<void> {
     client = createClient(overrides);
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
-  function press(key: string, init: KeyboardEventInit = {}): void {
+  async function press(key: string, init: KeyboardEventInit = {}): Promise<void> {
     document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }));
+    await flush();
   }
 
   function isVisible(id: string): boolean {
@@ -106,60 +103,58 @@ describe('FlashcardManager keyboard shortcuts', () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
   });
 
-  it('reveals the answer on Space', () => {
-    start();
+  it('reveals the answer on Space', async () => {
+    await start();
     const word = currentWord();
 
-    press(' ');
+    await press(' ');
 
-    expect(client.lookupWord).toHaveBeenCalledWith(word, expect.any(Function));
+    expect(client.lookupWord).toHaveBeenCalledWith(word);
     expect(isVisible('rating-btns')).toBe(true);
   });
 
-  it('ignores a second reveal while the lookup is in flight', () => {
-    start({ lookupWord: vi.fn() });
+  it('ignores a second reveal while the lookup is in flight', async () => {
+    await start({ lookupWord: vi.fn(() => new Promise<never>(() => {})) });
 
-    press(' ');
-    press(' ');
+    await press(' ');
+    await press(' ');
 
     expect(client.lookupWord).toHaveBeenCalledTimes(1);
   });
 
-  it('rates with the number keys once the answer is visible', () => {
-    start();
+  it('rates with the number keys once the answer is visible', async () => {
+    await start();
     const word = currentWord();
 
-    press(' ');
-    press('4');
+    await press(' ');
+    await press('4');
 
     expect(client.updateFlashcard).toHaveBeenCalledWith(
       word,
       'easy',
       'recognition',
-      expect.any(Function)
     );
   });
 
-  it('rates Good on Space once the answer is visible', () => {
-    start();
+  it('rates Good on Space once the answer is visible', async () => {
+    await start();
     const word = currentWord();
 
-    press(' ');
-    press(' ');
+    await press(' ');
+    await press(' ');
 
     expect(client.updateFlashcard).toHaveBeenCalledWith(
       word,
       'good',
       'recognition',
-      expect.any(Function)
     );
   });
 
   // Four buttons asking the reader to grade themselves mean nothing until they
   // say what each one costs.
-  it('writes on each rating button when it would bring the card back', () => {
-    start();
-    press(' ');
+  it('writes on each rating button when it would bring the card back', async () => {
+    await start();
+    await press(' ');
 
     const intervals = Array.from(
       document.getElementById('rating-btns')!.querySelectorAll('.btn-interval'),
@@ -170,96 +165,84 @@ describe('FlashcardManager keyboard shortcuts', () => {
     expect(intervals.every(text => /^\d+(m|h|d|mo)$/.test(text))).toBe(true);
   });
 
-  it('reprices the buttons rather than stacking a second reading on them', () => {
-    start();
-    press(' ');
-    press('3');
-    press(' ');
+  it('reprices the buttons rather than stacking a second reading on them', async () => {
+    await start();
+    await press(' ');
+    await press('3');
+    await press(' ');
 
     expect(
       document.getElementById('rating-btns')!.querySelectorAll('.btn-interval')
     ).toHaveLength(4);
   });
 
-  it('does not rate before the answer is revealed', () => {
-    start();
+  it('does not rate before the answer is revealed', async () => {
+    await start();
 
-    press('3');
+    await press('3');
 
     expect(client.updateFlashcard).not.toHaveBeenCalled();
   });
 
-  it('ignores shortcuts when a modifier is held', () => {
-    start();
+  it('ignores shortcuts when a modifier is held', async () => {
+    await start();
 
-    press(' ', { metaKey: true });
+    await press(' ', { metaKey: true });
 
     expect(client.lookupWord).not.toHaveBeenCalled();
   });
 
-  it('requeues a card rated Again with the 1 key', () => {
-    start();
+  it('requeues a card rated Again with the 1 key', async () => {
+    await start();
     const first = currentWord();
 
-    press(' ');
-    press('1');
+    await press(' ');
+    await press('1');
     expect(currentWord()).not.toBe(first);
 
-    press(' ');
-    press('3');
+    await press(' ');
+    await press('3');
     expect(isVisible('review')).toBe(true);
     expect(currentWord()).toBe(first);
 
-    press(' ');
-    press('3');
+    await press(' ');
+    await press('3');
     expect(isVisible('finished')).toBe(true);
     expect(document.getElementById('result-summary')!.textContent).toBe('2 / 2 correct');
   });
 
-  it('shows the sentence the word was met in on the answer', () => {
-    start();
-    press(' ');
+  it('shows the sentence the word was met in on the answer', async () => {
+    await start();
+    await press(' ');
 
     const context = document.getElementById('card-back')!.querySelector('.context');
     expect(context?.querySelector('.context-sentence')?.textContent).toBe('你好嗎');
   });
 
-  it('links the sentence on the answer to the page it was read on', () => {
-    start({
-      getStatistics: vi.fn(cb =>
-        cb({
-          success: true,
-          type: 'get_statistics',
-          statistics: {
-            你好: {
-              count: 5, firstSeen: 1, lastSeen: 2,
-              contexts: [{ text: '你好嗎', source: { url: 'https://example.com/chat', title: '傾偈' }, seen: 1 }],
-            },
-          },
-        })
-      ),
+  it('links the sentence on the answer to the page it was read on', async () => {
+    await start({
+      getStatistics: vi.fn(async () => ({
+        你好: {
+          count: 5, firstSeen: 1, lastSeen: 2,
+          contexts: [{ text: '你好嗎', source: { url: 'https://example.com/chat', title: '傾偈' }, seen: 1 }],
+        },
+      })),
     });
-    press(' ');
+    await press(' ');
 
     const link = document.getElementById('card-back')!.querySelector<HTMLAnchorElement>('.context-source');
     expect(link?.getAttribute('href')).toBe('https://example.com/chat');
     expect(link?.textContent).toBe('傾偈');
   });
 
-  it('places the sentence above the character breakdown', () => {
-    start({
-      lookupWord: vi.fn((_word, cb) =>
-        cb({
-          success: true,
-          type: 'lookup_word',
-          definition: {
-            ...DEFINITION,
-            etymology: [{ character: '你', definition: 'you', decomposition: '⿰亻尔', radical: '亻' }],
-          },
-        })
-      ),
+  it('places the sentence above the character breakdown', async () => {
+    await start({
+      lookupWord: vi.fn(async () => ({
+        ...DEFINITION,
+        etymology: [{ character: '你', definition: 'you', decomposition: '⿰亻尔', radical: '亻' }],
+      })),
     });
-    press(' ');
+    await press(' ');
 
     const order = Array.from(
       document.getElementById('card-back')!.querySelector('.definition-container')!.children,
@@ -271,23 +254,23 @@ describe('FlashcardManager keyboard shortcuts', () => {
     );
   });
 
-  it('omits the sentence for a word that has none', () => {
-    start();
-    press(' ');
-    press('3');
-    press(' ');
+  it('omits the sentence for a word that has none', async () => {
+    await start();
+    await press(' ');
+    await press('3');
+    await press(' ');
 
     expect(document.getElementById('card-back')!.querySelector('.context')).toBeNull();
   });
 
-  it('sends a requeued card to the scheduler only on its first answer', () => {
-    start();
+  it('sends a requeued card to the scheduler only on its first answer', async () => {
+    await start();
     const first = currentWord();
 
-    press(' ');
-    press('1');
-    press(' ');
-    press('3');
+    await press(' ');
+    await press('1');
+    await press(' ');
+    await press('3');
 
     const rated = (client.updateFlashcard as ReturnType<typeof vi.fn>).mock.calls
       .filter(call => call[0] === first);
@@ -295,32 +278,32 @@ describe('FlashcardManager keyboard shortcuts', () => {
     expect(rated[0]![1]).toBe('again');
   });
 
-  it('does not re-rate the same cards when the session is restarted', () => {
-    start();
+  it('does not re-rate the same cards when the session is restarted', async () => {
+    await start();
     for (let i = 0; i < 2; i++) {
-      press(' ');
-      press('3');
+      await press(' ');
+      await press('3');
     }
     expect(client.updateFlashcard).toHaveBeenCalledTimes(2);
 
-    press('Enter');
+    await press('Enter');
     for (let i = 0; i < 2; i++) {
-      press(' ');
-      press('3');
+      await press(' ');
+      await press('3');
     }
 
     expect(client.updateFlashcard).toHaveBeenCalledTimes(2);
   });
 
-  it('restarts the session on Enter from the finished screen', () => {
-    start();
+  it('restarts the session on Enter from the finished screen', async () => {
+    await start();
     for (let i = 0; i < 2; i++) {
-      press(' ');
-      press('3');
+      await press(' ');
+      await press('3');
     }
     expect(isVisible('finished')).toBe(true);
 
-    press('Enter');
+    await press('Enter');
 
     expect(isVisible('review')).toBe(true);
     expect(document.getElementById('counter')!.textContent).toBe('Card 1 of 2');
@@ -331,48 +314,48 @@ describe('FlashcardManager retiring a word', () => {
   let document: Document;
   let client: FlashcardClient;
 
-  function press(key: string): void {
+  async function press(key: string): Promise<void> {
     document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    await flush();
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
     client = createClient();
     new FlashcardManager(document, client).init();
+    await flush();
   });
 
-  it('retires the word on screen and moves on', () => {
+  it('retires the word on screen and moves on', async () => {
     const first = document.getElementById('card')!.dataset.currentWord;
 
-    press('k');
+    await press('k');
 
     expect(client.setWordStatus).toHaveBeenCalledWith(
       first,
-      { suppressed: true },
-      expect.any(Function)
-    );
+      { suppressed: true });
     expect(document.getElementById('card')!.dataset.currentWord).not.toBe(first);
   });
 
-  it('shrinks the session rather than leaving a card unanswered', () => {
-    press('k');
+  it('shrinks the session rather than leaving a card unanswered', async () => {
+    await press('k');
     expect(document.getElementById('counter')!.textContent).toBe('Card 1 of 1');
   });
 
-  it('does not bring a retired word back when the session restarts', () => {
+  it('does not bring a retired word back when the session restarts', async () => {
     const first = document.getElementById('card')!.dataset.currentWord;
-    press('k');
-    press(' ');
-    press('3');
+    await press('k');
+    await press(' ');
+    await press('3');
 
     expect(document.getElementById('finished')!.style.display).not.toBe('none');
-    press('Enter');
+    await press('Enter');
 
     expect(document.getElementById('card')!.dataset.currentWord).not.toBe(first);
   });
 
-  it('does not send the retired card to the scheduler', () => {
-    press('k');
+  it('does not send the retired card to the scheduler', async () => {
+    await press('k');
     expect(client.updateFlashcard).not.toHaveBeenCalled();
   });
 });
@@ -381,17 +364,20 @@ describe('FlashcardManager undoing a retirement', () => {
   let document: Document;
   let client: FlashcardClient;
 
-  function start(): void {
+  async function start(): Promise<void> {
     client = createClient();
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
-  function retire(): void {
+  async function retire(): Promise<void> {
     document.getElementById('know-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
   }
 
-  function undo(): void {
+  async function undo(): Promise<void> {
     document.getElementById('undo-retire-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
   }
 
   function isVisible(id: string): boolean {
@@ -404,28 +390,26 @@ describe('FlashcardManager undoing a retirement', () => {
 
   // One keystroke buries every card the word owns, which is a lot to lose to a
   // mistyped rating.
-  it('says which word was retired', () => {
-    start();
+  it('says which word was retired', async () => {
+    await start();
     const word = document.getElementById('card')!.dataset.currentWord;
 
-    retire();
+    await retire();
 
     expect(isVisible('retired-notice')).toBe(true);
     expect(document.getElementById('retired-message')!.textContent).toBe(`Retired ${word}.`);
   });
 
-  it('puts the word back, on screen and in the record', () => {
-    start();
+  it('puts the word back, on screen and in the record', async () => {
+    await start();
     const word = document.getElementById('card')!.dataset.currentWord;
 
-    retire();
-    undo();
+    await retire();
+    await undo();
 
     expect(client.setWordStatus).toHaveBeenLastCalledWith(
       word,
-      { suppressed: false },
-      expect.any(Function)
-    );
+      { suppressed: false });
     expect(document.getElementById('card')!.dataset.currentWord).toBe(word);
     expect(document.getElementById('counter')!.textContent).toBe('Card 1 of 2');
     expect(isVisible('retired-notice')).toBe(false);
@@ -433,27 +417,31 @@ describe('FlashcardManager undoing a retirement', () => {
 
   // Retiring the last card ends the session; undoing has to bring the review
   // screen back rather than leaving the word restored behind a finished one.
-  it('returns to the review from a session the retirement finished', () => {
-    start();
+  it('returns to the review from a session the retirement finished', async () => {
+    await start();
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+    await flush();
     const last = document.getElementById('card')!.dataset.currentWord;
 
-    retire();
+    await retire();
     expect(isVisible('finished')).toBe(true);
 
-    undo();
+    await undo();
 
     expect(isVisible('review')).toBe(true);
     expect(document.getElementById('card')!.dataset.currentWord).toBe(last);
   });
 
-  it('takes the offer away once another card is answered', () => {
-    start();
-    retire();
+  it('takes the offer away once another card is answered', async () => {
+    await start();
+    await retire();
 
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+    await flush();
 
     expect(isVisible('retired-notice')).toBe(false);
   });
@@ -487,41 +475,40 @@ describe('FlashcardManager production cards', () => {
     },
   };
 
-  function start(): void {
+  async function start(): Promise<void> {
     client = createClient({
-      getStatistics: vi.fn(cb =>
-        cb({ success: true, type: 'get_statistics', statistics: GRADUATED })
-      ),
+      getStatistics: vi.fn(async () => GRADUATED),
     });
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
   beforeEach(() => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
   });
 
-  it('asks for the word from its meaning', () => {
-    start();
+  it('asks for the word from its meaning', async () => {
+    await start();
     const front = document.getElementById('card-front')!;
 
     expect(document.getElementById('card')!.dataset.currentDirection).toBe('production');
     expect(front.querySelector('.card-gloss')?.textContent).toBe('hello');
   });
 
-  it('keeps the word itself off the production front', () => {
-    start();
+  it('keeps the word itself off the production front', async () => {
+    await start();
     expect(document.getElementById('card-front')!.textContent).not.toContain('你好');
   });
 
-  it('prompts with the context sentence blanked out', () => {
-    start();
+  it('prompts with the context sentence blanked out', async () => {
+    await start();
     const blank = document.getElementById('card-front')!.querySelector('.context-blank');
 
     expect(blank?.textContent).toHaveLength(2);
   });
 
   // A page title can name the very word the reader is asked for.
-  it('keeps the source page off the production front', () => {
+  it('keeps the source page off the production front', async () => {
     const statistics: Statistics = {
       你好: {
         ...GRADUATED['你好']!,
@@ -529,38 +516,42 @@ describe('FlashcardManager production cards', () => {
       },
     };
     client = createClient({
-      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics })),
+      getStatistics: vi.fn(async () => statistics),
     });
     new FlashcardManager(document, client).init();
+    await flush();
 
     expect(document.getElementById('card-front')!.querySelector('.context-blank')).not.toBeNull();
     expect(document.getElementById('card-front')!.querySelector('.context-source')).toBeNull();
   });
 
-  it('reveals the word on the answer', () => {
-    start();
+  it('reveals the word on the answer', async () => {
+    await start();
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     const back = document.getElementById('card-back')!;
     expect(back.querySelector('.definition-word')?.textContent).toBe('你好');
   });
 
-  it('rates the production card rather than the recognition one', () => {
-    start();
+  it('rates the production card rather than the recognition one', async () => {
+    await start();
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+    await flush();
 
     expect(client.updateFlashcard).toHaveBeenCalledWith(
       '你好',
       'good',
       'production',
-      expect.any(Function)
     );
   });
 
-  it('looks the word up once for both the question and the answer', () => {
-    start();
+  it('looks the word up once for both the question and the answer', async () => {
+    await start();
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     expect(client.lookupWord).toHaveBeenCalledTimes(1);
   });
@@ -616,16 +607,13 @@ describe('FlashcardManager writing cards', () => {
     },
   };
 
-  function start(): void {
+  async function start(): Promise<void> {
     client = createClient({
-      getStatistics: vi.fn(cb =>
-        cb({ success: true, type: 'get_statistics', statistics: READY })
-      ),
-      lookupWord: vi.fn((_word, cb) =>
-        cb({ success: true, type: 'lookup_word', definition: HAO })
-      ),
+      getStatistics: vi.fn(async () => READY),
+      lookupWord: vi.fn(async () => HAO),
     });
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
   /** Finish the quiz on screen with the given mistake count. */
@@ -642,16 +630,16 @@ describe('FlashcardManager writing cards', () => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
   });
 
-  it('quizzes the character it is asking about', () => {
-    start();
+  it('quizzes the character it is asking about', async () => {
+    await start();
 
     expect(document.getElementById('card')!.dataset.currentDirection).toBe('writing');
     expect(writer.quizzes).toHaveLength(1);
     expect(writer.quizzes[0]!.character).toBe('好');
   });
 
-  it('offers nothing to reveal while the quiz is unanswered', () => {
-    start();
+  it('offers nothing to reveal while the quiz is unanswered', async () => {
+    await start();
 
     // The quiz is the question and ends itself, so there is no Show Answer.
     expect(document.getElementById('show-answer-btn-container')!.style.display).toBe('none');
@@ -659,14 +647,14 @@ describe('FlashcardManager writing cards', () => {
   });
 
   it('does not ask the reader to rate a quiz it already graded', async () => {
-    start();
+    await start();
     await finishQuiz(0);
 
     expect(document.getElementById('rating-btns')!.style.display).toBe('none');
   });
 
   it('shows what the quiz measured alongside the definition', async () => {
-    start();
+    await start();
     await finishQuiz(2);
 
     const back = document.getElementById('card-back')!;
@@ -675,44 +663,46 @@ describe('FlashcardManager writing cards', () => {
   });
 
   it('rates a clean quiz Good', async () => {
-    start();
+    await start();
     await finishQuiz(0);
     document.getElementById('writing-next-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     expect(client.updateFlashcard).toHaveBeenCalledWith(
       '好',
       'good',
       'writing',
-      expect.any(Function)
     );
   });
 
   it('rates a quiz with two mistakes Hard', async () => {
-    start();
+    await start();
     await finishQuiz(2);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    await flush();
 
     expect(client.updateFlashcard).toHaveBeenCalledWith(
       '好',
       'hard',
       'writing',
-      expect.any(Function)
     );
   });
 
   it('ignores the rating keys the other cards use', async () => {
-    start();
+    await start();
     await finishQuiz(0);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '4', bubbles: true }));
+    await flush();
 
     expect(client.updateFlashcard).not.toHaveBeenCalled();
   });
 
-  it('abandons the quiz when the word is retired', () => {
-    start();
+  it('abandons the quiz when the word is retired', async () => {
+    await start();
     const quiz = writer.quizzes[0]!;
 
     document.getElementById('know-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     expect(quiz.cancelQuiz).toHaveBeenCalled();
   });
@@ -756,14 +746,13 @@ describe('FlashcardManager components cards', () => {
     },
   };
 
-  function start(): void {
+  async function start(): Promise<void> {
     const client = createClient({
-      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics: READY })),
-      lookupWord: vi.fn((_word, cb) =>
-        cb({ success: true, type: 'lookup_word', definition: DECOMPOSED })
-      ),
+      getStatistics: vi.fn(async () => READY),
+      lookupWord: vi.fn(async () => DECOMPOSED),
     });
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
   beforeEach(() => {
@@ -772,11 +761,12 @@ describe('FlashcardManager components cards', () => {
 
   // Every other surface keeps the breakdown closed, but here it is the answer
   // the card asked for, so it has to be on screen without a second click.
-  it('opens the breakdown on the answer', () => {
-    start();
+  it('opens the breakdown on the answer', async () => {
+    await start();
     expect(document.getElementById('card')!.dataset.currentDirection).toBe('components');
 
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     const section = document.getElementById('card-back')!.querySelector('.popup-etymology-section');
     expect(section?.classList.contains('is-collapsed')).toBe(false);
@@ -839,11 +829,12 @@ describe('FlashcardManager listening cards', () => {
     };
   }
 
-  function start(): void {
+  async function start(): Promise<void> {
     client = createClient({
-      getStatistics: vi.fn(cb => cb({ success: true, type: 'get_statistics', statistics: READY })),
+      getStatistics: vi.fn(async () => READY),
     });
     new FlashcardManager(document, client).init();
+    await flush();
   }
 
   function spoken(): Array<{ text: string; lang: string }> {
@@ -862,62 +853,66 @@ describe('FlashcardManager listening cards', () => {
     vi.unstubAllGlobals();
   });
 
-  it('plays the word in Cantonese as the card appears', () => {
+  it('plays the word in Cantonese as the card appears', async () => {
     stubVoices(['zh-CN', 'zh-HK']);
-    start();
+    await start();
 
     expect(direction()).toBe('listening');
     expect(spoken()).toEqual([expect.objectContaining({ text: '你好', lang: 'zh-HK' })]);
   });
 
-  it('keeps the word itself off the listening front', () => {
+  it('keeps the word itself off the listening front', async () => {
     stubVoices(['zh-HK']);
-    start();
+    await start();
 
     expect(document.getElementById('card-front')!.textContent).not.toContain('你好');
   });
 
-  it('plays it again on R', () => {
+  it('plays it again on R', async () => {
     stubVoices(['zh-HK']);
-    start();
+    await start();
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true }));
+    await flush();
 
     expect(spoken()).toHaveLength(2);
   });
 
-  it('reveals the word and says which reading was played', () => {
+  it('reveals the word and says which reading was played', async () => {
     stubVoices(['zh-CN']);
-    start();
+    await start();
 
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     const back = document.getElementById('card-back')!;
     expect(back.querySelector('.definition-word')?.textContent).toBe('你好');
     expect(back.querySelector('.card-heard')?.textContent).toBe('Heard in Mandarin');
   });
 
-  it('rates the listening card rather than the recognition one', () => {
+  it('rates the listening card rather than the recognition one', async () => {
     stubVoices(['zh-HK']);
-    start();
+    await start();
 
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+    await flush();
 
-    expect(client.updateFlashcard).toHaveBeenCalledWith('你好', 'good', 'listening', expect.any(Function));
+    expect(client.updateFlashcard).toHaveBeenCalledWith('你好', 'good', 'listening');
   });
 
-  it('offers no listening card without a Chinese voice', () => {
+  it('offers no listening card without a Chinese voice', async () => {
     stubVoices(['en-US']);
-    start();
+    await start();
 
     expect(direction()).toBeUndefined();
     expect(document.getElementById('empty-state')!.style.display).not.toBe('none');
   });
 
-  it('builds the session once voices that were still loading arrive', () => {
+  it('builds the session once voices that were still loading arrive', async () => {
     const voices = stubVoices(['zh-HK'], { loadLater: true });
-    start();
+    await start();
     expect(direction()).toBeUndefined();
 
     voices.load();
@@ -929,30 +924,32 @@ describe('FlashcardManager listening cards', () => {
 describe('FlashcardManager with the reader\'s settings', () => {
   let document: Document;
 
-  function start(settings: Partial<Settings>): void {
+  async function start(settings: Partial<Settings>): Promise<void> {
     const manager = new FlashcardManager(document, createClient());
     manager.applySettings({ ...DEFAULT_SETTINGS, ...settings });
     manager.init();
+    await flush();
   }
 
   beforeEach(() => {
     document = new DOMParser().parseFromString(HTML, 'text/html');
   });
 
-  it('sizes the session by the reader\'s new-card limit', () => {
-    start({ maxNewCards: 1 });
+  it('sizes the session by the reader\'s new-card limit', async () => {
+    await start({ maxNewCards: 1 });
     expect(document.getElementById('counter')!.textContent).toBe('Card 1 of 1');
   });
 
-  it('enrols words at the reader\'s threshold', () => {
-    start({ minCount: 6 });
+  it('enrols words at the reader\'s threshold', async () => {
+    await start({ minCount: 6 });
     expect(document.getElementById('empty-state')!.style.display).toBe('');
   });
 
-  it('withholds the reading on the answer when the reader hides it', () => {
-    start({ hideRomanisation: true });
+  it('withholds the reading on the answer when the reader hides it', async () => {
+    await start({ hideRomanisation: true });
 
     document.getElementById('show-answer-btn')!.dispatchEvent(new Event('click', { bubbles: true }));
+    await flush();
 
     const back = document.getElementById('card-back')!;
     expect(back.querySelector('.definition-pinyin')).toBeNull();
