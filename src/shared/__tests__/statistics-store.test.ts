@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  CLEARED_AT_KEY,
   LEGACY_STATISTICS_KEY,
   SYNC_BUDGET_BYTES,
   StatisticsStore,
@@ -286,7 +287,39 @@ describe('StatisticsStore.clear', () => {
 
     await store.clear();
 
-    expect(local.items()).toEqual({ other: 1 });
-    expect(sync.items()).toEqual({});
+    expect(local.items()).toEqual({ other: 1, [CLEARED_AT_KEY]: expect.any(Number) });
+    expect(sync.items()).toEqual({ [CLEARED_AT_KEY]: expect.any(Number) });
+  });
+
+  // Another device still holds its words locally, and used to write them
+  // straight back to sync on its next write.
+  it('reaches the reader\'s other devices instead of being synced back', async () => {
+    const sync = fakeArea({}, SYNC_QUOTAS);
+    const here = new StatisticsStore(sync.area, fakeArea().area);
+    const elsewhereLocal = fakeArea(asItems({ 一: studied(0), 二: seen() }));
+    const elsewhere = new StatisticsStore(sync.area, elsewhereLocal.area);
+    await elsewhere.mutate(record => record);
+    expect(sync.words()).toHaveProperty('一');
+
+    await here.clear();
+
+    expect(await elsewhere.read()).toEqual({});
+
+    await elsewhere.mutate(record => ({ ...record, 三: { count: 1, firstSeen: Date.now(), lastSeen: Date.now() } }));
+
+    expect(Object.keys(elsewhereLocal.words())).toEqual(['三']);
+    expect(sync.words()).toEqual({});
+    expect(elsewhereLocal.items()[CLEARED_AT_KEY]).toBe(sync.items()[CLEARED_AT_KEY]);
+  });
+
+  it('keeps what was studied after the clear', async () => {
+    const { store, sync } = setup();
+    await store.clear();
+    const clearedAt = sync.items()[CLEARED_AT_KEY] as number;
+
+    await store.mutate(() => ({ 一: studied(0, clearedAt + 1) }));
+
+    expect(Object.keys(await store.read())).toEqual(['一']);
+    expect(sync.words()).toHaveProperty('一');
   });
 });

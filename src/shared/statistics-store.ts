@@ -20,6 +20,14 @@ export const WORD_KEY_PREFIX = 'word:';
 export const LEGACY_STATISTICS_KEY = 'wordStatistics';
 
 /**
+ * Epoch ms of the last time the reader cleared their statistics, kept in both
+ * areas. Removing the words is not enough: another device still holds them
+ * locally and would write them straight back to sync. With the time on
+ * record, every device drops what it holds from before it.
+ */
+export const CLEARED_AT_KEY = 'statisticsClearedAt';
+
+/**
  * How many words the record holds before the least valuable are evicted. Both
  * the write path that enforces it and the stats page that warns about it read
  * it from here, so the number the reader is shown is the one actually applied.
@@ -149,6 +157,28 @@ async function writeDifference(
   if (gone.length > 0) await area.remove(gone);
 }
 
+/** The last time anything happened to the word: a sighting, a review or a decision. */
+function lastActivity(entry: WordStatistics): number {
+  return Math.max(entry.lastSeen, lastReviewedAt(entry) ?? 0, entry.statusAt ?? 0);
+}
+
+/**
+ * The words with activity since the reader last cleared the record. Each
+ * device's clock decides its own words' times, so a clear only reaches words
+ * whose device agrees it came after them — a skew of minutes, not a hole.
+ */
+function sinceCleared(words: Statistics, clearedAt: number): Statistics {
+  if (clearedAt === 0) return words;
+  return Object.fromEntries(
+    Object.entries(words).filter(([, entry]) => lastActivity(entry) >= clearedAt),
+  );
+}
+
+function clearedAtIn(items: Record<string, unknown>): number {
+  const value = items[CLEARED_AT_KEY];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
 function serialised(words: Statistics): Map<string, string> {
   return new Map(Object.entries(words).map(([word, entry]) => [word, JSON.stringify(entry)]));
 }
@@ -165,10 +195,11 @@ function serialised(words: Statistics): Map<string, string> {
  * reading it gets the recent reviews and decisions, never a months-old
  * snapshot of everything.
  *
- * Reads reconcile both areas with `reconcileStatistics`, as before: counts take
- * the higher, the later review wins, and local decides a word's retired and
- * chosen flags. A word another device synced is written into local by the next
- * write, which is how it arrives for good.
+ * Reads reconcile both areas with `reconcileStatistics`: counts take the
+ * higher, and the later review and the later retire or study decision win. A
+ * word another device synced is written into local by the next write, which is
+ * how it arrives for good; a clear made on another device arrives the same way
+ * (`CLEARED_AT_KEY`).
  */
 export class StatisticsStore {
   private migration: Promise<void> | undefined;
@@ -181,8 +212,8 @@ export class StatisticsStore {
 
   async read(): Promise<Statistics> {
     await this.migrated();
-    const { sync, local } = await this.readAreas();
-    return reconcileStatistics(sync, local);
+    const { sync, local, clearedAt } = await this.readAreas();
+    return reconcileStatistics(sinceCleared(sync, clearedAt), sinceCleared(local, clearedAt));
   }
 
   /**
@@ -201,35 +232,66 @@ export class StatisticsStore {
 
   /**
    * Empty both areas, the legacy item included — a read reconciles them, so
-   * clearing one is not enough.
+   * clearing one is not enough — and record when, so the reader's other
+   * devices drop their own copies rather than syncing them back.
    */
   async clear(): Promise<void> {
-    await Promise.all([this.clearArea(this.sync), this.clearArea(this.local)]);
+    const clearedAt = Date.now();
+    await Promise.all([
+      this.clearArea(this.sync, clearedAt),
+      this.clearArea(this.local, clearedAt),
+    ]);
   }
 
-  private async clearArea(area: chrome.storage.StorageArea): Promise<void> {
+  private async clearArea(area: chrome.storage.StorageArea, clearedAt: number): Promise<void> {
     const items = await area.get(null);
     const keys = Object.keys(items ?? {}).filter(
       key => key.startsWith(WORD_KEY_PREFIX) || key === LEGACY_STATISTICS_KEY,
     );
     if (keys.length > 0) await area.remove(keys);
+    await area.set({ [CLEARED_AT_KEY]: clearedAt });
   }
 
   private async apply(transform: (existing: Statistics) => Statistics): Promise<void> {
     await this.migrated();
-    const { sync, local } = await this.readAreas();
-    // Taken before the transform runs, since it may edit the entries it is handed.
+    const { sync, local, clearedAt, localClearedAt } = await this.readAreas();
+    // Taken before the transform runs, since it may edit the entries it is handed,
+    // and before a clear is applied, so the words it drops are removed from storage.
     const syncHeld = serialised(sync);
     const localHeld = serialised(local);
-    await this.persist(syncHeld, localHeld, transform(reconcileStatistics(sync, local)));
+    const existing = reconcileStatistics(sinceCleared(sync, clearedAt), sinceCleared(local, clearedAt));
+    await this.persist(syncHeld, localHeld, transform(existing));
+
+    if (localClearedAt < clearedAt) {
+      try {
+        await this.local.set({ [CLEARED_AT_KEY]: clearedAt });
+      } catch (error) {
+        console.error('[Storage] Local write failed:', error);
+      }
+    }
   }
 
-  private async readAreas(): Promise<{ sync: Statistics; local: Statistics }> {
+  /**
+   * Both areas' words, and the latest clear either knows of — a clear made on
+   * another device arrives through sync, and local keeps it once seen.
+   */
+  private async readAreas(): Promise<{
+    sync: Statistics;
+    local: Statistics;
+    clearedAt: number;
+    localClearedAt: number;
+  }> {
     const [sync, local] = await Promise.all([
       readAll(this.sync, 'sync'),
       readAll(this.local, 'local'),
     ]);
-    return { sync: wordsIn(sync), local: wordsIn(local) };
+    const localClearedAt = clearedAtIn(local);
+    return {
+      sync: wordsIn(sync),
+      local: wordsIn(local),
+      clearedAt: Math.max(clearedAtIn(sync), localClearedAt),
+      localClearedAt,
+    };
   }
 
   private async persist(
