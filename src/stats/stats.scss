@@ -324,10 +324,6 @@ h1 {
   }
 }
 
-.stats-container:not(:has(#stats-list[style*="flex"])) .sort-control {
-  display: none;
-}
-
 .filter-tabs {
   display: flex;
   gap: t.$space-2;
@@ -729,11 +725,11 @@ h1 {
   padding: t.$space-2 0;
 }
 
-// One column per day, growing from a shared baseline. The bars are capped in
-// width so a wide page does not turn them into blocks.
+// One column per day (the view sets the count from FORECAST_DAYS), growing from
+// a shared baseline. The bars are capped in width so a wide page does not turn
+// them into blocks.
 .forecast {
   display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
   gap: 2px;
   margin: 0;
   padding: 0;

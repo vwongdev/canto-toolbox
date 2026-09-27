@@ -299,6 +299,15 @@ describe('StatsManager empty list', () => {
     expect(document.querySelector('.empty-state-reset')).toBeNull();
   });
 
+  it('offers the sort only while there is a list to order', () => {
+    const sortControl = document.querySelector('.sort-control') as HTMLElement;
+    expect(sortControl.style.display).toBe('');
+
+    clickTab('[data-stage="mastered"]');
+
+    expect(sortControl.style.display).toBe('none');
+  });
+
   // Seen but not enrolled is the state the reader acts on: the pill is how a
   // word gets from "looked up a couple of times" into the deck.
   it('narrows to words seen too rarely to have enrolled themselves', () => {

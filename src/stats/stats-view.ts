@@ -318,6 +318,13 @@ function setEmptyMessage(emptyStateEl: HTMLElement, message: string): void {
   if (paragraph) setMultilineText(paragraph, message);
 }
 
+/** The sort control orders the list, so it is shown only with one. */
+function showList(elements: StatsElements, shown: boolean): void {
+  elements.statsListEl.style.display = shown ? 'flex' : 'none';
+  const sortControl = elements.sortSelectEl.closest<HTMLElement>('.sort-control');
+  if (sortControl) sortControl.style.display = shown ? '' : 'none';
+}
+
 export function renderStatistics(
   statistics: Statistics,
   elements: StatsElements,
@@ -333,7 +340,7 @@ export function renderStatistics(
 
   if (allWords.length === 0) {
     emptyStateEl.style.display = 'block';
-    statsListEl.style.display = 'none';
+    showList(elements, false);
     wordCountEl.textContent = '0 words tracked';
     setEmptyMessage(emptyStateEl, NOTHING_TRACKED);
     setFilterReset(emptyStateEl, undefined);
@@ -347,7 +354,7 @@ export function renderStatistics(
 
   const empty = filtered.length === 0;
   emptyStateEl.style.display = empty ? 'block' : 'none';
-  statsListEl.style.display = empty ? 'none' : 'flex';
+  showList(elements, !empty);
   wordCountEl.textContent = describeTotal(allWords.length);
 
   // The words are there; a filter is hiding them, so the way back is offered
@@ -735,6 +742,7 @@ export function renderForecast(document: Document, days: ForecastDay[]): void {
         tag: 'ol',
         className: 'forecast',
         attributes: { 'aria-label': `Cards due on each of the next ${FORECAST_DAYS} days` },
+        style: { gridTemplateColumns: `repeat(${FORECAST_DAYS}, minmax(0, 1fr))` },
         children: bars,
       }),
       insightNote('Today includes every card already overdue.'),
