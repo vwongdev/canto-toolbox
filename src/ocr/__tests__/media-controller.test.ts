@@ -18,15 +18,10 @@ const RESULT: OcrResult = {
 };
 
 function client(): OcrClient & { readImage: ReturnType<typeof vi.fn> } {
-  const readImage = vi.fn((_src: string, cb: (r: never) => void) => {
-    cb({ success: true, type: 'ocr_image', result: RESULT } as never);
-  });
   return {
-    readImage,
-    captureTab: vi.fn((cb: (r: never) => void) =>
-      cb({ success: true, type: 'capture_tab', dataUrl: 'data:image/png;base64,SHOT' } as never),
-    ),
-  } as unknown as OcrClient & { readImage: ReturnType<typeof vi.fn> };
+    readImage: vi.fn().mockResolvedValue(RESULT),
+    captureTab: vi.fn().mockResolvedValue('data:image/png;base64,SHOT'),
+  };
 }
 
 function addVideo(paused = true): HTMLVideoElement {
@@ -134,7 +129,7 @@ describe('reading a frame', () => {
     await settle();
 
     expect(captureFrame).toHaveBeenCalledTimes(1);
-    expect(ocr.readImage).toHaveBeenCalledWith('data:image/png;base64,FRAME', expect.any(Function));
+    expect(ocr.readImage).toHaveBeenCalledWith('data:image/png;base64,FRAME');
     expect(document.querySelector('.canto-ocr-line')?.textContent).toBe('今天天气很好');
   });
 
@@ -151,9 +146,7 @@ describe('reading a frame', () => {
   // The reader clicked and waited out a model load; the badge disappearing
   // said nothing about whether it had worked.
   it('says so when the frame holds no Chinese', async () => {
-    ocr.readImage.mockImplementation((_src: string, cb: (r: never) => void) =>
-      cb({ success: true, type: 'ocr_image', result: { ...RESULT, items: [] } } as never)
-    );
+    ocr.readImage.mockResolvedValue({ ...RESULT, items: [] });
     hover(addVideo(true));
     badge()!.click();
     await settle();

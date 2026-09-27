@@ -1,19 +1,6 @@
 import { registerHandlers } from '../shared/message-router.js';
-import { sendMessage } from '../shared/message-manager.js';
+import { request } from '../shared/message-manager.js';
 import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
-import type { OcrResult } from '../shared/types.js';
-
-function runInOffscreen(src: string): Promise<OcrResult> {
-  return new Promise((resolve, reject) => {
-    sendMessage({ type: 'ocr_run', src }, (response) => {
-      if (!response.success) {
-        reject(new Error(response.error));
-        return;
-      }
-      resolve(response.result);
-    });
-  });
-}
 
 export function register(): void {
   registerHandlers({
@@ -25,7 +12,8 @@ export function register(): void {
      */
     ocr_image: async (msg) => {
       await ensureOffscreenDocument();
-      return { success: true, type: 'ocr_image', result: await runInOffscreen(msg.src) };
+      const { result } = await request({ type: 'ocr_run', src: msg.src });
+      return { success: true, type: 'ocr_image', result };
     },
 
     /**

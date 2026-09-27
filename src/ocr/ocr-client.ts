@@ -1,19 +1,13 @@
-import { sendMessage } from '../shared/message-manager.js';
-import type { CaptureTabResponse, ErrorResponse, OcrImageResponse } from '../shared/types.js';
+import { request } from '../shared/message-manager.js';
+import type { OcrResult } from '../shared/types.js';
 
 export interface OcrClient {
-  readImage(src: string, callback: (r: OcrImageResponse | ErrorResponse) => void): void;
-  captureTab(callback: (r: CaptureTabResponse | ErrorResponse) => void): void;
+  readImage(src: string): Promise<OcrResult>;
+  /** PNG data URL of the visible tab. */
+  captureTab(): Promise<string>;
 }
 
-class OcrMessageClient implements OcrClient {
-  readImage(src: string, callback: (r: OcrImageResponse | ErrorResponse) => void): void {
-    sendMessage({ type: 'ocr_image', src }, callback);
-  }
-
-  captureTab(callback: (r: CaptureTabResponse | ErrorResponse) => void): void {
-    sendMessage({ type: 'capture_tab' }, callback);
-  }
-}
-
-export const ocrClient = new OcrMessageClient();
+export const ocrClient: OcrClient = {
+  readImage: async (src) => (await request({ type: 'ocr_image', src })).result,
+  captureTab: async () => (await request({ type: 'capture_tab' })).dataUrl,
+};

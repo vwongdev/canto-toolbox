@@ -229,10 +229,10 @@ export class MediaOcrManager {
 
     try {
       const source = isVideo(media)
-        ? (await captureFrame(media, () => this.requestTabCapture())).src
+        ? (await captureFrame(media, () => this.client.captureTab())).src
         : await resolveImageSource(media);
 
-      const result = await this.requestOcr(source);
+      const result = await this.client.readImage(source);
 
       // Nothing found is an answer, not a no-op. The reader clicked, waited
       // out a model load, and without this the badge simply vanished.
@@ -259,8 +259,8 @@ export class MediaOcrManager {
     if (!entry || entry.readAt === video.currentTime) return;
 
     try {
-      const { src } = await captureFrame(video, () => this.requestTabCapture());
-      const result = await this.requestOcr(src);
+      const { src } = await captureFrame(video, () => this.client.captureTab());
+      const result = await this.client.readImage(src);
 
       // The reader may have played on, or left, while the model was busy.
       if (!this.attached.has(video) || !video.isConnected) return;
@@ -271,24 +271,6 @@ export class MediaOcrManager {
     } catch (error) {
       console.error('[OCR] Could not read the frame:', error);
     }
-  }
-
-  private requestOcr(src: string): Promise<OcrResult> {
-    return new Promise((resolve, reject) => {
-      this.client.readImage(src, (response) => {
-        if (response.success) resolve(response.result);
-        else reject(new Error(response.error));
-      });
-    });
-  }
-
-  private requestTabCapture(): Promise<string> {
-    return new Promise((resolve, reject) => {
-      this.client.captureTab((response) => {
-        if (response.success) resolve(response.dataUrl);
-        else reject(new Error(response.error));
-      });
-    });
   }
 
   private attach(media: MediaElement, result: OcrResult): void {
