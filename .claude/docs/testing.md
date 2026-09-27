@@ -23,6 +23,10 @@ pnpm test:coverage   # vitest run --coverage (v8)
 pnpm test:e2e        # playwright test, headless (requires a built extension in dist/)
 ```
 
+Under Claude Code (`CLAUDECODE` set), Vitest hides console output and slow-test
+lines. To see a test's logs while debugging, run
+`pnpm test -- --silent=false <file>`.
+
 The unit suite gates every commit through the `pre-commit` hook (see
 `dev-workflow.md`). CI runs three jobs:
 
