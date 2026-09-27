@@ -14,7 +14,8 @@ let tmpDataDir: string;
 test.beforeAll(async () => {
   tmpDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-stats-'));
   context = await chromium.launchPersistentContext(tmpDataDir, {
-    headless: false,
+    headless: process.env.E2E_HEADED !== '1',
+    channel: 'chromium',
     args: [
       `--disable-extensions-except=${EXTENSION_PATH}`,
       `--load-extension=${EXTENSION_PATH}`,
