@@ -606,6 +606,7 @@ describe('StatsManager insights', () => {
       ['Recognition', '50% of 2'],
       ['Production', 'No reviews yet'],
       ['Listening', 'No reviews yet'],
+      ['Contrast', 'No reviews yet'],
       ['Components', 'No reviews yet'],
       ['Writing', 'No reviews yet'],
     ]);
