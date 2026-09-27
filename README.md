@@ -16,25 +16,16 @@ Read Chinese on the web without leaving the page. Hover any word for Mandarin an
 
 ## Screenshots
 
-### Hover Popup
-![Hover popup showing word definition](screenshots/hover-popup.png)
-
-*Hover over Chinese text to see Mandarin and Cantonese definitions*
-
-### Word Statistics
-![Statistics page](screenshots/statistics.png)
-
-*Every word you've met, with what's due, your review forecast, streak and progress by frequency band*
-
-### Flashcard Review
-![Flashcard review page](screenshots/flashcard-review.png)
-
-*Review your looked-up words with spaced repetition*
-
-### Dark Mode
-![Dark mode support](screenshots/dark-mode.png)
-
-*Automatically adapts to your system theme*
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/hover-popup.png" alt="Hover popup showing word definition"><br><em>Hover popup</em></td>
+    <td width="50%"><img src="screenshots/statistics.png" alt="Statistics page"><br><em>Word statistics</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="screenshots/flashcard-review.png" alt="Flashcard review page"><br><em>Flashcard review</em></td>
+    <td width="50%"><img src="screenshots/dark-mode.png" alt="Dark mode"><br><em>Dark mode</em></td>
+  </tr>
+</table>
 
 ## Installation
 
