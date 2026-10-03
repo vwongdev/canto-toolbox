@@ -1,3 +1,7 @@
+import { request } from './message-manager.js';
+import { localHandlerFor } from './message-router.js';
+import type { BackgroundMessage, ResponseFor } from './types';
+
 /**
  * Chrome allows one offscreen document per extension and rejects a second
  * `createDocument`, so every feature that needs the host goes through here.
@@ -31,4 +35,17 @@ export async function ensureOffscreenDocument(): Promise<void> {
     });
 
   await creating;
+}
+
+/**
+ * Sends a message to whichever context hosts the dictionaries and the OCR
+ * model. Where that is this context, the handler is called in place, since a
+ * context cannot message its own listeners.
+ */
+export async function offscreenRequest<M extends BackgroundMessage>(message: M): Promise<ResponseFor<M>> {
+  const local = localHandlerFor(message);
+  if (local) return local(message);
+
+  await ensureOffscreenDocument();
+  return request(message);
 }
