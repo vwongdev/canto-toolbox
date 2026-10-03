@@ -1,6 +1,5 @@
 import { registerHandlers } from '../shared/message-router.js';
-import { request } from '../shared/message-manager.js';
-import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
+import { offscreenRequest } from '../shared/offscreen-document.js';
 import { mutateStatistics } from '../shared/statistics-store.js';
 import { recordReview } from '../shared/review-log.js';
 import { isLeech, reviewCard } from '../shared/scheduler.js';
@@ -68,8 +67,7 @@ export function register(): void {
     },
 
     find_confusables: async (msg) => {
-      await ensureOffscreenDocument();
-      const { confusables } = await request({ type: 'dict_confusables', words: msg.words });
+      const { confusables } = await offscreenRequest({ type: 'dict_confusables', words: msg.words });
       return { success: true, type: 'find_confusables', confusables };
     },
 

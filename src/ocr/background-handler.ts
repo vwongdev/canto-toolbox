@@ -1,6 +1,5 @@
 import { registerHandlers } from '../shared/message-router.js';
-import { request } from '../shared/message-manager.js';
-import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
+import { offscreenRequest } from '../shared/offscreen-document.js';
 
 export function register(): void {
   registerHandlers({
@@ -11,8 +10,7 @@ export function register(): void {
      * that can, and forwards.
      */
     ocr_image: async (msg) => {
-      await ensureOffscreenDocument();
-      const { result } = await request({ type: 'ocr_run', src: msg.src });
+      const { result } = await offscreenRequest({ type: 'ocr_run', src: msg.src });
       return { success: true, type: 'ocr_image', result };
     },
 

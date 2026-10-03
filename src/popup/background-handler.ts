@@ -1,7 +1,6 @@
 import { popupStorage, type WordDetails } from './popup-storage.js';
 import { registerHandlers } from '../shared/message-router.js';
-import { request } from '../shared/message-manager.js';
-import { ensureOffscreenDocument } from '../shared/offscreen-document.js';
+import { ensureOffscreenDocument, offscreenRequest } from '../shared/offscreen-document.js';
 import { hasStrokes } from '../shared/strokes.js';
 import { confusionsOf } from '../shared/statistics-utils.js';
 import type { DefinitionResult, HoverSegment, Statistics } from '../shared/types.js';
@@ -53,7 +52,7 @@ async function lookupInOffscreen(
   word: string,
   options: { segment?: HoverSegment; allowMissing?: boolean } = {},
 ): Promise<DefinitionResult> {
-  const { definition } = await request({
+  const { definition } = await offscreenRequest({
     type: 'dict_lookup',
     word,
     ...(options.segment && { segment: options.segment }),
@@ -110,7 +109,6 @@ export function register(): void {
           })
         : null;
 
-      await ensureOffscreenDocument();
       const definition = await lookupInOffscreen(msg.word, {
         ...(msg.segment && { segment: msg.segment }),
       });
@@ -159,8 +157,7 @@ export function register(): void {
      */
     segment_text: async (msg) => {
       const known = knownWords.get();
-      await ensureOffscreenDocument();
-      const { words: segmented } = await request({ type: 'dict_segment', runs: msg.runs });
+      const { words: segmented } = await offscreenRequest({ type: 'dict_segment', runs: msg.runs });
 
       return { success: true, type: 'segment_text', words: classifyWords(msg.runs, segmented, await known) };
     },
