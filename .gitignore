@@ -3,6 +3,7 @@ node_modules/
 
 # Generated files
 dist/
+dist-firefox/
 public/data/mandarin.json
 public/data/cantonese.json
 public/data/etymology.json

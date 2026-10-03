@@ -1,11 +1,40 @@
 import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import { crx } from '@crxjs/vite-plugin';
-import manifest from './manifest.json';
+import chromeManifest from './manifest.json';
+
+const browser = process.env.TARGET === 'firefox' ? 'firefox' : 'chrome';
+
+/**
+ * Firefox has no offscreen documents and no MV3 service worker: its event
+ * page hosts the dictionaries and the OCR model itself. The gecko ID is
+ * permanent once the extension is listed on addons.mozilla.org.
+ */
+const firefoxManifest = {
+  ...chromeManifest,
+  permissions: chromeManifest.permissions.filter((permission) => permission !== 'offscreen'),
+  background: { scripts: ['src/background-firefox.ts'], type: 'module' as const },
+  browser_specific_settings: {
+    gecko: {
+      id: 'canto-toolbox@canto-toolbox',
+      strict_min_version: '128.0',
+      data_collection_permissions: { required: ['none'] },
+    },
+  },
+};
+
+const chromeInputs = {
+  background: 'src/service-worker.ts',
+  offscreen: 'src/offscreen/offscreen.html',
+};
+
+const firefoxInputs = {
+  background: 'src/background-firefox.ts',
+};
 
 export default defineConfig({
   plugins: [
-    crx({ manifest })
+    crx({ manifest: browser === 'firefox' ? firefoxManifest : chromeManifest, browser })
   ],
   base: './', // Use relative paths for Chrome extension
   resolve: {
@@ -33,18 +62,17 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: browser === 'firefox' ? 'dist-firefox' : 'dist',
     emptyOutDir: true,
     rollupOptions: {
       input: {
         // TypeScript entry points
-        background: 'src/service-worker.ts',
+        ...(browser === 'firefox' ? firefoxInputs : chromeInputs),
         content: 'src/popup/content.ts',
         stats: 'src/stats/stats.html',
         'stats-script': 'src/stats/stats.ts',
         flashcards: 'src/flashcards/flashcards.html',
         'flashcards-script': 'src/flashcards/flashcards.ts',
-        offscreen: 'src/offscreen/offscreen.html'
       },
     },
   },
