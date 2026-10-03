@@ -102,3 +102,32 @@ describe('SettingsPage', () => {
     expect(status.classList.contains('is-error')).toBe(true);
   });
 });
+
+describe('SettingsPage site access', () => {
+  function open(): Document {
+    const document = new DOMParser().parseFromString(HTML, 'text/html');
+    vi.mocked(chrome.storage.sync.get).mockResolvedValue({} as never);
+    new SettingsPage(document, vi.fn()).init();
+    return document;
+  }
+
+  it('stays out of the way while the extension can read pages', async () => {
+    const document = open();
+
+    await vi.waitFor(() => expect(chrome.permissions.contains).toHaveBeenCalled());
+    expect(document.getElementById('site-access')!.hidden).toBe(true);
+  });
+
+  // Firefox lets the reader withdraw host access, which silently stops hover.
+  it('asks for access again once it has been withdrawn', async () => {
+    vi.mocked(chrome.permissions.contains).mockResolvedValueOnce(false as never);
+    const document = open();
+    const notice = document.getElementById('site-access')!;
+    await vi.waitFor(() => expect(notice.hidden).toBe(false));
+
+    notice.querySelector('button')!.click();
+
+    expect(chrome.permissions.request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
+    await vi.waitFor(() => expect(notice.hidden).toBe(true));
+  });
+});

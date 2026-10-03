@@ -4,7 +4,10 @@ import { fillSettingsForm, renderSettingsForm, showStatus, type SettingChange } 
 export const ELEMENT_IDS = {
   form: 'settings-form',
   status: 'settings-status',
+  siteAccess: 'site-access',
 } as const;
+
+const ALL_SITES: chrome.permissions.Permissions = { origins: ['<all_urls>'] };
 
 type Save = (changes: Partial<Settings>) => Promise<Settings>;
 
@@ -47,6 +50,26 @@ export class SettingsPage {
     // Another window's options page, or another machine through sync, can
     // change these while this one is open.
     watchSettings(settings => fillSettingsForm(this.document, settings));
+
+    const siteAccess = this.document.getElementById(ELEMENT_IDS.siteAccess);
+    if (siteAccess) void this.offerSiteAccess(siteAccess);
+  }
+
+  /**
+   * Firefox treats host permissions as optional and lets the reader withdraw
+   * them, which turns off the content script on every page. Chrome grants them
+   * at install, so there the notice never shows.
+   */
+  private async offerSiteAccess(notice: HTMLElement): Promise<void> {
+    if (await chrome.permissions.contains(ALL_SITES)) return;
+
+    notice.hidden = false;
+    notice.querySelector('button')?.addEventListener('click', () => {
+      // Firefox only prompts from a call made synchronously in the click.
+      chrome.permissions.request(ALL_SITES)
+        .then(granted => { notice.hidden = granted; })
+        .catch((error: unknown) => console.error('[Settings] Could not request site access:', error));
+    });
   }
 }
 

@@ -50,6 +50,44 @@ h1 {
   font-size: t.$text-base;
 }
 
+.site-access {
+  display: flex;
+  align-items: center;
+  gap: t.$space-4;
+  margin-bottom: t.$space-4;
+  padding: t.$space-3 t.$space-4;
+  border: 1px solid t.$color-danger;
+  border-radius: t.$radius-lg;
+  background: t.$color-danger-tint;
+  color: t.$color-text-strong;
+  font-size: t.$text-base;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+// A filled button takes the fill accent rather than the text one, so a white
+// label stays readable on it in either theme.
+.site-access-button {
+  flex-shrink: 0;
+  padding: 6px t.$space-4;
+  border: 1px solid t.$color-primary-fill;
+  border-radius: t.$radius-md;
+  background: t.$color-primary-fill;
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: t.$color-primary-fill-hover;
+    border-color: t.$color-primary-fill-hover;
+  }
+
+  @include a.focus-ring;
+}
+
 .settings-form {
   display: flex;
   flex-direction: column;

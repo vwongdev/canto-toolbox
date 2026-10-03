@@ -9,6 +9,10 @@ vi.stubGlobal('chrome', {
     lastError: null as chrome.runtime.LastError | null,
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
   },
+  permissions: {
+    contains: vi.fn().mockResolvedValue(true),
+    request: vi.fn().mockResolvedValue(true),
+  },
   storage: {
     onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     sync: {
