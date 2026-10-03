@@ -110,6 +110,19 @@ Removes `dist/`, the generated JSON in `public/data/`, `public/ocr/`,
 
 After code changes, rebuild and click the **reload** button on the extension card in `chrome://extensions`.
 
+## Building for Firefox
+
+`pnpm build:firefox` runs the same steps with `TARGET=firefox`, which makes
+`vite.config.ts` swap in the Firefox manifest and background entry
+(`src/background-firefox.ts`) and write to `dist-firefox/`. Load it from
+`about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → any file
+in `dist-firefox/`, or run `pnpm dlx web-ext run -s dist-firefox`.
+
+`pnpm dlx web-ext lint -s dist-firefox` runs the checks addons.mozilla.org
+applies at signing. It rejects `data/mandarin.json` and `data/cantonese.json`:
+text files over 4 MB are too large to parse, and signing fails on the error.
+The e2e suite is Chrome-only — Playwright cannot load a Firefox extension.
+
 ## Linting
 
 ```sh

@@ -8,8 +8,10 @@
 - **`registerHandlers`** (`src/shared/message-router.ts`) — typed `onMessage`
   routing; owns the async response channel, the pass-through for messages a
   feature does not handle, and error→`ErrorResponse` conversion.
-- **`ensureOffscreenDocument`** (`src/shared/offscreen-document.ts`) — the one
-  offscreen host; popup and OCR both start it and forward.
+- **`offscreenRequest` / `ensureOffscreenDocument`**
+  (`src/shared/offscreen-document.ts`) — the one offscreen host; popup,
+  flashcard and OCR handlers forward through `offscreenRequest`, which calls
+  the handler in place where this context hosts it (Firefox's background page).
 - **`StatisticsStore` / `statisticsStore` / `mutateStatistics` /
   `MAX_TRACKED_WORDS`** (`src/shared/statistics-store.ts`) — the single record
   every feature addresses, one local item per word. `read` reconciles both

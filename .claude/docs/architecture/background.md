@@ -6,6 +6,22 @@
   itself — it imports each feature's `background-handler.ts` and calls their
   `register()` to attach `chrome.runtime.onMessage` listeners.
 
+## Firefox Background Page (`src/background-firefox.ts`)
+
+- Firefox has neither offscreen documents nor an MV3 service worker; its
+  background is an event page with a DOM. The page imports both composition
+  roots — `service-worker.ts` and `offscreen/offscreen.ts` — so one context
+  hosts the feature handlers, the dictionaries and the OCR model.
+- Handlers reach the host through `offscreenRequest()`
+  (`src/shared/offscreen-document.ts`). A context cannot message its own
+  listeners, so when this context registered the handler itself
+  (`localHandlerFor()` in `message-router.ts`) it is called in place;
+  otherwise the offscreen document is started and the message sent. No code
+  branches on the browser: `ensureOffscreenDocument()` returns early where
+  `chrome.offscreen` does not exist.
+- Firefox suspends an idle event page, and the parsed maps go with it: the
+  first hover after a suspension reloads the dictionaries.
+
 ## Background Handlers (`*/background-handler.ts`)
 
 - Each handler registers through `registerHandlers()`

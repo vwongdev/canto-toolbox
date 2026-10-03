@@ -37,7 +37,8 @@ The domain specifies the area of the codebase affected:
 - `manifest`: Extension manifest configuration
 - `icons`: Extension icons
 - `background`: Service worker, feature background handlers, the offscreen
-  composition root (`src/offscreen/`), and `src/shared/offscreen-document.ts`
+  composition root (`src/offscreen/`), Firefox's background page
+  (`src/background-firefox.ts`), and `src/shared/offscreen-document.ts`
 - `build`: Build system and tooling (`build-tools/`, Vite, Nix, husky)
 - `content`: What the content script does on the page — hover detection,
   selection, unknown-word marks and the coverage chip (`src/popup/content.ts`,

@@ -15,6 +15,7 @@ canto-toolbox/
 ├── .husky/                    # pre-commit (lint/typecheck/test), commit-msg
 ├── src/
 │   ├── service-worker.ts      # MV3 service-worker entry; registers handlers
+│   ├── background-firefox.ts  # Firefox event page: both composition roots
 │   ├── popup/                 # Hover-popup feature (content script)
 │   │   ├── content.ts         # Injected content script; hover/selection detection
 │   │   ├── background-handler.ts # lookup_word / track_word / mark_known / segment_text
@@ -65,7 +66,7 @@ canto-toolbox/
 │   ├── shared/                # Cross-feature utilities and UI components
 │   │   ├── message-manager.ts # request() typed promise message helper
 │   │   ├── message-router.ts  # registerHandlers() onMessage routing
-│   │   ├── offscreen-document.ts # ensureOffscreenDocument(); one host
+│   │   ├── offscreen-document.ts # offscreenRequest(); one host
 │   │   ├── statistics-store.ts# Per-word layout, cap, sync share, migration
 │   │   ├── review-log.ts      # Cards answered per local day (local only)
 │   │   ├── statistics-utils.ts# mergeStatistics(), getFlashcardStage()

@@ -38,9 +38,9 @@
   OCR is only for subtitles burned into the picture.
 - **Where it runs**: the shared offscreen document (`src/offscreen/offscreen.html`).
   The service worker has no DOM and is torn down on idle, which would discard
-  the loaded weights between one image and the next; `ensureOffscreenDocument()`
+  the loaded weights between one image and the next; `offscreenRequest()`
   (`src/shared/offscreen-document.ts`) starts the document and the worker
-  forwards. `src/ocr/offscreen.ts` serialises requests behind one queue — a
+  forwards. On Firefox the background page hosts the engine itself. `src/ocr/offscreen.ts` serialises requests behind one queue — a
   single inference session cannot usefully be contended for — and caches
   results by image URL in a `BoundedMap`. A `data:` source is never cached: the
   key would be the whole picture, megabytes of string per entry, and a hit

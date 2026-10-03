@@ -51,7 +51,7 @@ committing from a shell that has not loaded the dev environment fails.
 - `dictionary/` — dictionary load and lookup, run in the offscreen document
 - `stats/`, `flashcards/`, `settings/` — the extension's pages
 - `shared/` — code used by more than one domain; imports no feature domain
-- `service-worker.ts`, `offscreen/offscreen.ts` — composition roots that register each feature's handlers
+- `service-worker.ts`, `offscreen/offscreen.ts` — composition roots that register each feature's handlers; `background-firefox.ts` imports both for Firefox's event page
 - `popup/content.ts` → `ocr/media-controller.ts` — the one cross-feature import, a bootstrap
 
 ## Further Reading
