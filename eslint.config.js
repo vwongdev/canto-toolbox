@@ -63,6 +63,17 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/**', 'src/data/**', 'build-tools/dist/**', 'node_modules/**'],
+    files: ['src/background-firefox.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          regex: '^\\./(?!service-worker\\.js$|offscreen/offscreen\\.js$)',
+          message: "Firefox's background page imports only the two composition roots.",
+        }],
+      }],
+    },
+  },
+  {
+    ignores: ['dist/**', 'dist-firefox/**', 'src/data/**', 'build-tools/dist/**', 'node_modules/**'],
   }
 );

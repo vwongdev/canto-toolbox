@@ -20,7 +20,12 @@ async function hasOffscreenDocument(): Promise<boolean> {
   return contexts.length > 0;
 }
 
+/**
+ * Firefox has no offscreen documents: its background page hosts the
+ * dictionaries and the OCR model itself, so there is nothing to create.
+ */
 export async function ensureOffscreenDocument(): Promise<void> {
+  if (!chrome.offscreen) return;
   if (await hasOffscreenDocument()) return;
 
   creating ??= chrome.offscreen
