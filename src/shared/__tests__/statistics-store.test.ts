@@ -6,7 +6,7 @@ import {
   StatisticsStore,
   syncSelection,
 } from '../statistics-store.js';
-import { SYNC_QUOTAS, asItems, fakeArea } from '../../__tests__/fake-storage.js';
+import { SYNC_QUOTAS, asItems, asLegacyItems, fakeArea } from '../../__tests__/fake-storage.js';
 import type { Statistics, WordStatistics } from '../types.js';
 
 /** A word carrying about what one reaches once it is being reviewed. */
@@ -71,7 +71,7 @@ describe('StatisticsStore.mutate', () => {
     await store.mutate(existing => ({ ...existing, 二: { ...existing['二']!, count: 7 } }));
 
     expect(local.mocks.set).toHaveBeenCalledTimes(1);
-    expect(local.mocks.set).toHaveBeenCalledWith({ 'word:二': { ...seen(), count: 7 } });
+    expect(local.mocks.set).toHaveBeenCalledWith(asItems({ 二: { ...seen(), count: 7 } }));
   });
 
   it('sees an entry the transform edited in place', async () => {
@@ -204,14 +204,45 @@ describe('syncSelection', () => {
     for (let n = 0; n < 1000; n++) record[`词${n}`] = studied(n);
 
     const selected = syncSelection(record);
-    const bytes = Object.entries(selected).reduce(
-      (sum, [word, stat]) =>
-        sum + new TextEncoder().encode(`word:${word}${JSON.stringify(stat)}`).length,
+    const bytes = Object.entries(asItems(selected)).reduce(
+      (sum, [key, item]) => sum + new TextEncoder().encode(`${key}${JSON.stringify(item)}`).length,
       0,
     );
 
     expect(bytes).toBeLessThanOrEqual(SYNC_BUDGET_BYTES);
     expect(selected['词999']).toBeDefined();
+  });
+});
+
+describe('migrating plain per-word items', () => {
+  it('moves every word to the compact layout on the next write', async () => {
+    const { store, local, sync } = setup(
+      asLegacyItems({ 一: seen(3), 二: studied(2) }),
+      asLegacyItems({ 二: studied(2) }),
+    );
+
+    await store.mutate(existing => existing);
+
+    expect(Object.keys(local.items()).sort()).toEqual(['w:一', 'w:二']);
+    expect(Object.keys(sync.items())).toEqual(['w:二']);
+    expect(local.words()['一']).toEqual(seen(3));
+    expect(local.words()['二']?.flashcard).toEqual(studied(2).flashcard);
+  });
+
+  // A device still on an older version writes plain items back to sync.
+  it('reconciles a word held in both layouts', async () => {
+    const { store, sync } = setup({}, {
+      ...asItems({ 二: studied(2, 5000) }),
+      ...asLegacyItems({ 二: { ...studied(2, 1000), count: 9 } }),
+    });
+
+    const stats = await store.read();
+
+    expect(stats['二']?.flashcard?.lastReviewed).toBe(5000);
+    expect(stats['二']?.count).toBe(9);
+
+    await store.mutate(existing => existing);
+    expect(Object.keys(sync.items())).toEqual(['w:二']);
   });
 });
 

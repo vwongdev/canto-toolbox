@@ -1,6 +1,6 @@
-import { WORD_KEY_PREFIX } from '../shared/statistics-store.js';
 import { isKnown } from '../shared/statistics-utils.js';
-import type { PageWord, SegmentedWord, Statistics, WordStatistics } from '../shared/types.js';
+import { storedWord } from '../shared/stored-word.js';
+import type { PageWord, SegmentedWord, Statistics } from '../shared/types.js';
 
 /** The words the reader knows, by the rule the stats page's coverage uses. */
 export function knownWordsIn(statistics: Statistics, now: Date = new Date()): Set<string> {
@@ -42,11 +42,12 @@ export function changesKnown(changes: Record<string, chrome.storage.StorageChang
   const now = new Date();
 
   for (const [key, change] of Object.entries(changes)) {
-    if (!key.startsWith(WORD_KEY_PREFIX)) continue;
+    const before = storedWord(key, change.oldValue);
+    const after = storedWord(key, change.newValue);
 
-    const before = change.oldValue ? isKnown(change.oldValue as WordStatistics, now) : false;
-    const after = change.newValue ? isKnown(change.newValue as WordStatistics, now) : false;
-    if (before !== after) return true;
+    const knownBefore = before ? isKnown(before[1], now) : false;
+    const knownAfter = after ? isKnown(after[1], now) : false;
+    if (knownBefore !== knownAfter) return true;
   }
 
   return false;

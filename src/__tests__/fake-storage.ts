@@ -1,4 +1,6 @@
 import { vi } from 'vitest';
+import { storedWord, wordItems } from '../shared/stored-word.js';
+import type { Statistics } from '../shared/types.js';
 
 /** The quotas `chrome.storage.sync` enforces, for a fake that enforces them too. */
 export const SYNC_QUOTAS = { bytes: 102_400, items: 512, bytesPerItem: 8192 };
@@ -61,17 +63,23 @@ export function fakeArea(initial: Record<string, unknown> = {}, quotas: Quotas =
     mocks: area,
     /** Everything held, parsed. */
     items: () => snapshot(),
-    /** The words held under the per-word prefix. */
+    /** The words held, decoded from whichever layout holds them. */
     words: () =>
       Object.fromEntries(
-        Object.entries(snapshot())
-          .filter(([key]) => key.startsWith('word:'))
-          .map(([key, value]) => [key.slice('word:'.length), value]),
+        Object.entries(snapshot()).flatMap(([key, value]) => {
+          const held = storedWord(key, value);
+          return held ? [held] : [];
+        }),
       ),
   };
 }
 
 /** A record's words as the items the store keeps them in. */
-export function asItems(words: Record<string, unknown>): Record<string, unknown> {
+export function asItems(words: Statistics): Record<string, unknown> {
+  return wordItems(words);
+}
+
+/** A record's words as the plain items versions before the compact layout kept. */
+export function asLegacyItems(words: Statistics): Record<string, unknown> {
   return Object.fromEntries(Object.entries(words).map(([word, stat]) => [`word:${word}`, stat]));
 }

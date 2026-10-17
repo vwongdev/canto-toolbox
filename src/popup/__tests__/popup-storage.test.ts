@@ -38,7 +38,7 @@ describe('PopupStorageClient', () => {
       client.updateStatistics('好');
       await vi.waitFor(() => expect(local.mocks.set).toHaveBeenCalled());
 
-      expect(Object.keys(local.mocks.set.mock.calls[0]![0])).toEqual(['word:好']);
+      expect(Object.keys(local.mocks.set.mock.calls[0]![0])).toEqual(['w:好']);
       expect(local.words()['好']).toMatchObject({ count: 2 });
     });
   });

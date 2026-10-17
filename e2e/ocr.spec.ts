@@ -5,6 +5,8 @@ import os from 'os';
 import http from 'http';
 import sharp from 'sharp';
 import type { AddressInfo } from 'net';
+import { storedWord } from '../src/shared/stored-word.js';
+import type { Statistics } from '../src/shared/types.js';
 
 const EXTENSION_PATH = path.resolve(process.cwd(), 'dist');
 
@@ -175,21 +177,16 @@ test('hovering recognised text shows the definition popup and studies the word',
   await page.close();
 });
 
-function readStatistics(page: Page): Promise<Record<string, { contexts?: { text: string }[] }>> {
-  return page.evaluate(
-    () =>
-      new Promise<Record<string, { contexts?: { text: string }[] }>>(resolve => {
-        // Local holds every word, one item each; sync carries only studied ones.
-        chrome.storage.local.get(null, items =>
-          resolve(
-            Object.fromEntries(
-              Object.entries(items)
-                .filter(([key]) => key.startsWith('word:'))
-                .map(([key, stat]) => [key.slice('word:'.length), stat]),
-            ),
-          ),
-        );
-      }),
+async function readStatistics(page: Page): Promise<Statistics> {
+  // Local holds every word, one item each; sync carries only studied ones.
+  const items = await page.evaluate(
+    () => new Promise<Record<string, unknown>>(resolve => chrome.storage.local.get(null, resolve)),
+  );
+  return Object.fromEntries(
+    Object.entries(items).flatMap(([key, value]) => {
+      const held = storedWord(key, value);
+      return held ? [held] : [];
+    }),
   );
 }
 

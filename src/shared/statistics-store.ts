@@ -1,4 +1,5 @@
 import { lastReviewedAt, mergeStatistics, reconcileStatistics } from './statistics-utils.js';
+import { WORD_KEY_PREFIX, encodeWord, isWordKey, storedWord, wordItems } from './stored-word.js';
 import type { Statistics, WordStatistics } from './types.js';
 
 /**
@@ -8,13 +9,12 @@ import type { Statistics, WordStatistics } from './types.js';
  * Each feature still owns its own access policy on top — what to cap, what to
  * increment.
  *
- * Each word is its own item, `word:<word>`. The record used to be one item,
+ * Each word is its own item (`stored-word.ts`). The record used to be one item,
  * which every write rewrote whole: at a few thousand words that is hundreds of
  * kilobytes serialised to record one hover. One item per word means a write
  * costs what it changes, and `chrome.storage` has no per-item overhead worth
  * trading that for — a sharded layout would still rewrite a whole shard.
  */
-export const WORD_KEY_PREFIX = 'word:';
 
 /** The single item the whole record was held in before it was split per word. */
 export const LEGACY_STATISTICS_KEY = 'wordStatistics';
@@ -46,7 +46,7 @@ export const MAX_TRACKED_WORDS = 20_000;
  * count being Chrome's, not ours.
  */
 export const SYNC_BUDGET_BYTES = 90_000;
-export const SYNC_BUDGET_ITEMS = 400;
+export const SYNC_BUDGET_ITEMS = 480;
 
 /**
  * Eviction tiers, ordered by what is lost when the entry goes. Each tier is
@@ -106,7 +106,7 @@ export function syncSelection(record: Statistics): Statistics {
     delete carried.contexts;
 
     const key = WORD_KEY_PREFIX + word;
-    bytes += encoder.encode(key).length + encoder.encode(JSON.stringify(carried)).length;
+    bytes += encoder.encode(key).length + encoder.encode(JSON.stringify(encodeWord(carried))).length;
     if (bytes > SYNC_BUDGET_BYTES || ++items > SYNC_BUDGET_ITEMS) break;
 
     selected[word] = carried;
@@ -115,14 +115,35 @@ export function syncSelection(record: Statistics): Statistics {
   return selected;
 }
 
+/**
+ * The words an area holds. A word still under the legacy prefix is reconciled
+ * with its compact item as the sync side, the way the legacy record was: an
+ * older version on another device can write it back after this one moved it.
+ */
 function wordsIn(items: Record<string, unknown>): Statistics {
-  const words: Statistics = {};
+  const current: Statistics = {};
+  const legacy: Statistics = {};
   for (const [key, value] of Object.entries(items)) {
-    if (key.startsWith(WORD_KEY_PREFIX)) {
-      words[key.slice(WORD_KEY_PREFIX.length)] = value as WordStatistics;
-    }
+    const held = storedWord(key, value);
+    if (!held) continue;
+    const [word, entry] = held;
+    if (key.startsWith(WORD_KEY_PREFIX)) current[word] = entry;
+    else legacy[word] = entry;
   }
-  return words;
+  return Object.keys(legacy).length === 0 ? current : reconcileStatistics(legacy, current);
+}
+
+/**
+ * Every word item an area holds, as serialised text. Taken from what storage
+ * returned rather than from the decoded words, which a transform is free to
+ * edit in place.
+ */
+function heldItems(items: Record<string, unknown>): Map<string, string> {
+  return new Map(
+    Object.entries(items)
+      .filter(([key]) => isWordKey(key))
+      .map(([key, value]) => [key, JSON.stringify(value)]),
+  );
 }
 
 async function readAll(area: chrome.storage.StorageArea, name: string): Promise<Record<string, unknown>> {
@@ -136,25 +157,24 @@ async function readAll(area: chrome.storage.StorageArea, name: string): Promise<
 
 /**
  * Bring `area` to hold exactly `words`, touching only the items that differ
- * from `held` — which is compared as serialised text, because a transform is
- * free to edit an entry in place and would otherwise look unchanged.
+ * from `held`. Legacy items are never in `words`' layout, so the first write
+ * after an upgrade moves every word to the compact one. Removals go first:
+ * sync refuses a write that would take it past its quota, and during that move
+ * both layouts held at once could.
  */
 async function writeDifference(
   area: chrome.storage.StorageArea,
   held: Map<string, string>,
   words: Statistics,
 ): Promise<void> {
-  const changed: Record<string, WordStatistics> = {};
-  for (const [word, entry] of Object.entries(words)) {
-    if (held.get(word) !== JSON.stringify(entry)) changed[WORD_KEY_PREFIX + word] = entry;
-  }
+  const items = wordItems(words);
+  const changed = Object.fromEntries(
+    Object.entries(items).filter(([key, value]) => held.get(key) !== JSON.stringify(value)),
+  );
+  const gone = [...held.keys()].filter(key => !(key in items));
 
-  const gone = [...held.keys()]
-    .filter(word => !(word in words))
-    .map(word => WORD_KEY_PREFIX + word);
-
-  if (Object.keys(changed).length > 0) await area.set(changed);
   if (gone.length > 0) await area.remove(gone);
+  if (Object.keys(changed).length > 0) await area.set(changed);
 }
 
 /** The last time anything happened to the word: a sighting, a review or a decision. */
@@ -177,10 +197,6 @@ function sinceCleared(words: Statistics, clearedAt: number): Statistics {
 function clearedAtIn(items: Record<string, unknown>): number {
   const value = items[CLEARED_AT_KEY];
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function serialised(words: Statistics): Map<string, string> {
-  return new Map(Object.entries(words).map(([word, entry]) => [word, JSON.stringify(entry)]));
 }
 
 /**
@@ -246,7 +262,7 @@ export class StatisticsStore {
   private async clearArea(area: chrome.storage.StorageArea, clearedAt: number): Promise<void> {
     const items = await area.get(null);
     const keys = Object.keys(items ?? {}).filter(
-      key => key.startsWith(WORD_KEY_PREFIX) || key === LEGACY_STATISTICS_KEY,
+      key => isWordKey(key) || key === LEGACY_STATISTICS_KEY,
     );
     if (keys.length > 0) await area.remove(keys);
     await area.set({ [CLEARED_AT_KEY]: clearedAt });
@@ -254,11 +270,8 @@ export class StatisticsStore {
 
   private async apply(transform: (existing: Statistics) => Statistics): Promise<void> {
     await this.migrated();
-    const { sync, local, clearedAt, localClearedAt } = await this.readAreas();
-    // Taken before the transform runs, since it may edit the entries it is handed,
-    // and before a clear is applied, so the words it drops are removed from storage.
-    const syncHeld = serialised(sync);
-    const localHeld = serialised(local);
+    const { sync, local, syncHeld, localHeld, clearedAt, localClearedAt } = await this.readAreas();
+    // Held before a clear is applied, so the words it drops are removed from storage.
     const existing = reconcileStatistics(sinceCleared(sync, clearedAt), sinceCleared(local, clearedAt));
     await this.persist(syncHeld, localHeld, transform(existing));
 
@@ -278,6 +291,8 @@ export class StatisticsStore {
   private async readAreas(): Promise<{
     sync: Statistics;
     local: Statistics;
+    syncHeld: Map<string, string>;
+    localHeld: Map<string, string>;
     clearedAt: number;
     localClearedAt: number;
   }> {
@@ -289,6 +304,8 @@ export class StatisticsStore {
     return {
       sync: wordsIn(sync),
       local: wordsIn(local),
+      syncHeld: heldItems(sync),
+      localHeld: heldItems(local),
       clearedAt: Math.max(clearedAtIn(sync), localClearedAt),
       localClearedAt,
     };
@@ -348,11 +365,11 @@ export class StatisticsStore {
     const moved = mergeStatistics(reconcileStatistics(legacySync, legacyLocal), local);
 
     // Not swallowed: the legacy item goes only once local holds every word.
-    await writeDifference(this.local, serialised(local), moved);
+    await writeDifference(this.local, heldItems(localItems), moved);
     await this.local.remove(LEGACY_STATISTICS_KEY);
 
     try {
-      await writeDifference(this.sync, serialised(sync), syncSelection(reconcileStatistics(sync, moved)));
+      await writeDifference(this.sync, heldItems(syncItems), syncSelection(reconcileStatistics(sync, moved)));
       await this.sync.remove(LEGACY_STATISTICS_KEY);
     } catch (error) {
       console.warn('[Storage] Sync migration failed; local holds the record:', error);
