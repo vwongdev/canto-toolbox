@@ -84,8 +84,10 @@ global Chrome mock. The exceptions:
 
 - `src/shared/statistics-store.ts` runs over `src/__tests__/fake-storage.ts`,
   an in-memory storage area that round-trips values through JSON and can
-  enforce sync's quotas. `asItems` turns a record into the `word:<word>` items
-  it is stored as, which is how tests seed storage
+  enforce sync's quotas. `asItems` turns a record into the compact `w:<word>`
+  items it is stored as, which is how tests seed storage; `asLegacyItems`
+  gives the plain `word:<word>` items older versions wrote, and `words()`
+  decodes either
 - `src/shared/settings.ts` — `watchSettings` is driven through the
   `chrome.storage.onChanged` mock in `setup.ts`
 - `src/shared/review-log.ts` runs against the `chrome.storage.local` mock

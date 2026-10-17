@@ -67,6 +67,7 @@ canto-toolbox/
 │   │   ├── message-router.ts  # registerHandlers() onMessage routing
 │   │   ├── offscreen-document.ts # ensureOffscreenDocument(); one host
 │   │   ├── statistics-store.ts# Per-word layout, cap, sync share, migration
+│   │   ├── stored-word.ts     # Compact per-word storage encoding, both key prefixes
 │   │   ├── review-log.ts      # Cards answered per local day (local only)
 │   │   ├── statistics-utils.ts# mergeStatistics(), getFlashcardStage()
 │   │   ├── settings.ts        # Reader preferences: specs, defaults, watchSettings()

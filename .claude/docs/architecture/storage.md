@@ -1,6 +1,6 @@
 # Storage
 
-- **Statistics**: one item per word, `word:<word>`, in `chrome.storage.local`,
+- **Statistics**: one item per word, `w:<word>`, in `chrome.storage.local`,
   held by a `StatisticsStore` in `src/shared/statistics-store.ts`. The layout,
   the store and the `MAX_TRACKED_WORDS` cap live there so the write path, the
   stats page's warning and the flashcard handler all address the same record.
@@ -12,6 +12,21 @@
   still be rewritten for one word, and `chrome.storage` charges nothing per item
   that shards would save. Mutations in one context run one at a time, since each
   reads what the last wrote.
+- **Words are stored compact, in both areas.** `stored-word.ts` encodes each
+  `WordStatistics` with one-letter field names, cards and sentences as
+  positional arrays and flags as 1/0 — about a third of plain JSON's bytes,
+  which roughly triples the words sync's byte budget carries. It is lossless:
+  a field without a short form is kept under its own name, and a card or
+  sentence holding one is kept whole. Local uses the same encoding so one
+  codec serves both areas; it saves local nothing that matters.
+- **Plain items are migrated by the next write.** Words written before the
+  compact layout sit under `word:<word>` as plain JSON. Reads decode both
+  prefixes, reconciling a word held under both with the plain one as the sync
+  side — a device still on an older version writes plain items back to sync —
+  and every write removes the plain items, since they are never in the layout
+  it writes. Removals go before writes so sync never holds both layouts at
+  once past its quota. Older versions read only `word:` items, so they stop
+  receiving synced words until updated.
 - **Local is the authority.** `unlimitedStorage` lifts its quota, so it is the
   area every write reaches.
 - **Decisions are timed.** Retiring or choosing a word, or undoing either,
@@ -56,7 +71,7 @@
   written whole by `saveSettings`. It is a few dozen bytes, well inside sync's
   quotas in the headroom the statistics share's budget leaves, and preferences
   are what a reader expects to follow them between machines. The statistics
-  store only touches `word:` keys, so clearing statistics keeps the settings.
+  store only touches word keys, so clearing statistics keeps the settings.
 - **Write batching**: `popup-storage.ts` accumulates counts with
   `createBatchedDebounce` and writes them through a `BoundedMap` capped at
   `MAX_TRACKED_WORDS` (20,000 — not a storage limit, but a bound on what every
