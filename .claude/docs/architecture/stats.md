@@ -5,8 +5,9 @@
   ids the page's HTML and its tests share.
 - Renders the frequency list with lazily-expanded definitions (rendered by the
   shared `definition-section`), every sentence each word was met in — each
-  linking to its page in a new tab (`rel="noopener"`) where one was kept —
-  study counts, and a clear action.
+  linking to its page in a new tab (`rel="noopener"`) where one was kept, all
+  under a **Seen in** disclosure that follows the definition closed, as the
+  character breakdown does — study counts, and a clear action.
 - Above the list, `overview.ts` summarises the whole record — cards due now,
   due today, review accuracy and retired count — deliberately unaffected by the
   list's own filters. `ordering.ts` supplies the frequency-band filter and the
