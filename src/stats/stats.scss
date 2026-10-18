@@ -243,11 +243,24 @@ h1 {
   display: none;
 }
 
+// A popup is as wide as its content wants to be, and a result's gloss runs on
+// one line: without this, typing would widen the popup to fit the longest one.
+.search-results {
+  contain: inline-size;
+}
+
 // Searching swaps the list and everything that narrows it for the results.
 // `!important` because the list's own display is set inline as it is drawn,
 // and a status change can redraw it mid-search.
 body.is-searching {
-  .filters,
+  // The filter rows are what set the popup's width, so they keep it, unseen.
+  .filters {
+    visibility: hidden;
+    height: 0;
+    padding-block: 0;
+    overflow: hidden;
+  }
+
   .transfer,
   .insights,
   .sort-control,
