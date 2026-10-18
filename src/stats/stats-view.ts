@@ -540,12 +540,19 @@ export function refreshStatRow(
   stat: WordStatistics,
   view: ListView,
 ): boolean {
-  const item = Array.from(elements.statsListEl.children).find(
-    child => (child as HTMLElement).dataset.word === word,
-  ) as HTMLElement | undefined;
-
+  const item = findRow(elements.statsListEl, word);
   if (!item || !matchesView(stat, view)) return false;
 
+  return repaintRow(item, stat, view);
+}
+
+function findRow(container: HTMLElement, word: string): HTMLElement | undefined {
+  return Array.from(container.children).find(
+    child => (child as HTMLElement).dataset.word === word,
+  ) as HTMLElement | undefined;
+}
+
+function repaintRow(item: HTMLElement, stat: WordStatistics, view: ListView): boolean {
   item
     .querySelector('.stage-badge:not(.stage-badge--retired)')
     ?.replaceWith(createStageBadge(stageOf(stat, view)));
@@ -573,6 +580,35 @@ function createStatItem(
   loadDefinition: LoadDefinition,
   setStatus: SetWordStatus,
 ): HTMLElement {
+  const count = stat.count || 0;
+
+  return createRow(word, {
+    badges: [
+      createStageBadge(stage),
+      ...(stat.suppressed === true ? [createRetiredBadge()] : []),
+    ],
+    details: [
+      createElement({
+        className: 'stat-count',
+        textContent: String(count)
+      }),
+      createElement({
+        className: 'stat-label',
+        textContent: count === 1 ? 'time studied' : 'times studied'
+      }),
+    ],
+    actions: createStatusControls(word, stat, setStatus),
+  }, loadDefinition);
+}
+
+/** What sets one kind of row apart; the header, panel and expansion are shared. */
+interface RowParts {
+  badges: HTMLElement[];
+  details: HTMLElement[];
+  actions: HTMLElement;
+}
+
+function createRow(word: string, parts: RowParts, loadDefinition: LoadDefinition): HTMLElement {
   const item = createElement({
     className: 'stat-item',
     dataset: { word }
@@ -591,27 +627,15 @@ function createStatItem(
     className: 'stat-word-row',
     children: [
       createElement({ className: 'stat-word', textContent: word, attributes: { lang: 'zh' } }),
-      createStageBadge(stage),
-      ...(stat.suppressed === true ? [createRetiredBadge()] : []),
+      ...parts.badges,
     ],
   });
 
   const expandIcon = createIcon(CHEVRON_SVG, { className: 'stat-expand-icon' });
 
-  const count = stat.count || 0;
   const detailsEl = createElement({
     className: 'stat-details',
-    children: [
-      createElement({
-        className: 'stat-count',
-        textContent: String(count)
-      }),
-      createElement({
-        className: 'stat-label',
-        textContent: count === 1 ? 'time studied' : 'times studied'
-      }),
-      expandIcon
-    ]
+    children: [...parts.details, expandIcon]
   });
 
   header.appendChild(wordRow);
@@ -624,7 +648,7 @@ function createStatItem(
     id: panelId,
     className: 'stat-expanded',
     style: { display: 'none' },
-    children: [definitionEl, createStatusControls(word, stat, setStatus)],
+    children: [definitionEl, parts.actions],
   });
 
   item.appendChild(header);
