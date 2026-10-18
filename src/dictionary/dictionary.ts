@@ -7,12 +7,15 @@ import type {
   FrequencyRanks,
   CharacterEtymology,
   Lookalike,
+  SearchHit,
   SegmentedWord,
   WordFrequency,
 } from '../shared/types.js';
 import { parseComponents } from '../shared/decomposition.js';
 import { bandForRank } from '../shared/frequency.js';
+import { primaryGloss } from '../shared/gloss.js';
 import { buildLookalikeIndex, type LookalikeMatch } from './lookalikes.js';
+import { createSearcher, type Searcher } from './search.js';
 
 const CANTONESE_MARKER = '(cantonese)';
 const MAX_WORD_LENGTH = 4;
@@ -478,4 +481,45 @@ export function lookupWordAt(run: string, offset = 0): DefinitionResult {
 
   console.error('[Dict] Word not found at offset:', offset, 'in', run);
   throw new Error(`No word found at offset ${offset} of "${run}"`);
+}
+
+/** Enough to scan; past this the query wants another word. */
+const SEARCH_LIMITS = { seen: 50, others: 50 };
+
+let searcher: Searcher | null = null;
+
+function uniqueReadings(entries: DictionaryEntry[]): string[] {
+  return [...new Set(entries.map(entry => entry.romanisation))];
+}
+
+/**
+ * Words matching a query in characters, English, pinyin or Jyutping, the ones
+ * in `seen` first. Only the rows of the matched word itself are read for its
+ * readings and gloss: 乾 also indexes the rows of 干.
+ */
+export function searchDictionary(query: string, seen: readonly string[] = []): SearchHit[] {
+  searcher ??= createSearcher(
+    mandarinDict,
+    cantoneseDict,
+    (traditional, simplified) => frequencyRanks[simplified] ?? frequencyRanks[traditional],
+    MAX_WORD_LENGTH,
+  );
+
+  return searcher(query, new Set(seen), SEARCH_LIMITS).map(match => {
+    const own = (entry: DictionaryEntry): boolean =>
+      entry.traditional === match.traditional && entry.simplified === match.simplified;
+    const { mandarin, cantonese } = lookupEntries(match.word);
+    const definition: DefinitionResult = {
+      word: match.word,
+      mandarin: { entries: mandarin.entries.filter(own) },
+      cantonese: { entries: cantonese.entries.filter(own) },
+    };
+
+    return {
+      ...match,
+      pinyin: uniqueReadings(definition.mandarin.entries),
+      jyutping: uniqueReadings(definition.cantonese.entries),
+      gloss: primaryGloss(definition),
+    };
+  });
 }

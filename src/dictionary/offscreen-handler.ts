@@ -3,6 +3,7 @@ import {
   lookupWordAt,
   lookupWordInDictionaries,
   initDictionaries,
+  searchDictionary,
   segmentRun,
 } from './dictionary.js';
 import { registerHandlers } from '../shared/message-router.js';
@@ -46,6 +47,10 @@ export function register(): void {
     dict_confusables: async (msg) => {
       await ready();
       return { success: true, type: 'dict_confusables', confusables: findConfusables(msg.words) };
+    },
+    dict_search: async (msg) => {
+      await ready();
+      return { success: true, type: 'dict_search', hits: searchDictionary(msg.query, msg.seen) };
     },
   });
 }

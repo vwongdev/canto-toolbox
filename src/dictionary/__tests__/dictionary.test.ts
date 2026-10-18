@@ -8,6 +8,7 @@ import {
   lookupWordAt,
   lookupEtymology,
   findConfusables,
+  searchDictionary,
 } from '../dictionary.js';
 import type { CompactDictionary, DictionaryEntry, DefinitionResult } from '../../shared/types.js';
 
@@ -336,5 +337,19 @@ describe('lookupWordAt', () => {
   it('counts a leading astral character as one character', () => {
     // Outside the BMP, so a UTF-16 scan would split it and match nothing.
     expect(() => lookupWordAt('𠮷好字')).toThrow();
+  });
+});
+
+describe('searchDictionary', () => {
+  it('gives each match every reading and a gloss from both dictionaries', () => {
+    expect(searchDictionary('good')[0]).toEqual({
+      word: '好',
+      traditional: '好',
+      simplified: '好',
+      rank: 10,
+      pinyin: ['hao3', 'hao4'],
+      jyutping: ['hou2'],
+      gloss: 'good; well; to be fond of',
+    });
   });
 });

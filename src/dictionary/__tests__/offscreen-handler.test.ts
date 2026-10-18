@@ -4,6 +4,7 @@ vi.mock('../dictionary.js', () => ({
   initDictionaries: vi.fn(() => Promise.resolve()),
   lookupWordAt: vi.fn(),
   lookupWordInDictionaries: vi.fn(),
+  searchDictionary: vi.fn(),
   segmentRun: vi.fn(),
 }));
 
@@ -12,6 +13,7 @@ import {
   initDictionaries,
   lookupWordAt,
   lookupWordInDictionaries,
+  searchDictionary,
   segmentRun,
 } from '../dictionary.js';
 import type { BackgroundMessage, BackgroundResponse, DefinitionResult } from '../../shared/types.js';
@@ -117,6 +119,19 @@ describe('dictionary offscreen-handler register()', () => {
       type: 'dict_segment',
       words: [[{ start: 0, end: 1 }], [{ start: 0, end: 2 }]],
     });
+  });
+
+  it('answers a dict_search with the words the reader has met passed through', async () => {
+    const hits = [{ word: '好', traditional: '好', simplified: '好', pinyin: ['hao3'], jyutping: ['hou2'], gloss: 'good' }];
+    vi.mocked(searchDictionary).mockReturnValue(hits);
+    const listener = registerAndGetListener();
+    const sendResponse = vi.fn();
+
+    listener({ type: 'dict_search', query: 'good', seen: ['好'] }, {}, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+    expect(searchDictionary).toHaveBeenCalledWith('good', ['好']);
+    expect(sendResponse).toHaveBeenCalledWith({ success: true, type: 'dict_search', hits });
   });
 
   it('reports a load failure when dictionary init rejects', async () => {

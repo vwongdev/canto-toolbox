@@ -345,6 +345,38 @@ export interface FindConfusablesMessage {
   words: string[];
 }
 
+/** A word a search found, with enough to tell it apart from the others in a list. */
+export interface SearchHit {
+  /** The form the query was written in; the traditional form for a query in English or romanisation. */
+  word: string;
+  traditional: string;
+  simplified: string;
+  /** Each Mandarin reading, as CC-CEDICT spells it (`hao3`). */
+  pinyin: string[];
+  jyutping: string[];
+  gloss: string;
+  rank?: number;
+}
+
+/**
+ * The stats page searching the dictionaries. `seen` is every word the record
+ * holds: the page already has it, and a search that knows which words the
+ * reader has met can put them first without the worker reading the record on
+ * every keystroke.
+ */
+export interface SearchWordsMessage {
+  type: 'search_words';
+  query: string;
+  seen: string[];
+}
+
+/** The worker's hop to the offscreen document for `search_words`. */
+export interface DictSearchMessage {
+  type: 'dict_search';
+  query: string;
+  seen: string[];
+}
+
 /** A word on the page, and whether the reader's record says they know it. */
 export interface PageWord {
   start: number;
@@ -450,7 +482,9 @@ export type BackgroundMessage =
   | DictSegmentMessage
   | DictConfusablesMessage
   | FindConfusablesMessage
-  | SegmentTextMessage;
+  | SegmentTextMessage
+  | SearchWordsMessage
+  | DictSearchMessage;
 
 export interface LookupResponse {
   success: true;
@@ -562,6 +596,19 @@ export interface SegmentTextResponse {
   words: PageWord[][];
 }
 
+export interface SearchWordsResponse {
+  success: true;
+  type: 'search_words';
+  /** Words the reader has met first, then the rest of the dictionary, best match first within each. */
+  hits: SearchHit[];
+}
+
+export interface DictSearchResponse {
+  success: true;
+  type: 'dict_search';
+  hits: SearchHit[];
+}
+
 export type BackgroundResponse =
   | LookupResponse
   | ErrorResponse
@@ -579,7 +626,9 @@ export type BackgroundResponse =
   | DictSegmentResponse
   | DictConfusablesResponse
   | FindConfusablesResponse
-  | SegmentTextResponse;
+  | SegmentTextResponse
+  | SearchWordsResponse
+  | DictSearchResponse;
 
 // Every non-error response carries a `type` that matches its request, so the
 // success response for a given message is derivable from the union — no
