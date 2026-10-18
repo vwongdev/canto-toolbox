@@ -23,6 +23,7 @@ export const MAX_CONTEXT_CHARS = 60;
 export interface ContextOptions {
   /** Hide the word itself, leaving the sentence as a gap to fill. */
   blank?: boolean;
+  /** Empty leaves it out, for a surface that titles the list itself. */
   label?: string;
 }
 
@@ -71,9 +72,9 @@ export function createContextList(
   contexts: readonly Pick<ContextSighting, 'text' | 'source'>[],
   { blank = false, label = 'Seen in' }: ContextOptions = {},
 ): HTMLElement {
-  const children: HTMLElement[] = [
-    createElement({ tag: 'span', className: 'context-label', textContent: label }),
-  ];
+  const children: HTMLElement[] = label
+    ? [createElement({ tag: 'span', className: 'context-label', textContent: label })]
+    : [];
 
   for (const { text, source } of contexts) {
     const link = source ? createSourceLink(source) : null;

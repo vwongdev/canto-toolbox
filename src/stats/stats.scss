@@ -773,6 +773,62 @@ body.is-searching {
   color: t.$color-text-strong;
 }
 
+// Drawn as the character breakdown is, which it follows.
+.stat-seen-in {
+  margin-top: t.$space-3;
+  padding-top: t.$space-3;
+  border-top: 1px solid t.$color-border-bold;
+
+  &[open] .stat-seen-in-chevron {
+    transform: rotate(90deg);
+  }
+
+  .context {
+    margin: 6px 0 0;
+  }
+}
+
+.stat-seen-in-toggle {
+  display: flex;
+  align-items: center;
+  gap: t.$space-2;
+  list-style: none;
+  cursor: pointer;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:hover .stat-seen-in-label,
+  &:hover .stat-seen-in-chevron {
+    color: t.$color-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid t.$color-primary;
+    outline-offset: 2px;
+  }
+}
+
+.stat-seen-in-label {
+  font-size: t.$text-xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: t.$color-text-muted;
+  letter-spacing: 0.5px;
+
+  @include dark { color: t.$color-text-subtle; }
+}
+
+.stat-seen-in-chevron {
+  display: flex;
+  align-items: center;
+  color: t.$color-text-subtle;
+  transition: transform 0.2s, color 0.15s;
+
+  svg { display: block; }
+}
+
 // What the overview's figures cannot say alone. Each section is a native
 // disclosure, closed by default, with its headline in the summary line — so the
 // popup spends one line per section on them until the reader asks for more.

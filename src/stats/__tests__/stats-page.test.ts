@@ -539,6 +539,7 @@ describe('StatsManager met-in sentences', () => {
       .dispatchEvent(new Event('click', { bubbles: true }));
     await settle();
 
+    expect(item.querySelector<HTMLDetailsElement>('details.stat-seen-in')?.open).toBe(false);
     const sentences = Array.from(item.querySelectorAll('.context-sentence'), el => el.textContent);
     expect(sentences).toEqual(['這個字很常見', '常見問題']);
 

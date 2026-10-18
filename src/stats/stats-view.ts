@@ -432,19 +432,38 @@ export function renderDefinition(
   confusedWith: Readonly<Record<string, number>> = {},
 ): void {
   container.replaceChildren();
-  if (contexts.length > 0) container.appendChild(createContextList(word, contexts));
   if (Object.keys(confusedWith).length > 0) container.appendChild(createMixups(confusedWith));
 
-  if (!definition) {
+  if (definition) {
+    container.appendChild(createDefinitionElement(word, definition, false, { display }));
+    container.dataset.loaded = 'true';
+  } else {
     container.appendChild(createElement({
       className: 'stat-error',
       textContent: 'Something went wrong'
     }));
-    return;
   }
 
-  container.appendChild(createDefinitionElement(word, definition, false, { display }));
-  container.dataset.loaded = 'true';
+  if (contexts.length > 0) container.appendChild(createSeenIn(word, contexts));
+}
+
+/**
+ * The sentences a word was met in, closed under the definition like the
+ * character breakdown: the panel is opened to read what the word means.
+ */
+function createSeenIn(word: string, contexts: readonly ContextSighting[]): HTMLElement {
+  const summary = createElement({
+    tag: 'summary',
+    className: 'stat-seen-in-toggle',
+    children: [createElement({ tag: 'span', className: 'stat-seen-in-label', textContent: 'Seen in' })],
+  });
+  summary.appendChild(createIcon(CHEVRON_SVG, { tag: 'span', className: 'stat-seen-in-chevron' }));
+
+  return createElement({
+    tag: 'details',
+    className: 'stat-seen-in',
+    children: [summary, createContextList(word, contexts, { label: '' })],
+  });
 }
 
 function createStageBadge(stage: FlashcardStage): HTMLElement {
