@@ -29,7 +29,7 @@
     The rule is `isKnown` in `statistics-utils.ts`, shared with the page's
     unknown-word marks so a word counts the same way on both.
 - Each row can retire a word or pin it for study, through `set_word_status`.
-- **Search** (the field above the overview): typing pauses 150 ms, then
+- **Search** (the field beside Sort, above the list): typing pauses 150 ms, then
   `search_words` asks the dictionary. While a query stands, `body.is-searching`
   hides the list, its filters, backup and insights, and the results show
   instead: **Your words** first, drawn as list rows with stage and controls,
