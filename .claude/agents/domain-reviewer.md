@@ -9,8 +9,8 @@ You are a domain boundary reviewer for the canto-toolbox Chrome extension. The
 project uses a domain-based `src/` structure (organised by feature, not file
 type):
 
-- `src/dictionary/` — runtime dictionary load + lookup, and the `dict_lookup`
-  handler that runs in the offscreen document. May import only from
+- `src/dictionary/` — runtime dictionary load, lookup and search, and the
+  `dict_*` handlers that run in the offscreen document. May import only from
   `src/shared/`. The generated JSON is not imported; it is `fetch`ed at runtime
   via `chrome.runtime.getURL('data/*.json')`.
 - `src/popup/` — content script (hover popup, unknown-word marks), popup
