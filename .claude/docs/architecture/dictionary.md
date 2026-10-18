@@ -46,3 +46,17 @@
   enriches nothing, so it leaves the hover path untouched. Each word carries
   its other script forms and whether it is an unranked proper noun.
   `dict_segment` answers many runs per message.
+- **Search** (`search.ts`, through `searchDictionary`, `dict_search`): a
+  query holding a Chinese character matches headwords (exact, then prefix,
+  then contains); any other query is tried as English and as pinyin or
+  Jyutping at once, since "he" and "man" are both. Romanisation matches with
+  or without tones and spaces, ü folded to `u`. English matches a whole
+  synonym (`;`-separated, a leading "to"/"a"/"the" dropped), then a prefix,
+  then whole words anywhere. Within a tier, ranked words beat unranked ones,
+  then a match on the word's first sense beats a later one (吃 before 用 for
+  "eat"), then corpus rank. The words the page says the reader has met lead,
+  capped separately from the rest. A word is found only if either dictionary
+  defines it — 你好's CC-Canto row has no English, but `nei5 hou2` still
+  finds it — and only up to `MAX_WORD_LENGTH`, since a longer word can never
+  be hovered or looked up as itself. The per-row text is built on the first
+  search (~200 ms); later ones scan it in ~15 ms.

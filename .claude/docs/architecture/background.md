@@ -29,8 +29,10 @@
   its etymology naming any parts. `segment_text` splits page text into words
   through `dict_segment` and returns whether the reader knows each one (see
   [page-coverage.md](page-coverage.md)).
-- **stats**: handles `get_statistics` (reads merged sync+local statistics)
-  and `get_review_log` (reads the per-day review log).
+- **stats**: handles `get_statistics` (reads merged sync+local statistics),
+  `get_review_log` (reads the per-day review log) and `search_words`
+  (forwarded as `dict_search`; the page sends the record's words with the
+  query, so the worker reads no record per keystroke).
 - **flashcards**: handles `update_flashcard` (advances one direction's FSRS
   state, buries a word once its lapses reach `LEECH_LAPSES`, and adds one to
   today's count in the review log),

@@ -26,7 +26,7 @@ canto-toolbox/
 │   ├── stats/                 # Statistics page
 │   │   ├── stats.ts / stats.html / stats.scss
 │   │   ├── stats-view.ts      # DOM rendering; element ids live here
-│   │   ├── background-handler.ts # get_statistics / get_review_log handler
+│   │   ├── background-handler.ts # get_statistics / get_review_log / search_words handler
 │   │   ├── stats-client.ts
 │   │   ├── overview.ts        # Due/accuracy summary over the whole record
 │   │   ├── insights.ts        # Forecast, streak, retention, band coverage
@@ -58,7 +58,8 @@ canto-toolbox/
 │   ├── dictionary/
 │   │   ├── dictionary.ts      # Runtime dictionary load + lookup
 │   │   ├── lookalikes.ts      # Characters that differ from one another by one part
-│   │   └── offscreen-handler.ts # dict_lookup; the maps live in this document
+│   │   ├── search.ts          # Word search by characters, English or romanisation
+│   │   └── offscreen-handler.ts # dict_lookup / dict_search; the maps live in this document
 │   ├── offscreen/             # Offscreen composition root (dicts + OCR)
 │   │   ├── offscreen.html
 │   │   └── offscreen.ts       # register() of dictionary and OCR handlers

@@ -29,6 +29,16 @@
     The rule is `isKnown` in `statistics-utils.ts`, shared with the page's
     unknown-word marks so a word counts the same way on both.
 - Each row can retire a word or pin it for study, through `set_word_status`.
+- **Search** (the field above the overview): typing pauses 150 ms, then
+  `search_words` asks the dictionary. While a query stands, `body.is-searching`
+  hides the list, its filters, backup and insights, and the results show
+  instead: **Your words** first, drawn as list rows with stage and controls,
+  then **Dictionary**. Each row carries its readings and a short gloss. A
+  result is shown in the form the record holds, else the script setting's,
+  else the query's. A dictionary row's **Study this** sends `track_word` with
+  `pin` — the popup's Study path, so the word is described (rank, parts,
+  strokes) and enrolled — and the button turns to a disabled **Added to deck**:
+  the write is batched in the worker, so there is no record yet to undo.
 - **Retired words are left out of the list** unless the **Show retired** pill is
   pressed — the one filter that is on by default, since a retired word was taken
   out of the deck deliberately. The stage and band counts follow it, so a pill

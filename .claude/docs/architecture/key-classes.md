@@ -74,7 +74,10 @@
 - **`recognise`** (`src/ocr/engine.ts`) — image URL → text with boxes, over the
   packaged PP-OCRv6 model.
 - **`dictionary.ts`** — `initDictionaries`, `lookupWordAt`,
-  `lookupEtymology`, `lookupFrequency`, `segmentRun`, `findConfusables`.
+  `lookupEtymology`, `lookupFrequency`, `segmentRun`, `findConfusables`,
+  `searchDictionary`.
+- **`createSearcher`** (`src/dictionary/search.ts`) — ranked matches for a
+  query in characters, English, pinyin or Jyutping, met words first.
 - **`buildLookalikeIndex`** (`src/dictionary/lookalikes.ts`) — common
   characters laid out the same way that differ in one part, smallest family
   first.

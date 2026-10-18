@@ -9,9 +9,9 @@ the area you are changing.
 | Hover popup, Shift/Escape, Study/Known | [content-script.md](content-script.md) |
 | Unknown-word marks, coverage chip | [page-coverage.md](page-coverage.md) |
 | A message type or handler | [background.md](background.md), [data-flow.md](data-flow.md) |
-| Lookup, segmentation, enrichment | [dictionary.md](dictionary.md) |
+| Lookup, segmentation, enrichment, search | [dictionary.md](dictionary.md) |
 | Image or video OCR | [ocr.md](ocr.md), [ocr-model.md](ocr-model.md) |
-| Stats list, insights, backup, export | [stats.md](stats.md) |
+| Stats list, insights, backup, export, word search | [stats.md](stats.md) |
 | Card directions, sessions, grading | [flashcards.md](flashcards.md) |
 | A new setting | [settings.md](settings.md) |
 | Anything written to `chrome.storage` | [storage.md](storage.md) |
