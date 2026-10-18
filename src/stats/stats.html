@@ -27,10 +27,6 @@
         <button id="clear-btn" class="btn btn-subtle">Clear Statistics</button>
       </div>
 
-      <div class="search">
-        <input id="search-input" type="search" placeholder="Search 中文, English, pinyin or jyutping" aria-label="Search your words and the dictionary" autocomplete="off" spellcheck="false">
-      </div>
-
       <dl class="overview" id="overview">
         <div class="overview-item">
           <dt>Due now</dt>
@@ -120,12 +116,17 @@
     </section>
 
     <div class="stats-container">
-      <label class="sort-control" style="display: none;">
-        Sort
-        <!-- Options are filled from SORT_LABELS so the labels and the keys
-             that sort by them cannot drift apart. -->
-        <select id="sort-select"></select>
-      </label>
+      <div class="list-toolbar">
+        <div class="search">
+          <input id="search-input" type="search" placeholder="Search 中文, English, pinyin or jyutping" aria-label="Search your words and the dictionary" autocomplete="off" spellcheck="false">
+        </div>
+        <label class="sort-control" style="display: none;">
+          Sort
+          <!-- Options are filled from SORT_LABELS so the labels and the keys
+               that sort by them cannot drift apart. -->
+          <select id="sort-select"></select>
+        </label>
+      </div>
       <div id="loading" class="loading" role="status">Loading statistics…</div>
       <div id="empty-state" class="empty-state" role="status" style="display: none;">
         <div class="empty-state-icon" lang="zh" aria-hidden="true">字</div>

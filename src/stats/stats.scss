@@ -212,8 +212,17 @@ h1 {
   }
 }
 
+// Search and sort both act on the list, so they share the row above it.
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: t.$space-3;
+  margin-bottom: t.$space-3;
+}
+
 .search {
-  padding: 0 t.$space-4 t.$space-3;
+  flex: 1;
+  min-width: 0;
 
   input {
     width: 100%;
@@ -390,7 +399,7 @@ body.is-searching {
   align-items: center;
   justify-content: flex-end;
   gap: t.$space-2;
-  margin-bottom: t.$space-3;
+  flex-shrink: 0;
   color: t.$color-text-subtle;
   font-size: t.$text-sm;
 
@@ -1064,7 +1073,7 @@ body.is-searching {
     min-height: 0;
   }
 
-  .sort-control {
+  .list-toolbar {
     margin-bottom: t.$space-2;
   }
 
