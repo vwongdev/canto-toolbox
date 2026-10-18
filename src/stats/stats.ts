@@ -1,4 +1,4 @@
-import type { Statistics, WordStatus } from '../shared/types.js';
+import type { SearchHit, Statistics, WordStatus } from '../shared/types.js';
 import { statsClient, type StatsClient } from './stats-client.js';
 import { statsStorage, type StatsStorage } from './stats-storage.js';
 import {
@@ -14,7 +14,10 @@ import {
   renderForecast,
   renderRetention,
   renderSortOptions,
+  refreshSearchRow,
   refreshStatRow,
+  renderSearchResults,
+  showSearch,
   updateFilterCounts,
   updateFilterTabStates,
   type ListView,
@@ -35,6 +38,8 @@ const CLEAR_FAILED_LABEL = 'Could not clear';
 /** How long the armed button waits for the second press before standing down. */
 const CLEAR_CONFIRM_MS = 5000;
 
+const SEARCH_DELAY_MS = 150;
+
 export class StatsManager {
   private readonly document: Document;
   private readonly client: StatsClient;
@@ -44,6 +49,11 @@ export class StatsManager {
   private view: ListView =
     { stages: new Set(), bands: new Set(), showRetired: false, sort: DEFAULT_SORT };
   private settings: Settings = DEFAULT_SETTINGS;
+  private searchHits: SearchHit[] = [];
+  /** Counts searches sent, so a slow reply to an older query cannot overwrite a newer one. */
+  private searchSeq = 0;
+  /** Words added from the dictionary, which the record held here will not show until the page is reopened. */
+  private readonly studiedFromSearch = new Set<string>();
 
   constructor(document: Document, client: StatsClient, storage: StatsStorage) {
     this.document = document;
@@ -63,11 +73,13 @@ export class StatsManager {
 
     const elements = getRequiredElements(this.document);
     if (elements && this.cachedStatistics) this.render(elements, this.cachedStatistics);
+    if (elements && this.searchHits.length > 0) this.renderSearch(elements);
   }
 
   init(): void {
     this.loadStatistics();
     this.loadReviewLog();
+    this.setupSearch();
     this.setupClearButton();
     this.setupFlashcardButton();
     this.setupSettingsButton();
@@ -163,9 +175,79 @@ export class StatsManager {
     this.renderInsights(this.cachedStatistics);
     updateFilterCounts(elements, this.cachedStatistics, this.view);
 
+    refreshSearchRow(elements, word, updated, this.view);
     if (!refreshStatRow(elements, word, updated, this.view)) {
       this.render(elements, this.cachedStatistics);
     }
+  }
+
+  /**
+   * Searched as the reader types, after a short pause: the dictionary answers
+   * from the offscreen document, and a request per keystroke would queue
+   * behind itself.
+   */
+  private setupSearch(): void {
+    const elements = getRequiredElements(this.document);
+    if (!elements) return;
+
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    elements.searchInputEl.addEventListener('input', () => {
+      clearTimeout(pending);
+      pending = setTimeout(() => this.search(elements), SEARCH_DELAY_MS);
+    });
+  }
+
+  private search(elements: StatsElements): void {
+    const query = elements.searchInputEl.value.trim();
+    const seq = ++this.searchSeq;
+
+    if (!query) {
+      this.searchHits = [];
+      showSearch(elements, false);
+      return;
+    }
+
+    if (this.searchHits.length === 0) showSearch(elements, true, 'Searching…');
+
+    this.client.searchWords(query, Object.keys(this.cachedStatistics ?? {})).then(
+      hits => {
+        if (seq !== this.searchSeq) return;
+        this.searchHits = hits;
+        showSearch(elements, true, hits.length > 0 ? '' : `No words match “${query}”.`);
+        this.renderSearch(elements);
+      },
+      (error: unknown) => {
+        if (seq !== this.searchSeq) return;
+        console.error('[Stats] Search failed:', error);
+        this.searchHits = [];
+        showSearch(elements, true, 'Search failed: ' + (error as Error).message);
+        this.renderSearch(elements);
+      },
+    );
+  }
+
+  private renderSearch(elements: StatsElements): void {
+    renderSearchResults(
+      elements,
+      this.searchHits,
+      this.cachedStatistics ?? {},
+      this.view,
+      this.settings,
+      this.studiedFromSearch,
+      {
+        loadDefinition: (word, container) => this.loadDefinition(word, container),
+        setStatus: (word, status) => this.setWordStatus(elements, word, status),
+        study: word => this.studyWord(word),
+      },
+    );
+  }
+
+  private studyWord(word: string): void {
+    this.studiedFromSearch.add(word);
+    this.client.studyWord(word).catch((error: unknown) => {
+      console.error('[Stats] Could not add word to the deck:', error);
+      this.studiedFromSearch.delete(word);
+    });
   }
 
   /**

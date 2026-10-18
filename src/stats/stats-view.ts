@@ -4,6 +4,7 @@ import type {
   FlashcardStage,
   FrequencyBand,
   ReviewLog,
+  SearchHit,
   WordStatistics,
   Statistics,
   WordStatus,
@@ -13,9 +14,10 @@ import { createElement, setMultilineText } from '../shared/dom-element.js';
 import { CHEVRON_SVG, createIcon } from '../shared/icons.js';
 import { createDefinitionElement } from '../shared/definition-section.js';
 import { createContextList } from '../shared/context-sentence.js';
-import { BAND_LABELS } from '../shared/frequency.js';
+import { BAND_LABELS, bandForRank } from '../shared/frequency.js';
+import { toSyllables } from '../shared/pinyin.js';
 import { MAX_TRACKED_WORDS } from '../shared/statistics-store.js';
-import { DEFAULT_SETTINGS, type DisplaySettings } from '../shared/settings.js';
+import { DEFAULT_SETTINGS, type DisplaySettings, type ScriptPreference } from '../shared/settings.js';
 import { bandOf, sortWords, SORT_LABELS, type SortKey } from './ordering.js';
 import type { StudyOverview } from './overview.js';
 import {
@@ -42,6 +44,9 @@ export const ELEMENT_IDS = {
   bandTabs: 'band-tabs',
   statusTabs: 'status-tabs',
   sortSelect: 'sort-select',
+  searchInput: 'search-input',
+  searchResults: 'search-results',
+  searchStatus: 'search-status',
 } as const;
 
 const OVERVIEW_IDS = {
@@ -72,6 +77,9 @@ export interface StatsElements {
   bandTabsEl: HTMLElement;
   statusTabsEl: HTMLElement;
   sortSelectEl: HTMLSelectElement;
+  searchInputEl: HTMLInputElement;
+  searchResultsEl: HTMLElement;
+  searchStatusEl: HTMLElement;
 }
 
 /** Every way the list can be narrowed or ordered, as the page currently has it. */
@@ -102,6 +110,9 @@ export type LoadDefinition = (word: string, container: HTMLElement) => void;
 /** Records a decision the reader made about a word, then re-renders the list. */
 export type SetWordStatus = (word: string, status: WordStatus) => void;
 
+/** Adds a word the record does not hold yet to the deck. */
+export type StudyWord = (word: string) => void;
+
 export function getRequiredElements(document: Document): StatsElements | null {
   const loadingEl = document.getElementById(ELEMENT_IDS.loading);
   const emptyStateEl = document.getElementById(ELEMENT_IDS.emptyState);
@@ -111,6 +122,9 @@ export function getRequiredElements(document: Document): StatsElements | null {
   const bandTabsEl = document.getElementById(ELEMENT_IDS.bandTabs);
   const statusTabsEl = document.getElementById(ELEMENT_IDS.statusTabs);
   const sortSelectEl = document.getElementById(ELEMENT_IDS.sortSelect);
+  const searchInputEl = document.getElementById(ELEMENT_IDS.searchInput);
+  const searchResultsEl = document.getElementById(ELEMENT_IDS.searchResults);
+  const searchStatusEl = document.getElementById(ELEMENT_IDS.searchStatus);
 
   if (
     !loadingEl ||
@@ -120,7 +134,10 @@ export function getRequiredElements(document: Document): StatsElements | null {
     !filterTabsEl ||
     !bandTabsEl ||
     !statusTabsEl ||
-    !(sortSelectEl instanceof HTMLSelectElement)
+    !(sortSelectEl instanceof HTMLSelectElement) ||
+    !(searchInputEl instanceof HTMLInputElement) ||
+    !searchResultsEl ||
+    !searchStatusEl
   ) {
     console.error('[Stats] Required DOM elements not found!');
     return null;
@@ -135,6 +152,9 @@ export function getRequiredElements(document: Document): StatsElements | null {
     bandTabsEl,
     statusTabsEl,
     sortSelectEl,
+    searchInputEl,
+    searchResultsEl,
+    searchStatusEl,
   };
 }
 
@@ -579,6 +599,7 @@ function createStatItem(
   stage: FlashcardStage,
   loadDefinition: LoadDefinition,
   setStatus: SetWordStatus,
+  summary?: HTMLElement,
 ): HTMLElement {
   const count = stat.count || 0;
 
@@ -598,7 +619,143 @@ function createStatItem(
       }),
     ],
     actions: createStatusControls(word, stat, setStatus),
+    ...(summary && { summary }),
   }, loadDefinition);
+}
+
+/** Readings and a short gloss, so a list of matches says which one is meant. */
+function createHitSummary(hit: SearchHit, display: DisplaySettings): HTMLElement {
+  const readings = display.hideRomanisation
+    ? []
+    : [
+        ...hit.pinyin.map(reading => toSyllables(reading, 'pinyin').map(s => s.text).join('')),
+        ...hit.jyutping,
+      ];
+
+  return createElement({
+    className: 'search-summary',
+    children: [
+      ...(readings.length > 0
+        ? [createElement({ tag: 'span', className: 'search-readings', textContent: readings.join(' · ') })]
+        : []),
+      createElement({ tag: 'span', className: 'search-gloss', textContent: hit.gloss }),
+    ],
+  });
+}
+
+/**
+ * A word met on no page yet. Adding it is the one thing to say about it: it
+ * has no progress to retire, and once added it is a word like any other the
+ * next time the list is drawn.
+ */
+function createDictionaryItem(
+  word: string,
+  hit: SearchHit,
+  display: DisplaySettings,
+  studied: boolean,
+  loadDefinition: LoadDefinition,
+  study: StudyWord,
+): HTMLElement {
+  const button = createElement<HTMLButtonElement>({
+    tag: 'button',
+    dataset: { action: 'study' },
+    attributes: { type: 'button' },
+    listeners: {
+      click: (event: Event) => {
+        event.stopPropagation();
+        study(word);
+        paintStudied(button);
+      },
+    },
+  });
+
+  if (studied) paintStudied(button);
+  else paintAction(button, STUDY_COPY, false);
+
+  return createRow(word, {
+    badges: [],
+    details: hit.rank === undefined
+      ? []
+      : [createElement({ className: 'stat-label', textContent: BAND_LABELS[bandForRank(hit.rank)] })],
+    actions: createElement({ className: 'stat-actions', children: [button] }),
+    summary: createHitSummary(hit, display),
+  }, loadDefinition);
+}
+
+/**
+ * Added for good: the record is written behind a short batch, so there is no
+ * entry yet for an undo to act on.
+ */
+function paintStudied(button: HTMLButtonElement): void {
+  paintAction(button, STUDY_COPY, true);
+  button.textContent = 'Added to deck';
+  button.title = '';
+  button.disabled = true;
+}
+
+/** The form a match is shown in: the one the record holds, else the reader's script, else the query's own. */
+export function hitForm(hit: SearchHit, statistics: Statistics, script: ScriptPreference): string {
+  const held = [hit.word, hit.traditional, hit.simplified].find(form => statistics[form]);
+  if (held) return held;
+  return script === 'as-written' ? hit.word : hit[script];
+}
+
+export interface SearchActions {
+  loadDefinition: LoadDefinition;
+  setStatus: SetWordStatus;
+  study: StudyWord;
+}
+
+function searchGroupLabel(text: string): HTMLElement {
+  return createElement({ className: 'search-group-label', textContent: text });
+}
+
+/**
+ * Words the reader has met lead, drawn as the list draws them — stage, count
+ * and the same controls — so finding a word leaves nothing to do elsewhere.
+ * The rest of the dictionary follows.
+ */
+export function renderSearchResults(
+  elements: StatsElements,
+  hits: SearchHit[],
+  statistics: Statistics,
+  view: ListView,
+  display: DisplaySettings,
+  studied: ReadonlySet<string>,
+  actions: SearchActions,
+): void {
+  const met: HTMLElement[] = [];
+  const others: HTMLElement[] = [];
+
+  for (const hit of hits) {
+    const word = hitForm(hit, statistics, display.script);
+    const stat = statistics[word];
+    const summary = createHitSummary(hit, display);
+
+    if (stat) {
+      met.push(createStatItem(word, stat, stageOf(stat, view), actions.loadDefinition, actions.setStatus, summary));
+    } else {
+      others.push(createDictionaryItem(word, hit, display, studied.has(word), actions.loadDefinition, actions.study));
+    }
+  }
+
+  elements.searchResultsEl.replaceChildren(
+    ...(met.length > 0 ? [searchGroupLabel('Your words'), ...met] : []),
+    ...(others.length > 0 ? [searchGroupLabel('Dictionary'), ...others] : []),
+  );
+}
+
+/** A tracked word's search row brought up to date with the record, whatever the list's filters. */
+export function refreshSearchRow(elements: StatsElements, word: string, stat: WordStatistics, view: ListView): void {
+  const item = findRow(elements.searchResultsEl, word);
+  if (item) repaintRow(item, stat, view);
+}
+
+/** Searching swaps the list and its controls for the results, and back. */
+export function showSearch(elements: StatsElements, searching: boolean, status = ''): void {
+  elements.searchResultsEl.ownerDocument.body.classList.toggle('is-searching', searching);
+  elements.searchStatusEl.textContent = status;
+  if (!searching) elements.searchResultsEl.replaceChildren();
 }
 
 /** What sets one kind of row apart; the header, panel and expansion are shared. */
@@ -606,6 +763,8 @@ interface RowParts {
   badges: HTMLElement[];
   details: HTMLElement[];
   actions: HTMLElement;
+  /** A line under the word, for a list that has to say what each word means before it is opened. */
+  summary?: HTMLElement;
 }
 
 function createRow(word: string, parts: RowParts, loadDefinition: LoadDefinition): HTMLElement {
@@ -638,7 +797,11 @@ function createRow(word: string, parts: RowParts, loadDefinition: LoadDefinition
     children: [...parts.details, expandIcon]
   });
 
-  header.appendChild(wordRow);
+  header.appendChild(
+    parts.summary
+      ? createElement({ className: 'stat-title', children: [wordRow, parts.summary] })
+      : wordRow,
+  );
   header.appendChild(detailsEl);
 
   // The definition is rendered into a container of its own, so re-rendering it

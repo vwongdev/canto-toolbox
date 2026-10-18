@@ -5,7 +5,7 @@ import { StatsManager } from '../stats.js';
 import type { StatsClient } from '../stats-client.js';
 import type { StatsStorage } from '../stats-storage.js';
 import { SORT_LABELS } from '../ordering.js';
-import type { DefinitionResult, Statistics } from '../../shared/types.js';
+import type { DefinitionResult, SearchHit, Statistics } from '../../shared/types.js';
 import { DEFAULT_SETTINGS } from '../../shared/settings.js';
 
 /** Let the client's promises settle and the page draw what they returned. */
@@ -51,6 +51,8 @@ function createClient(): StatsClient {
     getReviewLog: vi.fn(async () => ({})),
     lookupWord: vi.fn(() => new Promise<DefinitionResult>(() => {})),
     setWordStatus: vi.fn(async () => {}),
+    searchWords: vi.fn(async () => []),
+    studyWord: vi.fn(async () => {}),
   };
 }
 
@@ -567,6 +569,119 @@ describe('StatsManager mix-ups', () => {
     await settle();
 
     expect(Array.from(item.querySelectorAll('.stat-mixup'), el => el.textContent)).toEqual(['常現 ×3', '當見']);
+  });
+});
+
+describe('StatsManager search', () => {
+  const MET: SearchHit = {
+    word: '常見',
+    traditional: '常見',
+    simplified: '常见',
+    pinyin: ['chang2 jian4'],
+    jyutping: ['soeng4 gin3'],
+    gloss: 'commonly seen; common; to see sth frequently',
+    rank: 6321,
+  };
+  const UNMET: SearchHit = {
+    word: '見',
+    traditional: '見',
+    simplified: '见',
+    pinyin: ['jian4'],
+    jyutping: [],
+    gloss: 'to see; to meet; to appear (to be sth)',
+  };
+
+  /** Past the typing pause, and the reply drawn. */
+  const searched = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 200));
+
+  let page: Document;
+  let client: StatsClient;
+  let manager: StatsManager;
+
+  async function type(query: string): Promise<void> {
+    const input = page.getElementById('search-input') as HTMLInputElement;
+    input.value = query;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await searched();
+  }
+
+  function results(): HTMLElement {
+    return page.getElementById('search-results')!;
+  }
+
+  function open(item: Element): void {
+    (item.querySelector('.stat-header') as HTMLButtonElement).dispatchEvent(new Event('click', { bubbles: true }));
+  }
+
+  beforeEach(async () => {
+    page = new DOMParser().parseFromString(HTML, 'text/html');
+    client = { ...createClient(), searchWords: vi.fn(async () => [MET, UNMET]) };
+    manager = new StatsManager(page, client, storage);
+    manager.init();
+    await settle();
+  });
+
+  it('sends every tracked word with the query so met words can lead', async () => {
+    await type(' 見 ');
+    expect(client.searchWords).toHaveBeenCalledWith('見', Object.keys(STATISTICS));
+  });
+
+  it('draws met words with their stage, then the dictionary', async () => {
+    await type('見');
+
+    expect(page.body.classList.contains('is-searching')).toBe(true);
+    expect(Array.from(results().children, el => el.querySelector('.stat-word')?.textContent ?? el.textContent))
+      .toEqual(['Your words', '常見', 'Dictionary', '見']);
+    expect(results().querySelector('[data-word="常見"] .stage-badge')!.textContent).toBe('New');
+    expect(results().querySelector('[data-word="常見"] .search-gloss')!.textContent).toBe(MET.gloss);
+    expect(results().querySelector('[data-word="見"] .search-readings')!.textContent).toBe('jiàn');
+  });
+
+  it('shows a dictionary word in the script the reader leads with', async () => {
+    manager.applySettings({ ...DEFAULT_SETTINGS, script: 'simplified' });
+    await type('見');
+
+    expect(results().querySelector('[data-word="见"]')).not.toBeNull();
+  });
+
+  it('adds a dictionary word to the deck from its row', async () => {
+    await type('見');
+    const item = results().querySelector('[data-word="見"]')!;
+    open(item);
+
+    const study = item.querySelector<HTMLButtonElement>('[data-action="study"]')!;
+    study.dispatchEvent(new Event('click', { bubbles: true }));
+
+    expect(client.studyWord).toHaveBeenCalledWith('見');
+    expect(study.disabled).toBe(true);
+    expect(study.textContent).toBe('Added to deck');
+  });
+
+  it('repaints a met word retired from its search row', async () => {
+    await type('見');
+    const item = results().querySelector('[data-word="常見"]')!;
+    open(item);
+    item.querySelector<HTMLButtonElement>('[data-action="retire"]')!
+      .dispatchEvent(new Event('click', { bubbles: true }));
+
+    expect(client.setWordStatus).toHaveBeenCalledWith('常見', { suppressed: true });
+    expect(item.querySelector('[data-action="retire"]')!.textContent).toBe('Retired');
+    expect(item.querySelector('.stage-badge--retired')).not.toBeNull();
+  });
+
+  it('says so when nothing matches', async () => {
+    vi.mocked(client.searchWords).mockResolvedValue([]);
+    await type('zzz');
+
+    expect(page.getElementById('search-status')!.textContent).toBe('No words match “zzz”.');
+  });
+
+  it('goes back to the list when the query is cleared', async () => {
+    await type('見');
+    await type('');
+
+    expect(page.body.classList.contains('is-searching')).toBe(false);
+    expect(results().children).toHaveLength(0);
   });
 });
 

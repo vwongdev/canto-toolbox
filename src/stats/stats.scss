@@ -212,6 +212,92 @@ h1 {
   }
 }
 
+.search {
+  padding: 0 t.$space-4 t.$space-3;
+
+  input {
+    width: 100%;
+    padding: t.$space-2 t.$space-3;
+    border: 1px solid t.$color-border-muted;
+    border-radius: t.$radius-sm;
+    background: t.$color-bg;
+    color: t.$color-text;
+    font: inherit;
+    font-size: t.$text-body;
+
+    @include a.focus-ring;
+  }
+}
+
+.search-results,
+.search-status {
+  display: none;
+}
+
+// Searching swaps the list and everything that narrows it for the results.
+// `!important` because the list's own display is set inline as it is drawn,
+// and a status change can redraw it mid-search.
+body.is-searching {
+  .filters,
+  .transfer,
+  .insights,
+  .sort-control,
+  .loading,
+  .empty-state,
+  #stats-list {
+    display: none !important;
+  }
+
+  .search-results {
+    display: flex;
+  }
+
+  .search-status:not(:empty) {
+    display: block;
+  }
+}
+
+.search-status {
+  padding: t.$space-5;
+  color: t.$color-text-subtle;
+  font-size: t.$text-body;
+  text-align: center;
+}
+
+.search-group-label {
+  color: t.$color-text-subtle;
+  font-size: t.$text-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-summary {
+  display: flex;
+  gap: t.$space-2;
+  min-width: 0;
+  color: t.$color-text-subtle;
+  font-size: t.$text-sm;
+  white-space: nowrap;
+}
+
+.search-readings {
+  flex-shrink: 0;
+  color: t.$color-text;
+}
+
+.search-gloss {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .filters {
   display: flex;
   flex-direction: column;
@@ -629,6 +715,10 @@ h1 {
   border-color: t.$color-primary;
   color: t.$color-primary;
   font-weight: 600;
+}
+
+.stat-action:disabled {
+  cursor: default;
 }
 
 .stat-loading,

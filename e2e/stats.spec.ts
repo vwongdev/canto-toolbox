@@ -98,6 +98,38 @@ test('renders tracked words and expands a definition', async () => {
   await page.close();
 });
 
+test('searches met words and the dictionary, and adds a found word to the deck', async () => {
+  const now = Date.now();
+  const helper = await openStatsPage();
+  await seedStorage(helper, { 你好: { count: 5, firstSeen: now, lastSeen: now } });
+  await helper.close();
+
+  const page = await openStatsPage();
+  await expect(page.locator('#stats-list .stat-item')).toHaveCount(1);
+
+  await page.fill('#search-input', 'hello');
+  const results = page.locator('#search-results');
+  await expect(results.locator('.stat-item').first()).toHaveAttribute('data-word', '你好', { timeout: 15000 });
+  await expect(page.locator('#stats-list')).not.toBeVisible();
+
+  const greeting = results.locator('.stat-item[data-word="喂"]');
+  await greeting.locator('.stat-header').click();
+  await greeting.locator('[data-action="study"]').click();
+  await expect(greeting.locator('[data-action="study"]')).toHaveText('Added to deck');
+
+  await expect.poll(() => page.evaluate(async () => {
+    const { statistics } = await chrome.runtime.sendMessage({ type: 'get_statistics' });
+    return statistics['喂']?.pinned === true;
+  }), { timeout: 5000 }).toBe(true);
+
+  await page.fill('#search-input', 'nei5 hou2');
+  await expect(results.locator('.stat-item').first()).toHaveAttribute('data-word', '你好');
+
+  await page.fill('#search-input', '');
+  await expect(page.locator('#stats-list')).toBeVisible();
+  await page.close();
+});
+
 test('clear button empties the statistics', async () => {
   const now = Date.now();
   const helper = await openStatsPage();

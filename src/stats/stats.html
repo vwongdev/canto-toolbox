@@ -27,6 +27,10 @@
         <button id="clear-btn" class="btn btn-subtle">Clear Statistics</button>
       </div>
 
+      <div class="search">
+        <input id="search-input" type="search" placeholder="Search 中文, English, pinyin or jyutping" aria-label="Search your words and the dictionary" autocomplete="off" spellcheck="false">
+      </div>
+
       <dl class="overview" id="overview">
         <div class="overview-item">
           <dt>Due now</dt>
@@ -128,6 +132,8 @@
         <p>No statistics yet.<br>Start hovering over Chinese words on web pages to track them.</p>
       </div>
       <div id="stats-list" class="stats-list" style="display: none;"></div>
+      <p id="search-status" class="search-status" role="status" aria-live="polite"></p>
+      <div id="search-results" class="stats-list search-results"></div>
     </div>
   </div>
 

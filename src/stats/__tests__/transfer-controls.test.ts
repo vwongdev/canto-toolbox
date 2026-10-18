@@ -50,6 +50,8 @@ describe('TransferControls', () => {
       lookupWord: vi.fn(async () => GOOD),
       setWordStatus: vi.fn(),
       getReviewLog: vi.fn(async () => ({})),
+      searchWords: vi.fn(async () => []),
+      studyWord: vi.fn(),
     };
     storage = {
       getStatistics: vi.fn(),
