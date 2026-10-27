@@ -21,6 +21,9 @@ $ocr-underline: rgba(0, 102, 204, 0.55);
 $ocr-underline-dark: rgba(108, 179, 255, 0.55);
 
 @mixin palette {
+  // Native controls — checkboxes, scrollbars, number spinners — follow the theme.
+  color-scheme: light;
+
   --ct-primary: #0066cc;
   --ct-primary-hover: #0052a3;
   // On a dark canvas the accent splits in two: one legible as text, one dark
@@ -121,6 +124,8 @@ $ocr-underline-dark: rgba(108, 179, 255, 0.55);
 
 // Canvas is a lifted zinc, not crushed black; surfaces step up in elevation.
 @mixin palette-dark {
+  color-scheme: dark;
+
   --ct-primary: #6cb3ff;
   --ct-primary-hover: #8ac4ff;
   --ct-primary-fill: #1f6feb;
