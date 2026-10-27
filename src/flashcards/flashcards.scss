@@ -100,8 +100,9 @@ body {
 }
 
 // Retiring sits away from the rating row on purpose: it is a decision about
-// the word, not an answer to the card, and a misclick would bury it.
-.btn-know {
+// the word, not an answer to the card, and a misclick would bury it. Doubled
+// so it outranks the base `.btn` declared further down.
+.btn.btn-know {
   padding: 2px t.$space-2;
   font-size: t.$text-sm;
 }
