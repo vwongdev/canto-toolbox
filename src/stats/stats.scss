@@ -1055,10 +1055,6 @@ body.is-searching {
     background: t.$color-surface;
     border-top-color: t.$color-border-bold;
   }
-
-  .stat-count {
-    color: t.$color-primary;
-  }
 }
 
 @include a.reduced-motion {
